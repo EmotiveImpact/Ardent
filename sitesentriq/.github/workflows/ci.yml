@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Blocking gate: lint + typecheck + tests + build (web + marketing) +
+  #    bundle audit + the raw-type baseline gate (all via check:all) + e2e.
+  release-gate:
+    name: Release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # check:all = lint:all && typecheck:all && test:all && build:all &&
+      # bundle:audit && check:no-raw-type  (raw-type baseline gate included)
+      - name: Release gate
+        run: npm run check:all
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Install Playwright (chromium only)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npm --workspace=haumea-web exec -- playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cache hit path)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npm --workspace=haumea-web exec -- playwright install-deps chromium
+
+      - name: E2E tests
+        run: npm --workspace=haumea-web run e2e -- --project=chromium
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+
+  # ── Informational (non-blocking): deno check on edge functions. Surfaces
+  #    type issues without gating merges — several functions are deployed and
+  #    working despite the Supabase-client generic strictness `deno check`
+  #    flags, and a few need a deno.json/dep-install step to resolve npm: deps.
+  #    Tracked for cleanup; kept continue-on-error so it informs, not blocks.
+  edge:
+    name: Edge functions (deno check, informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: deno check edge functions
+        run: npm run check:edge

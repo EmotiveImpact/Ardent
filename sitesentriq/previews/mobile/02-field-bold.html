@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haumea — Direction 02 · Field-Ready Bold</title>
+<style>
+  :root{
+    --brand:#e8772e; --brand-d:#cf6320; --brand-soft:#3a2415;
+    --navy:#0f1225; --navy2:#171a32; --navy3:#21254a;
+    --bg:#0c0e1c;            /* near-navy app bg for max contrast */
+    --card:#161a30;
+    --line:rgba(255,255,255,.08);
+    --ink:#f4f5fb; --ink2:#b9bdd4; --muted:#7d83a3;
+    --ok:#10b981; --due:#f59e0b; --over:#ef4444; --info:#5b9bff;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+  html,body{margin:0;background:#05060d;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;}
+  .caption{position:sticky;top:0;z-index:50;background:#000;color:#fff;
+    padding:10px 18px;font-size:13px;display:flex;gap:10px;align-items:center;}
+  .caption b{color:var(--brand);font-weight:800;}
+  .caption span{color:#8c8c96;}
+  .stage{display:flex;flex-wrap:wrap;gap:34px;justify-content:center;padding:38px 24px 64px;}
+  .device{width:390px;height:844px;background:#000;border-radius:54px;padding:11px;
+    box-shadow:0 30px 80px -18px rgba(0,0,0,.8),0 0 0 2px #16182a;position:relative;flex:0 0 auto;}
+  .screen{width:100%;height:100%;background:var(--bg);border-radius:44px;overflow:hidden;position:relative;display:flex;flex-direction:column;}
+  .island{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:122px;height:34px;background:#000;border-radius:20px;z-index:30;}
+  .status{height:54px;flex:0 0 auto;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 26px 8px;font-size:15px;font-weight:700;color:#fff;z-index:20;}
+  .status .r{display:flex;gap:6px;align-items:center;}
+  .label{font-size:12px;color:#6f6f7a;text-align:center;margin:-14px 0 16px;font-weight:600;letter-spacing:.3px;}
+  .body{flex:1;overflow:hidden;position:relative;}
+  .scroll{position:absolute;inset:0;overflow-y:auto;padding-bottom:104px;}
+  .scroll::-webkit-scrollbar{display:none;}
+  /* heavy navy app bar */
+  .appbar{background:var(--navy);padding:8px 20px 18px;position:relative;}
+  .appbar .top{display:flex;justify-content:space-between;align-items:center;}
+  .appbar .eyebrow{font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--brand);}
+  .appbar .big{font-size:30px;font-weight:900;letter-spacing:-.6px;margin-top:8px;color:#fff;line-height:1.05;}
+  .avatar{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#ffb27a,var(--brand));
+    color:#fff;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 12px -2px rgba(232,119,46,.6);border:1.5px solid rgba(255,255,255,.12);}
+  /* big stat tiles */
+  .stats{display:flex;gap:10px;margin-top:16px;}
+  .stat{flex:1;background:var(--navy2);border:1px solid var(--line);border-radius:16px;padding:13px 12px;}
+  .stat .n{font-size:30px;font-weight:900;letter-spacing:-1px;line-height:1;}
+  .stat .l{font-size:11px;color:var(--ink2);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-top:7px;}
+  /* section heading */
+  .sh{display:flex;justify-content:space-between;align-items:center;padding:22px 20px 10px;}
+  .sh .t{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  .sh .a{font-size:13px;font-weight:700;color:var(--brand);}
+  /* big glanceable job card with status spine */
+  .jcard{margin:0 16px 12px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;position:relative;}
+  .jcard .spine{position:absolute;left:0;top:0;bottom:0;width:6px;}
+  .jcard .pad{padding:16px 16px 16px 20px;}
+  .jcard .row1{display:flex;justify-content:space-between;align-items:center;}
+  .jtime{font-size:14px;font-weight:900;color:#fff;letter-spacing:.3px;}
+  .jtitle{font-size:19px;font-weight:800;margin:8px 0 6px;letter-spacing:-.3px;line-height:1.2;}
+  .jsub{font-size:14px;color:var(--ink2);font-weight:600;display:flex;align-items:center;gap:7px;}
+  .jbar{display:flex;gap:8px;margin-top:14px;}
+  .pillbtn{flex:1;text-align:center;padding:12px;border-radius:12px;font-size:14px;font-weight:800;}
+  .pillbtn.go{background:var(--brand);color:#fff;}
+  .pillbtn.gh{background:var(--navy3);color:#fff;}
+  /* chips — bold high contrast */
+  .chip{font-size:12px;font-weight:900;padding:6px 11px;border-radius:9px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+  .chip.ok{color:#06251a;background:var(--ok);}
+  .chip.due{color:#3a2503;background:var(--due);}
+  .chip.over{color:#fff;background:var(--over);}
+  .chip.prog{color:#fff;background:var(--info);}
+  .chip.sched{color:var(--ink2);background:var(--navy3);}
+  /* mini chip outline */
+  .ochip{font-size:11px;font-weight:800;padding:4px 9px;border-radius:8px;text-transform:uppercase;letter-spacing:.5px;}
+  .ochip.ok{color:var(--ok);border:1.5px solid rgba(16,185,129,.5);}
+  .ochip.due{color:var(--due);border:1.5px solid rgba(245,158,11,.5);}
+  .ochip.over{color:var(--over);border:1.5px solid rgba(239,68,68,.5);}
+  /* tab bar — navy, big */
+  .tabbar{position:absolute;bottom:0;left:0;right:0;height:90px;background:var(--navy);
+    border-top:1px solid var(--line);display:flex;padding:10px 6px 24px;z-index:25;}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7099;}
+  .tab.on{color:var(--brand);}
+  .tab.on .pip{opacity:1;}
+  .pip{width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:0;margin-top:1px;}
+  .tab .tl{font-size:11px;font-weight:800;letter-spacing:.2px;}
+  /* job detail */
+  .detbar{background:var(--navy);padding:6px 14px 16px;}
+  .detbar .nrow{display:flex;align-items:center;justify-content:space-between;height:44px;}
+  .detbar .back{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--navy3);border-radius:12px;}
+  .detbar .more{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--navy3);border-radius:12px;}
+  .detbar .htitle{font-size:24px;font-weight:900;letter-spacing:-.5px;line-height:1.1;margin-top:6px;}
+  .detbar .hsub{font-size:14px;color:var(--ink2);font-weight:600;margin-top:8px;display:flex;align-items:center;gap:7px;}
+  /* live band — strong */
+  .live{margin:14px 16px 0;background:rgba(91,155,255,.12);border:1.5px solid rgba(91,155,255,.4);
+    border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;}
+  .pulse{width:12px;height:12px;border-radius:50%;background:var(--info);position:relative;flex:0 0 auto;box-shadow:0 0 10px var(--info);}
+  .pulse::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2.5px solid rgba(91,155,255,.5);animation:pp 1.6s ease-out infinite;}
+  @keyframes pp{0%{transform:scale(.5);opacity:1}100%{transform:scale(1.7);opacity:0}}
+  .live .lt{font-size:14px;font-weight:800;color:#bcd4ff;}
+  .live .ls{font-size:12px;color:#8ab0f0;font-weight:600;margin-top:2px;}
+  /* big action row — gloves */
+  .actrow{display:flex;gap:10px;padding:16px;}
+  .bigact{flex:1;border-radius:16px;padding:16px 6px;text-align:center;font-size:14px;font-weight:900;letter-spacing:.2px;}
+  .bigact .ai{display:block;margin:0 auto 7px;}
+  .bigact.primary{background:var(--brand);color:#fff;box-shadow:0 8px 22px -8px rgba(232,119,46,.8);}
+  .bigact.done{background:var(--ok);color:#04221a;}
+  .bigact.ghost{background:var(--card);color:#fff;border:1.5px solid var(--line);}
+  /* segmented bold */
+  .seg{display:flex;background:var(--navy2);border:1px solid var(--line);border-radius:14px;padding:4px;margin:8px 16px 0;gap:4px;}
+  .seg div{flex:1;text-align:center;font-size:13px;font-weight:800;padding:11px 4px;border-radius:10px;color:var(--ink2);}
+  .seg div.on{background:var(--brand);color:#fff;}
+  .seg.out div.on{background:var(--ok);color:#04221a;}
+  .blk{margin:8px 16px 0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 16px;}
+  .blk .bh{font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:11px;display:flex;justify-content:space-between;}
+  .photos{display:flex;gap:10px;}
+  .ph{width:80px;height:80px;border-radius:14px;flex:0 0 auto;background-size:cover;background-position:center;}
+  .ph.add{background:var(--navy2);display:flex;align-items:center;justify-content:center;color:var(--muted);border:2px dashed var(--navy3);}
+  .sigpad{height:62px;border-radius:12px;background:#0c0f20;border:1px solid var(--line);position:relative;overflow:hidden;}
+  .sigpad svg{position:absolute;bottom:14px;left:14px;}
+  .kv{display:flex;justify-content:space-between;font-size:14px;}
+  .kv .v{font-weight:800;color:#fff;}
+  .raise{margin:14px 16px 6px;background:rgba(239,68,68,.12);border:1.5px solid rgba(239,68,68,.45);color:#ff8c8c;
+    border-radius:16px;padding:16px;text-align:center;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:9px;letter-spacing:.2px;}
+  /* schedule day pill */
+  .day{padding:20px 20px 8px;display:flex;align-items:center;gap:10px;}
+  .day .dt{font-size:15px;font-weight:900;letter-spacing:.3px;}
+  .day .dc{font-size:12px;font-weight:800;color:var(--muted);background:var(--navy2);border:1px solid var(--line);padding:3px 9px;border-radius:8px;}
+  .day .dnow{color:var(--brand);background:var(--brand-soft);border-color:rgba(232,119,46,.4);}
+  .scard{margin:0 16px 10px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;}
+  .tcol{width:52px;text-align:center;flex:0 0 auto;}
+  .tcol .th{font-size:16px;font-weight:900;color:#fff;}
+  .tcol .tm{font-size:11px;color:var(--muted);font-weight:700;}
+  .scard .si{flex:1;min-width:0;}
+  .scard .s1{font-size:16px;font-weight:800;}
+  .scard .s2{font-size:13px;color:var(--ink2);font-weight:600;margin-top:3px;}
+  /* reference rows */
+  .rcard{margin:0 16px 10px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:13px;}
+  .ricon{width:46px;height:46px;border-radius:13px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .rcard .ri{flex:1;min-width:0;}
+  .rcard .r1{font-size:16px;font-weight:800;}
+  .rcard .r2{font-size:13px;color:var(--ink2);font-weight:600;margin-top:3px;}
+</style>
+</head>
+<body>
+<div class="caption"><b>Direction 02</b> <span>Field-Ready Bold — navy chrome, high-contrast, big tap targets. Built for gloves, sunlight, outdoors. Confident & rugged.</span></div>
+<div class="stage">
+
+<!-- ===== TODAY ===== -->
+<div>
+<div class="device"><div class="island"></div><div class="screen">
+  <div class="status"><span>9:41</span><div class="r">
+    <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="6" width="3" height="6" rx="1" fill="#fff"/><rect x="5" y="3.5" width="3" height="8.5" rx="1" fill="#fff"/><rect x="10" y="1.5" width="3" height="10.5" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg>
+    <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 2.5c2.3 0 4.4.9 6 2.3l-1.3 1.3A7 7 0 0 0 8.5 4.4 7 7 0 0 0 3.8 6.1L2.5 4.8a8.8 8.8 0 0 1 6-2.3Z" fill="#fff"/><circle cx="8.5" cy="9.3" r="1.5" fill="#fff"/></svg>
+    <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="#fff"/><rect x="23" y="4" width="2" height="5" rx="1" fill="#fff" fill-opacity=".5"/></svg>
+  </div></div>
+  <div class="body"><div class="scroll" style="padding-bottom:104px">
+    <div class="appbar">
+      <div class="top"><div class="eyebrow">Sat 7 June · Shift 08:00</div><div class="avatar">AE</div></div>
+      <div class="big">Morning,<br>Augustus.</div>
+      <div class="stats">
+        <div class="stat"><div class="n" style="color:#fff">3</div><div class="l">Remaining</div></div>
+        <div class="stat"><div class="n" style="color:var(--ok)">1</div><div class="l">Done</div></div>
+        <div class="stat"><div class="n" style="color:var(--brand)">3.1h</div><div class="l">On site</div></div>
+      </div>
+    </div>
+
+    <div class="sh"><div class="t">Active now</div></div>
+    <div class="jcard"><div class="spine" style="background:var(--info)"></div><div class="pad">
+      <div class="row1"><div class="jtime">08:30 – 10:00</div><span class="chip prog">In progress</span></div>
+      <div class="jtitle">Annual gas safety inspection</div>
+      <div class="jsub"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b9bdd4" stroke-width="2.2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Acme Towers · Block A Plant Room</div>
+      <div class="jbar"><div class="pillbtn gh">Directions</div><div class="pillbtn go">Resume visit →</div></div>
+    </div></div>
+
+    <div class="sh"><div class="t">Up next</div><div class="a">See all</div></div>
+    <div class="jcard"><div class="spine" style="background:var(--brand)"></div><div class="pad">
+      <div class="row1"><div class="jtime">11:30 · in 1h 50m</div><span class="chip sched">Scheduled</span></div>
+      <div class="jtitle">HVAC filter replacement</div>
+      <div class="jsub"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b9bdd4" stroke-width="2.2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Northgate Retail Park · Unit 4</div>
+    </div></div>
+    <div class="jcard"><div class="spine" style="background:var(--due)"></div><div class="pad">
+      <div class="row1"><div class="jtime">14:00 · this afternoon</div><span class="chip due">Due soon</span></div>
+      <div class="jtitle">Fire damper compliance</div>
+      <div class="jsub"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b9bdd4" stroke-width="2.2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Riverside House · Levels 3–5</div>
+    </div></div>
+    <div style="height:8px"></div>
+  </div></div>
+
+  <div class="tabbar">
+    <div class="tab on"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg><span class="tl">Today</span><span class="pip"></span></div>
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span class="tl">Jobs</span><span class="pip"></span></div>
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 10h18M8 14h3M8 17h8"/></svg><span class="tl">Schedule</span><span class="pip"></span></div>
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 4h11a2 2 0 0 1 2 2v14l-9-4-9 4V6a2 2 0 0 1 2-2Z"/></svg><span class="tl">Reference</span><span class="pip"></span></div>
+  </div>
+</div></div>
+<div class="label">Today</div>
+</div>
+
+<!-- ===== JOB DETAIL ===== -->
+<div>
+<div class="device"><div class="island"></div><div class="screen">
+  <div class="status"><span>9:41</span><div class="r">
+    <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="6" width="3" height="6" rx="1" fill="#fff"/><rect x="5" y="3.5" width="3" height="8.5" rx="1" fill="#fff"/><rect x="10" y="1.5" width="3" height="10.5" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg>
+    <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 2.5c2.3 0 4.4.9 6 2.3l-1.3 1.3A7 7 0 0 0 8.5 4.4 7 7 0 0 0 3.8 6.1L2.5 4.8a8.8 8.8 0 0 1 6-2.3Z" fill="#fff"/><circle cx="8.5" cy="9.3" r="1.5" fill="#fff"/></svg>
+    <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="#fff"/><rect x="23" y="4" width="2" height="5" rx="1" fill="#fff" fill-opacity=".5"/></svg>
+  </div></div>
+  <div class="body"><div class="scroll" style="padding-bottom:30px">
+    <div class="detbar">
+      <div class="nrow">
+        <div class="back"><svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M10 2L3 10l7 8"/></svg></div>
+        <span class="chip prog">In progress</span>
+        <div class="more"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></div>
+      </div>
+      <div class="htitle">Annual gas safety inspection</div>
+      <div class="hsub"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b9bdd4" stroke-width="2.2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Acme Towers · Block A · 08:30–10:00</div>
+    </div>
+
+    <div class="live">
+      <span class="pulse"></span>
+      <div style="flex:1"><div class="lt">LIVE LOCATION SHARING</div><div class="ls">On site since 08:34 · office tracking you</div></div>
+      <span class="ochip ok">On site</span>
+    </div>
+
+    <div class="actrow">
+      <div class="bigact ghost"><span class="ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>On my way</div>
+      <div class="bigact done"><span class="ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#04221a" stroke-width="2.6"><path d="M20 6L9 17l-5-5"/></svg></span>Checked in</div>
+      <div class="bigact primary"><span class="ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>Check out</div>
+    </div>
+
+    <div class="blk" style="margin-top:6px"><div class="bh">Service outcome</div>
+      <div class="seg out" style="margin:0"><div>Pass</div><div class="on">Pass</div><div>Fail</div><div>Revisit</div><div>N/A</div></div>
+    </div>
+
+    <div class="blk"><div class="bh"><span>Photos</span><span style="color:var(--brand)">3 added</span></div>
+      <div class="photos">
+        <div class="ph" style="background:linear-gradient(135deg,#94a3b8,#334155)"></div>
+        <div class="ph" style="background:linear-gradient(135deg,#a8a29e,#44403c)"></div>
+        <div class="ph" style="background:linear-gradient(135deg,#6ea3b6,#2f5e6e)"></div>
+        <div class="ph add"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7d83a3" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+      </div>
+    </div>
+
+    <div class="blk"><div class="bh"><span>Customer signature</span><span style="color:var(--brand)">Re-sign</span></div>
+      <div class="sigpad"><svg width="150" height="34" viewBox="0 0 150 34" fill="none" stroke="#cfd3ea" stroke-width="2"><path d="M4 26c10-18 18 8 28-5s14 10 26 0 18-12 28 3 20-8 32-5"/></svg></div>
+    </div>
+
+    <div class="blk"><div class="bh">Time on site</div>
+      <div class="seg" style="margin:0 0 12px"><div class="on">On site</div><div>Travel</div><div>Admin</div><div>Break</div></div>
+      <div class="kv"><span style="color:var(--ink2);font-weight:700">1h 06m logged · billable</span><span class="v">⏱ Running</span></div>
+    </div>
+
+    <div class="blk"><div class="bh">Notes</div>
+      <div style="font-size:14px;color:var(--ink2);font-weight:600;line-height:1.5">Flue gas analysis within range. Replaced worn seal on inlet valve. Customer informed, no further action.</div>
+    </div>
+
+    <div class="raise"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff8c8c" stroke-width="2.2"><path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>RAISE DEFECT / ACTION</div>
+  </div></div>
+</div></div>
+<div class="label">Job Detail — the hero screen</div>
+</div>
+
+<!-- ===== SCHEDULE ===== -->
+<div>
+<div class="device"><div class="island"></div><div class="screen">
+  <div class="status"><span>9:41</span><div class="r">
+    <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="6" width="3" height="6" rx="1" fill="#fff"/><rect x="5" y="3.5" width="3" height="8.5" rx="1" fill="#fff"/><rect x="10" y="1.5" width="3" height="10.5" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg>
+    <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 2.5c2.3 0 4.4.9 6 2.3l-1.3 1.3A7 7 0 0 0 8.5 4.4 7 7 0 0 0 3.8 6.1L2.5 4.8a8.8 8.8 0 0 1 6-2.3Z" fill="#fff"/><circle cx="8.5" cy="9.3" r="1.5" fill="#fff"/></svg>
+    <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="#fff"/><rect x="23" y="4" width="2" height="5" rx="1" fill="#fff" fill-opacity=".5"/></svg>
+  </div></div>
+  <div class="body"><div class="scroll" style="padding-bottom:104px">
+    <div class="appbar" style="padding-bottom:14px">
+      <div class="top"><div class="eyebrow">Next 7 days · 9 visits</div><div class="avatar">AE</div></div>
+      <div class="big">Schedule</div>
+    </div>
+
+    <div class="day"><span class="dt">Today</span><span class="dc dnow">Sat 7 Jun · 4 jobs</span></div>
+    <div class="scard"><div class="tcol"><div class="th">11:30</div><div class="tm">35m</div></div>
+      <div class="si"><div class="s1">HVAC filter replacement</div><div class="s2">Northgate Retail Park · Unit 4</div></div>
+      <span class="ochip due">Soon</span></div>
+    <div class="scard"><div class="tcol"><div class="th">14:00</div><div class="tm">1h15</div></div>
+      <div class="si"><div class="s1">Fire damper compliance</div><div class="s2">Riverside House · Levels 3–5</div></div>
+      <span class="ochip over">Due</span></div>
+
+    <div class="day"><span class="dt">Tomorrow</span><span class="dc">Sun 8 Jun · 2 jobs</span></div>
+    <div class="scard"><div class="tcol"><div class="th">09:00</div><div class="tm">2h</div></div>
+      <div class="si"><div class="s1">Boiler service — commercial</div><div class="s2">Acme Towers · Block C</div></div>
+      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="#6b7099" stroke-width="2.2"><path d="M1 1l6 7-6 7"/></svg></div>
+    <div class="scard"><div class="tcol"><div class="th">13:30</div><div class="tm">45m</div></div>
+      <div class="si"><div class="s1">Water hygiene sampling</div><div class="s2">Lakeside Offices</div></div>
+      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="#6b7099" stroke-width="2.2"><path d="M1 1l6 7-6 7"/></svg></div>
+
+    <div class="day"><span class="dt">Mon 9 Jun</span><span class="dc">3 jobs</span></div>
+    <div class="scard"><div class="tcol"><div class="th">10:00</div><div class="tm">1h</div></div>
+      <div class="si"><div class="s1">Emergency lighting — quarterly</div><div class="s2">Riverside House</div></div>
+      <svg width="9" height="16" viewBox="0 0 9 16" fill="none" stroke="#6b7099" stroke-width="2.2"><path d="M1 1l6 7-6 7"/></svg></div>
+    <div style="height:8px"></div>
+  </div></div>
+
+  <div class="tabbar">
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg><span class="tl">Today</span><span class="pip"></span></div>
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span class="tl">Jobs</span><span class="pip"></span></div>
+    <div class="tab on"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 10h18M8 14h3M8 17h8"/></svg><span class="tl">Schedule</span><span class="pip"></span></div>
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 4h11a2 2 0 0 1 2 2v14l-9-4-9 4V6a2 2 0 0 1 2-2Z"/></svg><span class="tl">Reference</span><span class="pip"></span></div>
+  </div>
+</div></div>
+<div class="label">Schedule</div>
+</div>
+
+<!-- ===== REFERENCE ===== -->
+<div>
+<div class="device"><div class="island"></div><div class="screen">
+  <div class="status"><span>9:41</span><div class="r">
+    <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="6" width="3" height="6" rx="1" fill="#fff"/><rect x="5" y="3.5" width="3" height="8.5" rx="1" fill="#fff"/><rect x="10" y="1.5" width="3" height="10.5" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg>
+    <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 2.5c2.3 0 4.4.9 6 2.3l-1.3 1.3A7 7 0 0 0 8.5 4.4 7 7 0 0 0 3.8 6.1L2.5 4.8a8.8 8.8 0 0 1 6-2.3Z" fill="#fff"/><circle cx="8.5" cy="9.3" r="1.5" fill="#fff"/></svg>
+    <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.5" fill="#fff"/><rect x="23" y="4" width="2" height="5" rx="1" fill="#fff" fill-opacity=".5"/></svg>
+  </div></div>
+  <div class="body"><div class="scroll" style="padding-bottom:104px">
+    <div class="appbar" style="padding-bottom:14px">
+      <div class="top"><div class="eyebrow">Look it up</div><div class="avatar">AE</div></div>
+      <div class="big">Reference</div>
+      <div class="seg" style="margin:16px 0 0;background:var(--navy2)"><div class="on">Assets</div><div>Compliance</div></div>
+    </div>
+
+    <div class="sh"><div class="t">Acme Towers</div><div class="a">12 assets</div></div>
+    <div class="rcard"><div class="ricon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8772e" stroke-width="2.2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M9 16h6"/></svg></div>
+      <div class="ri"><div class="r1">Gas boiler — Worcester GB162</div><div class="r2">Block A Plant Room · #BLR-014</div></div>
+      <span class="ochip ok">OK</span></div>
+    <div class="rcard"><div class="ricon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8772e" stroke-width="2.2"><path d="M9.7 6.3a4 4 0 1 0 5 5L21 18l-3 3-6.7-6.3"/></svg></div>
+      <div class="ri"><div class="r1">AHU-2 air handling unit</div><div class="r2">Roof plant · #HVAC-221</div></div>
+      <span class="ochip due">Due</span></div>
+    <div class="rcard"><div class="ricon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8772e" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+      <div class="ri"><div class="r1">Fire damper FD-08</div><div class="r2">Block A riser · #FD-008</div></div>
+      <span class="ochip over">Overdue</span></div>
+
+    <div class="sh"><div class="t">Northgate Retail Park</div><div class="a">6 assets</div></div>
+    <div class="rcard"><div class="ricon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8772e" stroke-width="2.2"><path d="M9.7 6.3a4 4 0 1 0 5 5L21 18l-3 3-6.7-6.3"/></svg></div>
+      <div class="ri"><div class="r1">Rooftop HVAC condenser</div><div class="r2">Unit 4 · #HVAC-340</div></div>
+      <span class="ochip ok">OK</span></div>
+    <div class="rcard"><div class="ricon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8772e" stroke-width="2.2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M9 16h6"/></svg></div>
+      <div class="ri"><div class="r1">Commercial water heater</div><div class="r2">Service corridor · #WH-051</div></div>
+      <span class="ochip due">Due</span></div>
+    <div style="height:8px"></div>
+  </div></div>
+
+  <div class="tabbar">
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg><span class="tl">Today</span><span class="pip"></span></div>
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span class="tl">Jobs</span><span class="pip"></span></div>
+    <div class="tab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 10h18M8 14h3M8 17h8"/></svg><span class="tl">Schedule</span><span class="pip"></span></div>
+    <div class="tab on"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 4h11a2 2 0 0 1 2 2v14l-9-4-9 4V6a2 2 0 0 1 2-2Z"/></svg><span class="tl">Reference</span><span class="pip"></span></div>
+  </div>
+</div></div>
+<div class="label">Reference (Assets | Compliance)</div>
+</div>
+
+</div>
+</body>
+</html>

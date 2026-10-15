@@ -1,0 +1,40 @@
+{
+  "name": "haumea",
+  "version": "0.28.2",
+  "private": true,
+  "description": "Haumea monorepo — facilities management SaaS (web + mobile + shared)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace=haumea-web run dev",
+    "dev:web": "npm --workspace=haumea-web run dev",
+    "dev:mobile": "npm --workspace=haumea-mobile run start",
+    "build:web": "npm --workspace=haumea-web run build",
+    "lint:web": "npm --workspace=haumea-web run lint",
+    "test:web": "npm --workspace=haumea-web run test",
+    "typecheck:web": "npm --workspace=haumea-web run typecheck",
+    "preview:web": "npm --workspace=haumea-web run preview",
+    "tsc:web": "npm run typecheck:web",
+    "dev:marketing": "npm --workspace=haumea-marketing run dev",
+    "lint:marketing": "npm --workspace=haumea-marketing run lint",
+    "typecheck:marketing": "npm --workspace=haumea-marketing run typecheck",
+    "build:marketing": "npm --workspace=haumea-marketing run build",
+    "typecheck:mobile": "npm --workspace=haumea-mobile run typecheck",
+    "typecheck:packages": "npm --workspace=@haumea/types run tsc && npm --workspace=@haumea/utils run tsc && npm --workspace=@haumea/ui run tsc",
+    "test:utils": "npm --workspace=@haumea/utils run test",
+    "lint:all": "npm run lint:web && npm run lint:marketing",
+    "typecheck:all": "npm run typecheck:web && npm run typecheck:marketing && npm run typecheck:mobile && npm run typecheck:packages",
+    "test:all": "npm run test:web -- --run && npm run test:utils",
+    "build:all": "npm run build:web && npm run build:marketing",
+    "bundle:audit": "node scripts/bundle-audit.mjs",
+    "smoke:realtime-delete": "node scripts/realtime-delete-smoke.mjs",
+    "check:no-raw-type": "node scripts/check-no-raw-type.mjs",
+    "check:edge": "node scripts/check-edge-functions.mjs",
+    "check:all": "npm run lint:all && npm run typecheck:all && npm run test:all && npm run build:all && npm run bundle:audit && npm run check:no-raw-type"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.13.0"
+  }
+}

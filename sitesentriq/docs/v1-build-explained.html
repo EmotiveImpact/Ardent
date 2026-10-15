@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SiteSentriq — What we built, what's live, what's next</title>
+<style>
+  :root{
+    --navy:#0f1225; --brand:#e8772e; --brand-d:#cf6520; --page:#f5f7fa;
+    --card:#ffffff; --border:#e6e9ef; --text:#0f172a; --muted:#64748b;
+    --ok:#10b981; --bad:#ef4444; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--page);color:var(--text);line-height:1.55}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 24px 80px}
+  header.hero{background:var(--navy);color:#fff;border-radius:18px;padding:34px 32px;margin-bottom:32px}
+  header.hero .mark{display:inline-flex;align-items:center;gap:12px;margin-bottom:14px}
+  header.hero .mark .tile{width:34px;height:34px;border-radius:8px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--navy)}
+  header.hero .mark .word{letter-spacing:3px;font-weight:200;font-size:18px;text-transform:uppercase}
+  header.hero h1{margin:.2em 0 .3em;font-size:26px;letter-spacing:-.02em}
+  header.hero p{margin:0;color:#c9cede;font-size:15px}
+  h2{font-size:20px;letter-spacing:-.01em;margin:38px 0 8px;display:flex;align-items:center;gap:10px}
+  h2 .n{width:26px;height:26px;border-radius:7px;background:var(--brand);color:#fff;font-size:14px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin:14px 0}
+  .lead{color:var(--muted);font-size:15px;margin:.2em 0 1em}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.brand{background:rgba(232,119,46,.12);color:var(--brand-d)}
+  .pill.ok{background:rgba(16,185,129,.13);color:#0a7a55}
+  .pill.bad{background:rgba(239,68,68,.12);color:#b91c1c}
+  .pill.warn{background:rgba(245,158,11,.15);color:#92600c}
+  .pill.navy{background:rgba(15,18,37,.08);color:var(--navy)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f8fafc}
+  code{background:#f1f5f9;border-radius:5px;padding:1px 6px;font-size:13px;color:#0f172a}
+  .callout{border-left:4px solid var(--brand);background:#fff7f0;border-radius:0 10px 10px 0;padding:14px 18px;margin:14px 0}
+  .callout.bad{border-color:var(--bad);background:#fef2f2}
+  .callout.ok{border-color:var(--ok);background:#f0fdf8}
+  .callout.warn{border-color:var(--warn);background:#fffbeb}
+  .q{font-weight:700;color:var(--navy)}
+  svg{max-width:100%;height:auto;display:block}
+  .small{font-size:13px;color:var(--muted)}
+  ul{margin:.4em 0 .2em;padding-left:1.2em}
+  li{margin:.3em 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:680px){.grid2{grid-template-columns:1fr}}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;text-align:center}
+  .stat .big{font-size:30px;font-weight:800;color:var(--navy);letter-spacing:-.02em}
+  .stat .lbl{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:8px 0}
+  @media(max-width:680px){.statrow{grid-template-columns:repeat(2,1fr)}}
+  .step{display:flex;gap:14px;align-items:flex-start;margin:12px 0}
+  .step .num{flex:0 0 28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .step .done{background:var(--ok)}
+  .step .now{background:var(--brand)}
+  .step .wait{background:#cbd5e1;color:#475569}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="mark"><div class="tile">S</div><div class="word">SiteSentriq</div></div>
+    <h1>What we built, what's now live-ready, and what's left</h1>
+    <p>A plain-English walkthrough of the V1 customer backlog, the bug-fix sweep, the merge that just happened, and the two product decisions we parked for later.</p>
+  </header>
+
+  <!-- AT A GLANCE -->
+  <h2><span class="n">0</span> At a glance</h2>
+  <div class="statrow">
+    <div class="stat"><div class="big">9 / 9</div><div class="lbl">V1 backlog items built</div></div>
+    <div class="stat"><div class="big">~49</div><div class="lbl">bugs fixed in the sweep</div></div>
+    <div class="stat"><div class="big">201</div><div class="lbl">web tests passing</div></div>
+    <div class="stat"><div class="big">8</div><div class="lbl">DB migrations live in prod</div></div>
+  </div>
+  <div class="callout">
+    Everything below is <strong>built, tested, and now merged onto <code>master</code></strong>. The one thing standing between this work and your customer
+    seeing it is a <strong>deploy</strong> — which we do on your say-so, not automatically.
+  </div>
+
+  <!-- 1. THE 9 BACKLOG ITEMS -->
+  <h2><span class="n">1</span> The 9 things your customer asked for</h2>
+  <p class="lead">These came straight from the "Haumea Updates — V1" feedback doc. Each one is built end-to-end: database, screens, and the logic that ties them together.</p>
+  <div class="card">
+    <table>
+      <thead><tr><th>#</th><th>What they wanted</th><th>What we built</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>A richer set of job statuses (Not ready, Pending external, Contractor review, Performed, Rejected…)</td><td>All the new statuses, with colour chips, filter tabs and bulk actions. The app knows which ones count as "still open" vs "closed".</td><td><span class="pill ok">Done</span></td></tr>
+        <tr><td>2</td><td>Human-friendly job numbers like <code>H-101</code> instead of long ID codes</td><td>Every job gets an auto <code>H-</code> number, unique per company, shown on the list, the job page, and mobile.</td><td><span class="pill ok">Done</span></td></tr>
+        <tr><td>3</td><td>Link a defect quote back to the job that spawned it (parent / child tasks)</td><td>Jobs can have a parent; a "Raise quote from this job" flow carries the link through to the remedial task.</td><td><span class="pill ok">Done</span></td></tr>
+        <tr><td>4</td><td>A "Service Group" column on the task list (Fire Alarm, Emergency Lighting…)</td><td>A Service Group on every job, editable on existing jobs, with a bulk-edit action and a column on the list. Shows on mobile too.</td><td><span class="pill ok">Done</span></td></tr>
+        <tr><td>5</td><td>Create &amp; manage engineers in-app</td><td>Full engineer add / edit / manage, including their documents. (Was already built — confirmed working.)</td><td><span class="pill ok">Done</span></td></tr>
+        <tr><td>6</td><td>Service-Quote &amp; Defect-Quote widgets on the dashboard</td><td>Two dashboard widgets summarising each quote type by count and value.</td><td><span class="pill ok">Done</span></td></tr>
+        <tr><td>7</td><td>One client → many properties, billed together but each property keeps its own number (<code>P-123</code>)</td><td>Auto <code>P-</code> numbers per property + client-level billing. (Fully-automated multi-site invoice generator parked — see §5.)</td><td><span class="pill warn">Mostly</span></td></tr>
+        <tr><td>8</td><td>Client info fields — primary contact, on-site manager, primary technician</td><td>All the new contact fields on the client &amp; property forms, detail pages and the portal.</td><td><span class="pill ok">Done</span></td></tr>
+        <tr><td>9</td><td>Compliance certificate forms an engineer fills in on a finished job (Fire &amp; Alarm, Emergency Lighting, Extinguisher, Access Control)</td><td>Structured cert forms tied to the property's asset list, captured on mobile (works offline), reviewed on web, and fed into the completion email.</td><td><span class="pill ok">Done</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 2. THE BUG SWEEP -->
+  <h2><span class="n">2</span> The bug-fix sweep</h2>
+  <p class="lead">Before and alongside the new features, we ran several adversarial "try to break it" passes — agents hunting for bugs, other agents verifying each one is real before fixing.</p>
+  <div class="card">
+    <p style="margin-top:0">Around <strong>49 genuine issues</strong> were found and fixed. The headline ones:</p>
+    <ul>
+      <li><strong>Duplicate compliance jobs</strong> — the scheduler could create the same recurring (PPM) job twice. Fixed with a race-safe counter.</li>
+      <li><strong>Stale quote-to-job conversions</strong> — converting an already-converted quote could double up. Closed off.</li>
+      <li><strong>The "Cell count must match column count" crash</strong> — eliminated entirely by moving every table off the engine that threw it.</li>
+      <li><strong>Date / timezone bucketing</strong> — jobs occasionally landed in the wrong day on dashboards. Fixed across the app.</li>
+      <li><strong>The sidebar &amp; topbar</strong> — the sidebar now stays put when you scroll, and the topbar pins to the top of the screen.</li>
+    </ul>
+    <p class="small" style="margin-bottom:0">All fixes are covered by the 201 automated tests that run green on every change.</p>
+  </div>
+
+  <!-- 3. THE MERGE -->
+  <h2><span class="n">3</span> What just happened: the merge</h2>
+  <p class="lead">All of the above was sitting on a working branch, separate from the "official" line of the code. We just brought it together.</p>
+  <div class="card">
+    <svg viewBox="0 0 900 200" role="img" aria-label="Branch merge diagram">
+      <!-- master line before -->
+      <line x1="40" y1="60" x2="430" y2="60" stroke="#94a3b8" stroke-width="3"/>
+      <line x1="510" y1="60" x2="860" y2="60" stroke="#0f1225" stroke-width="3"/>
+      <text x="40" y="44" fill="#64748b" font-size="13" font-weight="700" font-family="sans-serif">master (the official code)</text>
+      <circle cx="60" cy="60" r="7" fill="#94a3b8"/>
+      <circle cx="200" cy="60" r="7" fill="#94a3b8"/>
+      <!-- feature branch -->
+      <line x1="200" y1="60" x2="280" y2="140" stroke="#e8772e" stroke-width="3"/>
+      <line x1="280" y1="140" x2="430" y2="140" stroke="#e8772e" stroke-width="3"/>
+      <text x="220" y="172" fill="#cf6520" font-size="13" font-weight="700" font-family="sans-serif">feature branch — 52 commits of V1 work</text>
+      <circle cx="300" cy="140" r="7" fill="#e8772e"/>
+      <circle cx="370" cy="140" r="7" fill="#e8772e"/>
+      <circle cx="430" cy="140" r="7" fill="#e8772e"/>
+      <!-- merge point -->
+      <line x1="430" y1="140" x2="510" y2="60" stroke="#e8772e" stroke-width="3"/>
+      <circle cx="510" cy="60" r="9" fill="#10b981"/>
+      <text x="470" y="44" fill="#0a7a55" font-size="13" font-weight="700" font-family="sans-serif">merge ✓</text>
+      <circle cx="700" cy="60" r="7" fill="#0f1225"/>
+      <text x="600" y="92" fill="#64748b" font-size="13" font-family="sans-serif">all 52 commits now part of master</text>
+    </svg>
+    <p style="margin-bottom:0">The merge was a clean <strong>fast-forward situation</strong> — <code>master</code> had no competing changes, so there was <strong>zero risk of conflicts</strong>. After merging, the app still builds and all tests still pass.</p>
+  </div>
+  <div class="callout warn">
+    <span class="q">Local only.</span> The merge lives on your machine. It has <strong>not</strong> been pushed to GitHub or deployed — those are outward-facing steps we take only with your explicit go-ahead.
+  </div>
+
+  <!-- 4. LIVE vs PENDING -->
+  <h2><span class="n">4</span> What's live vs what's pending</h2>
+  <div class="grid2">
+    <div class="card" style="margin:0">
+      <p style="margin-top:0"><span class="pill ok">Already live in production</span></p>
+      <ul style="margin-bottom:0">
+        <li>All 8 database migrations (the new columns, numbers, status options, cert tables) are applied to the live database and confirmed.</li>
+        <li>The data layer is ready — the moment the app is deployed, the features light up.</li>
+      </ul>
+    </div>
+    <div class="card" style="margin:0">
+      <p style="margin-top:0"><span class="pill warn">Waiting on a deploy</span></p>
+      <ul style="margin-bottom:0">
+        <li>The <strong>web app</strong> your customer logs into still serves the old version until redeployed.</li>
+        <li>The <strong>completion-email</strong> function (sends certificates to clients) needs a redeploy to pick up the cert changes.</li>
+        <li>The <strong>mobile app</strong> is build-verified but not yet tested on a real phone.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 5. THE TWO PARKED DECISIONS -->
+  <h2><span class="n">5</span> The two decisions we parked (and why they can wait)</h2>
+  <p class="lead">Neither of these is broken or blocking. They're small choices about how you want things to behave — easy to change after the deploy.</p>
+
+  <div class="card">
+    <p style="margin-top:0"><span class="q">Decision A — When does the customer get their certificate email?</span></p>
+    <p>Think of a restaurant: <strong>"Performed"</strong> = the chef finished cooking. <strong>"Completed"</strong> = the manager checked the plate before it goes out.</p>
+    <p>Right now the certificate email <strong>only fires on "Completed"</strong> — i.e. there's an office check before the customer gets their compliance document. The alternative is to fire it the instant the engineer marks "Performed" in the field (faster, but no review step).</p>
+    <p class="small" style="margin-bottom:0"><strong>Default we recommend:</strong> keep the office check. A compliance certificate is a legal document — you usually don't want a half-finished one auto-emailed. One-line change either way, whenever you decide.</p>
+  </div>
+
+  <div class="card">
+    <p style="margin-top:0"><span class="q">Decision B — How automatic should multi-property invoicing be?</span></p>
+    <p>You can <strong>already</strong> put several properties on one client invoice today — you just type the line items by hand. What doesn't exist yet is a one-click "pull every finished, un-billed job across this client's sites and build the invoice for me" generator.</p>
+    <p class="small" style="margin-bottom:0"><strong>Why it can wait:</strong> the manual route works now. Whether the auto-generator is worth ~1–2 days of build depends on how often you actually bill many sites at once — something easier to judge once it's in real use.</p>
+  </div>
+
+  <!-- 6. WHAT'S NEXT -->
+  <h2><span class="n">6</span> What's next</h2>
+  <div class="card">
+    <div class="step"><div class="num done">✓</div><div><strong>Build the V1 backlog</strong> — all 9 items, done and tested.</div></div>
+    <div class="step"><div class="num done">✓</div><div><strong>Fix the bugs</strong> — ~49 issues swept, sidebar &amp; topbar sorted.</div></div>
+    <div class="step"><div class="num done">✓</div><div><strong>Merge to master</strong> — done just now, builds green.</div></div>
+    <div class="step"><div class="num now">4</div><div><strong>Push &amp; deploy</strong> — your call. Pushes the code to GitHub, then deploys the web app + the email function so your customer sees everything. <em>Needs your explicit go-ahead.</em></div></div>
+    <div class="step"><div class="num wait">5</div><div><strong>Test the mobile app on a real phone</strong> — to de-risk the field-engineer experience.</div></div>
+    <div class="step"><div class="num wait">6</div><div><strong>Settle the two parked decisions</strong> (A &amp; B above) — once you've seen it in use.</div></div>
+  </div>
+
+  <p class="small" style="margin-top:30px;text-align:center;color:#94a3b8">SiteSentriq — Facilities OS · build status as of this session</p>
+
+</div>
+</body>
+</html>

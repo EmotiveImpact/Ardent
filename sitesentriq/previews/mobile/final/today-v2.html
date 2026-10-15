@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Today — redesigned</title>
+<style>
+  :root{--brand:#e8772e;--navy:#0f1225;--ink:#0f172a;--muted:#94a3b8;--border:#eef1f6;--page:#f5f7fa;}
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+  body{margin:0;background:#dfe3ea;display:flex;justify-content:center;padding:24px}
+  .phone{width:390px;background:var(--page);border-radius:42px;overflow:hidden;box-shadow:0 30px 80px rgba(15,23,42,.28);border:10px solid #0b0d18}
+  /* nav header (navy) */
+  .nav{background:var(--navy);padding:14px 16px 12px;display:flex;align-items:center;gap:11px}
+  .nav .tile{width:30px;height:30px;border-radius:7px;background:var(--brand);display:flex;align-items:center;justify-content:center;color:var(--navy);font-weight:800}
+  .nav .word{color:#fff;letter-spacing:3px;font-weight:200;font-size:15px}
+  .nav .title{margin-left:auto;color:#fff;font-weight:700;font-size:16px}
+  .nav .bell{color:#fff;opacity:.85;margin-left:14px}
+  .body{padding:18px 16px 26px;max-height:760px;overflow:auto}
+  .greet{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.5px}
+  .date{margin:4px 0 0;font-size:15px;color:var(--muted);font-weight:500}
+  .shadow{box-shadow:0 2px 6px rgba(15,23,42,.04)}
+  /* hero — light, flat */
+  .hero{margin-top:20px;border-radius:16px;background:#fff;border:1px solid var(--border);padding:16px}
+  .hero .row{display:flex;align-items:center;justify-content:space-between}
+  .hero .kicker{color:var(--brand);font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase}
+  .hero .timepill{display:inline-flex;align-items:center;gap:4px;background:#fff3ea;color:var(--brand);font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px}
+  .hero h2{color:var(--ink);font-size:18px;font-weight:800;margin:9px 0 0}
+  .hero .loc{color:#64748b;font-size:13.5px;margin-top:6px}
+  .hero .btn{margin-top:14px;background:var(--brand);color:#fff;font-weight:700;font-size:14.5px;border-radius:12px;padding:12px;text-align:center}
+  /* labels */
+  .label{margin:24px 0 11px;font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:#64748b}
+  .label.row{display:flex;justify-content:space-between;align-items:center}
+  .maplink{color:var(--brand);font-weight:700;font-size:12px}
+  /* stats */
+  .stats{display:flex;gap:12px}
+  .stat{flex:1;background:#fff;border:1px solid var(--border);border-radius:24px;padding:16px}
+  .stat .bar{height:6px;width:36px;border-radius:999px;background:var(--brand);margin-bottom:10px}
+  .stat .bar.green{background:#10b981}
+  .stat .num{font-size:30px;font-weight:800;color:var(--ink);letter-spacing:-.5px}
+  .stat .cap{font-size:13px;color:var(--muted);font-weight:500;margin-top:2px}
+  /* quick actions */
+  .qa{display:flex;gap:10px}
+  .tile{flex:1;border:1px solid var(--border);background:#fff;border-radius:18px;padding:12px;text-align:center}
+  .tile.fill{background:var(--brand);border-color:var(--brand)}
+  .tile .ic{width:44px;height:44px;border-radius:14px;background:#f4f6fa;display:flex;align-items:center;justify-content:center;margin:0 auto 8px}
+  .tile.fill .ic{background:rgba(255,255,255,.22)}
+  .tile .t{font-size:12px;font-weight:600;color:var(--ink)}
+  .tile.fill .t{color:#fff}
+  /* job card */
+  .job{display:flex;align-items:center;background:#fff;border:1px solid var(--border);border-radius:24px;padding:16px;margin-bottom:12px}
+  .job .col{flex:1}
+  .job .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+  .job .timepill{display:inline-flex;align-items:center;gap:4px;background:#fff3ea;color:var(--brand);font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;letter-spacing:.2px}
+  .chip .dot{width:6px;height:6px;border-radius:50%}
+  .job h3{font-size:15.5px;font-weight:800;color:var(--ink);margin:0 0 4px}
+  .job .loc{font-size:13px;color:#64748b}
+  .chev{color:#cbd5e1;font-size:20px;margin-left:8px}
+  svg{display:block}
+</style></head>
+<body>
+<div class="phone">
+  <div class="nav"><div class="tile">H</div><div class="word">HAUMEA</div><div class="title">Today</div>
+    <svg class="bell" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+  </div>
+  <div class="body">
+    <div class="greet">Good day, Mary</div>
+    <div class="date">Sunday, 8 June</div>
+
+    <!-- HERO (light) -->
+    <div class="hero shadow">
+      <div class="row">
+        <div class="kicker">Next up</div>
+        <div class="timepill">⏱ 09:30</div>
+      </div>
+      <h2>Emergency lighting — quarterly test</h2>
+      <div class="loc">⌖ P-1202 Aiseiri — Cahir House</div>
+      <div class="btn">▶ Start this job</div>
+    </div>
+
+    <div class="label">Overview</div>
+    <div class="stats">
+      <div class="stat shadow"><div class="bar"></div><div class="num">4</div><div class="cap">Remaining</div></div>
+      <div class="stat shadow"><div class="bar green"></div><div class="num">2</div><div class="cap">Completed</div></div>
+    </div>
+
+    <div class="label">Quick Actions</div>
+    <div class="qa">
+      <div class="tile fill shadow"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><polygon points="6,4 20,12 6,20"/></svg></div><div class="t">Start next job</div></div>
+      <div class="tile"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></div><div class="t">Navigate</div></div>
+      <div class="tile"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="t">Log time</div></div>
+      <div class="tile"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div class="t">Add photo</div></div>
+    </div>
+
+    <div class="label row"><span>Today's Jobs</span><span class="maplink">⌖ Map</span></div>
+
+    <div class="job">
+      <div class="col">
+        <div class="top"><span class="timepill">⏱ 09:30</span><span class="chip" style="background:#6366f114;color:#6366f1"><span class="dot" style="background:#6366f1"></span>IN PROGRESS</span></div>
+        <h3>Emergency lighting — quarterly test</h3>
+        <div class="loc">⌖ Aiseiri — Cahir House</div>
+      </div><div class="chev">›</div>
+    </div>
+    <div class="job">
+      <div class="col">
+        <div class="top"><span class="timepill">⏱ 11:00</span><span class="chip" style="background:#3b82f614;color:#3b82f6"><span class="dot" style="background:#3b82f6"></span>SCHEDULED</span></div>
+        <h3>Fire alarm panel — service</h3>
+        <div class="loc">⌖ St. Anne's Court</div>
+      </div><div class="chev">›</div>
+    </div>
+    <div class="job">
+      <div class="col">
+        <div class="top"><span class="timepill">⏱ 14:15</span><span class="chip" style="background:#10b98114;color:#10b981"><span class="dot" style="background:#10b981"></span>COMPLETED</span></div>
+        <h3>Extinguisher check — annual</h3>
+        <div class="loc">⌖ Riverside Units</div>
+      </div><div class="chev">›</div>
+    </div>
+  </div>
+</div>
+</body></html>

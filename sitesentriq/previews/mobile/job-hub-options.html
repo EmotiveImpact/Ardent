@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Job screen redesign — hub options</title>
+<style>
+  :root{
+    --bg:#0f0f12; --card:#1b1b20; --card2:#232329; --line:#2c2c34;
+    --ink:#f4f4f7; --mut:#9a9aa6; --faint:#6e6e78;
+    --navy:#0f1225; --brand:#e8772e; --brandSoft:rgba(232,119,46,.14);
+    --indigo:#6c6cf2; --green:#13b981; --amber:#f59e0b; --red:#ef4444; --blue:#3b82f6;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:#08080a;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:36px 20px 80px}
+  h1{font-size:24px;letter-spacing:-.02em;margin:0 0 4px;text-align:center}
+  .sub{color:var(--mut);text-align:center;margin:0 0 30px;font-size:14px}
+  .row{display:flex;gap:30px;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+  .col{width:340px;max-width:90vw}
+  .cap{margin-top:14px;text-align:center}
+  .cap .t{font-weight:700;font-size:15px}
+  .cap .t .pill{font-size:11px;font-weight:700;color:#0a0a0a;background:var(--brand);padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+  .cap .d{color:var(--mut);font-size:13px;margin-top:3px;line-height:1.5}
+
+  /* phone */
+  .phone{width:340px;height:710px;background:var(--bg);border-radius:38px;border:1px solid #26262c;
+    box-shadow:0 30px 70px rgba(0,0,0,.55), inset 0 0 0 7px #050507;overflow:hidden;position:relative}
+  .scr{position:absolute;inset:7px;border-radius:31px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+  .notch{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:120px;height:24px;background:#050507;border-radius:0 0 16px 16px;z-index:30}
+
+  /* header (navy chrome) */
+  .hdr{background:var(--navy);height:84px;flex:0 0 auto;display:flex;align-items:flex-end;padding:0 16px 12px;gap:12px}
+  .hdr .ic{width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:#cfd2e6}
+  .hdr .code{font-weight:700;letter-spacing:.5px;font-size:15px}
+  .hdr .sp{flex:1}
+  .body{flex:1;overflow:hidden;padding:16px 16px 0;position:relative}
+
+  /* hero card */
+  .hero{background:linear-gradient(180deg,#202028,#191920);border:1px solid var(--line);border-radius:20px;padding:16px;position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--indigo)}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px}
+  .chip .dot{width:6px;height:6px;border-radius:50%}
+  .chip.ip{background:rgba(108,108,242,.16);color:#aab0ff}
+  .num{color:var(--faint);font-size:11px;font-weight:700;letter-spacing:1px;margin:11px 0 3px}
+  .title{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.2}
+  .meta{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:13px;margin-top:7px}
+  .timechip{display:inline-flex;align-items:center;gap:5px;background:var(--brandSoft);color:#f6a565;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .cta{margin-top:15px;background:var(--brand);color:#fff;border:none;border-radius:14px;height:50px;width:100%;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+  .cta.out{background:#2a2a31;color:var(--ink)}
+
+  .seclbl{color:var(--faint);font-size:11px;font-weight:800;letter-spacing:1.4px;margin:20px 2px 10px}
+
+  /* tile grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:7px;position:relative}
+  .tile .ti{width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+  .tile .tl{font-size:11.5px;font-weight:600;color:var(--ink);text-align:center}
+  .tile .badge{position:absolute;top:7px;right:8px;min-width:17px;height:17px;border-radius:9px;background:var(--brand);color:#0a0a0a;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px}
+  .tile .badge.ok{background:var(--green);color:#04130d}
+  .tint-o{background:var(--brandSoft);color:#f6a565}
+  .tint-b{background:rgba(59,130,246,.16);color:#7db0ff}
+  .tint-g{background:rgba(19,185,129,.16);color:#4fdcb0}
+  .tint-i{background:rgba(108,108,242,.16);color:#aab0ff}
+  .tint-r{background:rgba(239,68,68,.16);color:#ff8d8d}
+  .tint-a{background:rgba(245,158,11,.16);color:#ffc164}
+  .tint-n{background:#2a2a31;color:#c7c7d2}
+
+  /* dim + bottom sheet */
+  .dim{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:20;border-radius:31px}
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:25;background:var(--card);border-radius:24px 24px 0 0;border:1px solid var(--line);border-bottom:none;padding:10px 18px 26px;box-shadow:0 -20px 50px rgba(0,0,0,.5)}
+  .grab{width:38px;height:5px;border-radius:3px;background:#3a3a44;margin:2px auto 12px}
+  .sheet h3{margin:0 0 2px;font-size:18px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+  .sheet .hint{color:var(--mut);font-size:13px;margin:0 0 14px}
+  .field{margin-bottom:12px}
+  .field label{font-size:12px;color:var(--mut);font-weight:600;display:block;margin-bottom:6px}
+  .inp{background:var(--card2);border:1px solid var(--line);border-radius:11px;height:46px;display:flex;align-items:center;padding:0 13px;color:var(--ink);font-size:15px}
+  .inp.ph{color:var(--faint)}
+  .seg{display:flex;background:var(--card2);border-radius:11px;padding:3px;gap:3px}
+  .seg span{flex:1;text-align:center;font-size:12.5px;font-weight:600;color:var(--mut);padding:8px 0;border-radius:8px}
+  .seg span.on{background:var(--brand);color:#fff}
+  .save{background:var(--brand);color:#fff;border:none;border-radius:13px;height:50px;width:100%;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px}
+
+  /* full subscreen header */
+  .subhdr{background:var(--navy);height:84px;flex:0 0 auto;display:flex;align-items:flex-end;padding:0 14px 12px;gap:8px}
+  .subhdr .back{color:#cfd2e6;font-size:15px;font-weight:600;display:flex;align-items:center;gap:5px}
+  .subhdr .stitle{font-weight:700;font-size:16px}
+
+  svg{display:block}
+  .legend{max-width:760px;margin:38px auto 0;background:#111114;border:1px solid #22222a;border-radius:16px;padding:18px 22px;color:var(--mut);font-size:13.5px;line-height:1.6}
+  .legend b{color:var(--ink)}
+  .tag{display:inline-block;background:var(--brandSoft);color:#f6a565;font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px}
+</style>
+</head>
+<body>
+  <h1>Job screen — from one long scroll → a hub</h1>
+  <p class="sub">Same content, restructured. The summary card stays (restyled); everything else becomes one-tap tiles. Shown in dark “pro-tool” mode. Three ways the tiles can open ↓</p>
+
+  <div class="row">
+
+    <!-- ============ FRAME 1: THE HUB (base layout) ============ -->
+    <div class="col">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="hdr">
+          <div class="ic">‹</div><div class="code">H-146</div><div class="sp"></div>
+          <div class="ic">⋯</div>
+        </div>
+        <div class="body" style="overflow:auto">
+          <!-- hero -->
+          <div class="hero">
+            <span class="chip ip"><span class="dot" style="background:var(--indigo)"></span>In Progress</span>
+            <div class="num">H-146</div>
+            <div class="title">Wet Riser Annual Test</div>
+            <div class="meta">⌖ Northgate Superstore</div>
+            <div class="meta" style="margin-top:9px"><span class="timechip">◷ 16:24 · Today</span></div>
+            <button class="cta out">⏻ Check out</button>
+          </div>
+          <div class="seclbl">ACTIONS</div>
+          <div class="grid">
+            <div class="tile"><div class="ti tint-o">◷</div><div class="tl">Time</div></div>
+            <div class="tile"><div class="ti tint-b">▣</div><div class="tl">Parts</div></div>
+            <div class="tile"><span class="badge">3</span><div class="ti tint-i">▦</div><div class="tl">Photos</div></div>
+            <div class="tile"><div class="ti tint-r">▲</div><div class="tl">Defect</div></div>
+            <div class="tile"><span class="badge ok">✓</span><div class="ti tint-g">✔</div><div class="tl">Certificate</div></div>
+            <div class="tile"><div class="ti tint-n">▤</div><div class="tl">Documents</div></div>
+            <div class="tile"><div class="ti tint-g">☎</div><div class="tl">Contact</div></div>
+            <div class="tile"><div class="ti tint-o">✎</div><div class="tl">Sign-off</div></div>
+            <div class="tile"><div class="ti tint-a">⚿</div><div class="tl">No access</div></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="cap"><div class="t">The hub (shared base)</div><div class="d">Restyled hero card + a 3-across action grid. Counts/ticks show state at a glance (“3” photos, ✓ certificate).</div></div>
+    </div>
+
+    <!-- ============ FRAME 2: BOTTOM SHEET ============ -->
+    <div class="col">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="hdr"><div class="ic">‹</div><div class="code">H-146</div><div class="sp"></div><div class="ic">⋯</div></div>
+        <div class="body" style="overflow:hidden">
+          <div class="hero" style="filter:saturate(.8)">
+            <span class="chip ip"><span class="dot" style="background:var(--indigo)"></span>In Progress</span>
+            <div class="num">H-146</div><div class="title">Wet Riser Annual Test</div>
+            <div class="meta">⌖ Northgate Superstore</div>
+          </div>
+          <div class="seclbl">ACTIONS</div>
+          <div class="grid">
+            <div class="tile" style="border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)"><div class="ti tint-o">◷</div><div class="tl">Time</div></div>
+            <div class="tile"><div class="ti tint-b">▣</div><div class="tl">Parts</div></div>
+            <div class="tile"><div class="ti tint-i">▦</div><div class="tl">Photos</div></div>
+          </div>
+        </div>
+        <div class="dim"></div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <h3><span style="color:var(--brand)">◷</span> Log time</h3>
+          <p class="hint">Travel, on-site, admin or break.</p>
+          <div class="seg"><span class="on">Travel</span><span>On site</span><span>Admin</span><span>Break</span></div>
+          <div class="field" style="margin-top:12px"><label>Duration</label><div class="inp ph">e.g. 45m or 1h 30m</div></div>
+          <div class="field"><label>Notes (optional)</label><div class="inp ph">Add a note…</div></div>
+          <button class="save">◷ Log time</button>
+        </div>
+      </div></div>
+      <div class="cap"><div class="t">A · Bottom sheets <span class="pill">recommended</span></div><div class="d">Tile slides up a focused sheet, hub dimmed behind. Fast, stays on the job, native + premium. Reuses your existing forms as-is.</div></div>
+    </div>
+
+    <!-- ============ FRAME 3: FULL SUB-SCREEN ============ -->
+    <div class="col">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="subhdr"><div class="back">‹ Back</div><div class="sp" style="flex:1"></div><div class="stitle" style="margin-right:8px">Log time</div></div>
+        <div class="body" style="overflow:auto">
+          <div style="color:var(--faint);font-size:11px;font-weight:800;letter-spacing:1px;margin:2px 0 12px">H-146 · WET RISER ANNUAL TEST</div>
+          <div class="seg"><span class="on">Travel</span><span>On site</span><span>Admin</span><span>Break</span></div>
+          <div class="field" style="margin-top:16px"><label>Duration</label><div class="inp ph">e.g. 45m or 1h 30m</div></div>
+          <div class="field"><label>Notes (optional)</label><div class="inp ph">Add a note…</div></div>
+          <div class="field"><label>Billable</label><div class="inp" style="justify-content:space-between">Yes <span style="width:42px;height:25px;border-radius:13px;background:var(--brand);display:inline-flex;align-items:center;justify-content:flex-end;padding:2px"><span style="width:21px;height:21px;border-radius:50%;background:#fff"></span></span></div></div>
+          <button class="save" style="margin-top:14px">◷ Log time</button>
+        </div>
+      </div></div>
+      <div class="cap"><div class="t">B · Full sub-screens</div><div class="d">Tile pushes a full screen with a back button. More room, classic drill-down — but an extra layer of navigation per action.</div></div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <p style="margin:0 0 8px"><b>C · Mix</b> — <span class="tag">most tailored</span> quick actions (Time, Defect, Contact, Sign-off, No access) open as <b>bottom sheets</b>; content-heavy ones (Photos gallery, Documents list, Certificate checklist) open as <b>full screens</b>. Best of both, slightly more build.</p>
+    <p style="margin:0"><b>My recommendation: A (bottom sheets)</b> for a field tool — fewest taps, keeps the engineer on the job, and your forms already render as sheets so it’s the cleanest reuse. We can promote a couple of heavy ones to full screens later if any feel cramped (that’s effectively drifting toward C).</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haumea — Mobile Design Directions</title>
+<style>
+  :root{--brand:#e8772e;--navy:#0f1225;--ink:#1c1c1e;--muted:#6b6b76;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:#f4f1ed;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:920px;margin:0 auto;padding:56px 24px 80px;}
+  .kicker{font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand);}
+  h1{font-size:40px;font-weight:900;letter-spacing:-1px;margin:8px 0 6px;}
+  .lede{font-size:17px;color:var(--muted);max-width:640px;margin:0 0 40px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:22px;}
+  .card{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:22px;overflow:hidden;
+    box-shadow:0 16px 40px -22px rgba(60,30,5,.4),0 1px 0 rgba(0,0,0,.03);transition:transform .18s ease, box-shadow .18s ease;border:1px solid rgba(0,0,0,.04);}
+  .card:hover{transform:translateY(-5px);box-shadow:0 28px 56px -24px rgba(60,30,5,.5);}
+  .swatch{height:120px;position:relative;display:flex;align-items:flex-end;padding:16px;}
+  .s1{background:linear-gradient(135deg,#f7f7fb,#e9e9ef);}
+  .s2{background:linear-gradient(135deg,#171a32,#0c0e1c);}
+  .s3{background:linear-gradient(155deg,#ff9e5e,#e8772e 60%,#d6571c);}
+  .tagn{font-size:12px;font-weight:800;color:#fff;background:rgba(0,0,0,.35);padding:4px 10px;border-radius:20px;backdrop-filter:blur(4px);}
+  .s1 .tagn{background:rgba(0,0,0,.12);color:#333;}
+  .dots{position:absolute;top:14px;right:16px;display:flex;gap:6px;}
+  .dot{width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.7);}
+  .s1 .dot{border-color:rgba(0,0,0,.15);}
+  .cbody{padding:18px 20px 22px;}
+  .ctitle{font-size:20px;font-weight:900;letter-spacing:-.4px;margin:0 0 6px;}
+  .cdesc{font-size:14.5px;color:var(--muted);margin:0 0 14px;}
+  .open{font-size:13px;font-weight:800;color:var(--brand);display:flex;align-items:center;gap:5px;}
+  .trade{margin-top:48px;background:#fff;border-radius:22px;padding:28px 30px;border:1px solid rgba(0,0,0,.05);
+    box-shadow:0 14px 36px -26px rgba(60,30,5,.35);}
+  .trade h2{font-size:20px;font-weight:900;margin:0 0 16px;letter-spacing:-.3px;}
+  .trade table{width:100%;border-collapse:collapse;font-size:14.5px;}
+  .trade td{padding:11px 8px;vertical-align:top;border-top:1px solid #f0ece6;}
+  .trade tr:first-child td{border-top:none;}
+  .trade td:first-child{font-weight:800;white-space:nowrap;width:150px;}
+  .trade .pro{color:#0a8f63;}.trade .con{color:#b06a1d;}
+  .foot{margin-top:34px;font-size:13.5px;color:var(--muted);}
+  .foot b{color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Haumea · Field Engineer App</div>
+  <h1>Three mobile directions</h1>
+  <p class="lede">Self-contained iPhone mockups of the engineer app — Today, Job Detail (the hero screen), Schedule and Reference, with the 4-tab bar and profile avatar. Open each, then compare. Same content, three visual personalities.</p>
+
+  <div class="grid">
+    <a class="card" href="01-ios-light.html">
+      <div class="swatch s1"><span class="tagn">Direction 01</span><div class="dots"><span class="dot" style="background:#f7f7fb"></span><span class="dot" style="background:#e8772e"></span><span class="dot" style="background:#10b981"></span></div></div>
+      <div class="cbody">
+        <h3 class="ctitle">iOS HIG Light</h3>
+        <p class="cdesc">Clean white, large-title headers, grouped lists, system materials. Apple-native and restrained — orange only as an accent. Feels like Things / Fantastical.</p>
+        <span class="open">Open preview →</span>
+      </div>
+    </a>
+
+    <a class="card" href="02-field-bold.html">
+      <div class="swatch s2"><span class="tagn">Direction 02</span><div class="dots"><span class="dot" style="background:#0f1225"></span><span class="dot" style="background:#e8772e"></span><span class="dot" style="background:#ef4444"></span></div></div>
+      <div class="cbody">
+        <h3 class="ctitle">Field-Ready Bold</h3>
+        <p class="cdesc">Navy chrome, high-contrast, big tap targets and glanceable status spines. Built for gloves, sunlight and outdoors. Confident, rugged, premium.</p>
+        <span class="open">Open preview →</span>
+      </div>
+    </a>
+
+    <a class="card" href="03-vibrant-cards.html">
+      <div class="swatch s3"><span class="tagn">Direction 03</span><div class="dots"><span class="dot" style="background:#fff"></span><span class="dot" style="background:#fff4ec"></span><span class="dot" style="background:#6366f1"></span></div></div>
+      <div class="cbody">
+        <h3 class="ctitle">Vibrant Cards</h3>
+        <p class="cdesc">Warm gradient hero, rounded cards, soft shadows and a floating tab pill. Orange-forward with a little personality. Modern SaaS-mobile, friendly.</p>
+        <span class="open">Open preview →</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="trade">
+    <h2>Tradeoffs at a glance</h2>
+    <table>
+      <tr><td>01 · iOS Light</td>
+        <td><span class="pro">+ Most native, ages well, lowest build risk, accessible contrast.</span><br>
+            <span class="con">− Least distinctive; brand recedes; can read as "plain".</span></td></tr>
+      <tr><td>02 · Field Bold</td>
+        <td><span class="pro">+ Best glanceability outdoors, large targets for gloves, strongest brand chrome.</span><br>
+            <span class="con">− Heavy/dark all-over; least "iOS-stock"; dark UI needs care for long sessions.</span></td></tr>
+      <tr><td>03 · Vibrant Cards</td>
+        <td><span class="pro">+ Friendliest, most memorable, great for onboarding & marketing screenshots.</span><br>
+            <span class="con">− Gradients & shadows can feel busy; furthest from HIG; more design upkeep.</span></td></tr>
+    </table>
+    <p class="foot"><b>Recommendation:</b> 01 is the safe, native default the design review pushed toward (large titles, reduced navy, brand-as-accent). 02 wins if field conditions (sunlight, gloves) dominate. A strong hybrid: ship <b>01's structure</b> (large titles, grouped lists, neutral chrome) with <b>02's bigger action row + status spines</b> on the Job Detail hero, borrowing 03's warmth only on the Today greeting.</p>
+  </div>
+</div>
+</body>
+</html>

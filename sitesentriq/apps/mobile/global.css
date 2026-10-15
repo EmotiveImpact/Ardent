@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+@import 'uniwind';
+@import 'heroui-native/styles';
+
+/* REQUIRED: tell uniwind/Tailwind to scan heroui-native's compiled lib so the
+   utility classes its components reference internally (bg-accent, h-12,
+   rounded-3xl, …) are actually GENERATED. Without this, HeroUI components apply
+   classNames that have no matching CSS rule → they render unstyled/transparent
+   (e.g. primary Buttons had no background fill at all). heroui-native is hoisted
+   to the monorepo root node_modules, hence ../../ . */
+@source '../../node_modules/heroui-native/lib';
+
+/* Haumea brand: HeroUI's semantic `accent` = brand orange #e8772e so primary
+   Buttons/Chips render on-brand. Other brand colors (navy chrome, status
+   colors) are applied per-element via className arbitrary values / style.
+
+   CRITICAL: heroui-native defines --accent under `:root { @variant light/dark {…} }`
+   (variables.css) and bakes bg-accent at compile time via `@theme inline static`
+   (theme.css). A bare `:root { --accent }` override does NOT match that scope, so it
+   never lands on the compiled bg-accent — leaving every primary Button HeroUI BLUE.
+   The override MUST mirror heroui's exact @variant scope to win. Both light + dark
+   are required because heroui sets --accent in both. */
+@layer theme {
+  :root {
+    @variant light {
+      --accent: oklch(0.703 0.158 49.4); /* brand orange #e8772e */
+      --accent-foreground: oklch(0.99 0 0);
+    }
+    @variant dark {
+      --accent: oklch(0.703 0.158 49.4); /* brand orange #e8772e */
+      --accent-foreground: oklch(0.99 0 0);
+    }
+  }
+}

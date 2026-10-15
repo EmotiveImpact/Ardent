@@ -1,0 +1,125 @@
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.public-job-eta]
+verify_jwt = false
+
+[functions.public-job-eta-ics]
+verify_jwt = false
+
+[functions.public-trust-score]
+verify_jwt = false
+
+[functions.calendar-feed]
+verify_jwt = false
+
+[functions.site-accept-invite]
+verify_jwt = false
+
+[functions.slack-oauth]
+verify_jwt = false
+
+[functions.xero-oauth]
+verify_jwt = false
+
+[functions.quickbooks-oauth]
+verify_jwt = false
+
+[functions.check-deploy-status]
+verify_jwt = false
+
+[functions.audit-export]
+verify_jwt = true
+
+[functions.gdpr-export]
+verify_jwt = true
+
+[functions.gdpr-delete]
+verify_jwt = true
+
+[functions.ai-suggest-compliance]
+verify_jwt = true
+
+[functions.auto-assign-job]
+verify_jwt = true
+
+[functions.generate-certificate]
+verify_jwt = true
+
+[functions.generate-statement-of-compliance]
+verify_jwt = true
+
+[functions.generate-tender-pack]
+verify_jwt = true
+
+[functions.compute-compliance-scores]
+verify_jwt = true
+
+[functions.google-calendar-sync]
+verify_jwt = true
+
+[functions.integrations-health]
+verify_jwt = true
+
+[functions.job-completion-email]
+verify_jwt = true
+
+[functions.notify-renewals]
+verify_jwt = true
+
+[functions.quickbooks-push-invoice]
+verify_jwt = true
+
+[functions.portal-callout-notify]
+verify_jwt = true
+
+[functions.run-report]
+verify_jwt = true
+
+[functions.run-scheduled-reports]
+verify_jwt = true
+
+[functions.send-email]
+verify_jwt = true
+
+[functions.send-expo-push]
+verify_jwt = true
+
+[functions.send-push]
+verify_jwt = true
+
+[functions.site-invite]
+verify_jwt = true
+
+[functions.slack-post-notification]
+verify_jwt = true
+
+[functions.sso-jit-provision]
+verify_jwt = true
+
+[functions.stripe-checkout]
+verify_jwt = true
+
+[functions.stripe-portal]
+verify_jwt = true
+
+[functions.weekly-digest]
+verify_jwt = true
+
+[functions.xero-push-invoice]
+verify_jwt = true
+
+[functions.trust-subscribe]
+verify_jwt = false
+
+[functions.notify-trust-subscribers]
+verify_jwt = true
+
+[functions.invite-team-member]
+verify_jwt = true
+
+[functions.subcontractor-job]
+verify_jwt = false
+
+[functions.building-pack-export]
+verify_jwt = true

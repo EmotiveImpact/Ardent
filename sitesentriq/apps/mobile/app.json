@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "Haumea",
+    "slug": "haumea",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "haumea",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f1225"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.haumea.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Haumea uses your location to record job check-in and check-out GPS coordinates.",
+        "NSCameraUsageDescription": "Haumea needs camera access to capture job photos.",
+        "NSPhotoLibraryUsageDescription": "Haumea needs photo library access to attach images to jobs.",
+        "NSMicrophoneUsageDescription": "Haumea needs microphone access for video recordings."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f1225"
+      },
+      "package": "com.haumea.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Haumea needs location to record job check-in/out coordinates."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Haumea to access your photos for job documentation."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#e8772e"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Haumea to use the camera for job photos."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

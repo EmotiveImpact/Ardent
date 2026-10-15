@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Haumea</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-background text-foreground">
+    <script>
+      // Apply saved theme instantly to prevent flash
+      (function(){
+        // Default theme is light; users can opt into dark/midnight/glass/luxe
+        // via Settings → Appearance. The localStorage value persists across
+        // visits.
+        var t = localStorage.getItem('haumea_theme') || 'light';
+        var dark = t !== 'light';
+        if (t === 'system') dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', t === 'system' ? (dark ? 'dark' : 'light') : t);
+        document.documentElement.classList.add(dark ? 'dark' : 'light');
+      })();
+    </script>
+    <script>
+      // ─── Wave 17 perf — one-time service-worker eviction ───
+      // The PWA shipped with registerType:'prompt' for several weeks.
+      // Users who never clicked the update prompt are stuck on a
+      // stale bundle, including the realtime/cache/auth fixes that
+      // make live updates work. We bumped to autoUpdate, but the OLD
+      // SW intercepts navigation and serves the OLD bundle which
+      // STILL has registerType:'prompt' — chicken-and-egg.
+      //
+      // Solution: this inline kick runs from the HTML (which is
+      // network-first), unregisters the legacy SW once, and bumps a
+      // localStorage flag so we don't keep doing it. After this fires
+      // once, the new SW with autoUpdate takes over and future deploys
+      // ship cleanly.
+      //
+      // SAFE TO REMOVE this <script> after ~2 weeks (when all returning
+      // users have bypassed the old SW at least once).
+      (function(){
+        try {
+          var EVICT_KEY = 'haumea_sw_evicted_v1';
+          var LOCAL_DEV = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(location.hostname);
+          if (LOCAL_DEV && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs){
+              var hadOne = regs.length > 0;
+              return Promise.all(regs.map(function(r){ return r.unregister(); }))
+                .then(function(){
+                  if (window.caches && caches.keys) {
+                    caches.keys().then(function(keys){
+                      keys.forEach(function(k){ caches.delete(k); });
+                    });
+                  }
+                  if (hadOne) window.location.reload();
+                });
+            }).catch(function(){});
+            return;
+          }
+          if (localStorage.getItem(EVICT_KEY) === '1') return;
+          if (!('serviceWorker' in navigator)) return;
+          navigator.serviceWorker.getRegistrations().then(function(regs){
+            var hadOne = regs.length > 0;
+            return Promise.all(regs.map(function(r){ return r.unregister(); }))
+              .then(function(){
+                // Also evict any IndexedDB query cache so we don't render
+                // stale persisted data after the SW is gone.
+                if (window.indexedDB && indexedDB.deleteDatabase) {
+                  try { indexedDB.deleteDatabase('keyval-store'); } catch(e){}
+                }
+                localStorage.setItem(EVICT_KEY, '1');
+                if (hadOne) {
+                  // Force a fresh navigation so the new bundle loads
+                  // without the legacy SW intercepting it.
+                  // eslint-disable-next-line no-console
+                  console.log('[boot] evicted legacy service worker — reloading once');
+                  window.location.reload();
+                }
+              });
+          }).catch(function(e){
+            // eslint-disable-next-line no-console
+            console.warn('[boot] SW eviction skipped:', e && e.message);
+          });
+        } catch (e) { /* ignore — boot must never crash */ }
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

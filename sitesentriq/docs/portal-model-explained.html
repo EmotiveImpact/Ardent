@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Haumea — Who sees what? (Portal & Client model explained)</title>
+<style>
+  :root{
+    --navy:#0f1225; --brand:#e8772e; --brand-d:#cf6520; --page:#f5f7fa;
+    --card:#ffffff; --border:#e6e9ef; --text:#0f172a; --muted:#64748b;
+    --ok:#10b981; --bad:#ef4444; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--page);color:var(--text);line-height:1.55}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 24px 80px}
+  header.hero{background:var(--navy);color:#fff;border-radius:18px;padding:34px 32px;margin-bottom:32px}
+  header.hero .mark{display:inline-flex;align-items:center;gap:12px;margin-bottom:14px}
+  header.hero .mark .tile{width:34px;height:34px;border-radius:8px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--navy)}
+  header.hero .mark .word{letter-spacing:3px;font-weight:200;font-size:18px;text-transform:uppercase}
+  header.hero h1{margin:.2em 0 .3em;font-size:26px;letter-spacing:-.02em}
+  header.hero p{margin:0;color:#c9cede;font-size:15px}
+  h2{font-size:20px;letter-spacing:-.01em;margin:38px 0 8px;display:flex;align-items:center;gap:10px}
+  h2 .n{width:26px;height:26px;border-radius:7px;background:var(--brand);color:#fff;font-size:14px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin:14px 0}
+  .lead{color:var(--muted);font-size:15px;margin:.2em 0 1em}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.brand{background:rgba(232,119,46,.12);color:var(--brand-d)}
+  .pill.ok{background:rgba(16,185,129,.13);color:#0a7a55}
+  .pill.bad{background:rgba(239,68,68,.12);color:#b91c1c}
+  .pill.navy{background:rgba(15,18,37,.08);color:var(--navy)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f8fafc}
+  code{background:#f1f5f9;border-radius:5px;padding:1px 6px;font-size:13px;color:#0f172a}
+  .key{display:flex;gap:18px;flex-wrap:wrap;margin:10px 0 2px;font-size:13px;color:var(--muted)}
+  .key span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .callout{border-left:4px solid var(--brand);background:#fff7f0;border-radius:0 10px 10px 0;padding:14px 18px;margin:14px 0}
+  .callout.bad{border-color:var(--bad);background:#fef2f2}
+  .callout.ok{border-color:var(--ok);background:#f0fdf8}
+  .q{font-weight:700;color:var(--navy)}
+  svg{max-width:100%;height:auto;display:block}
+  .small{font-size:13px;color:var(--muted)}
+  ul{margin:.4em 0 .2em;padding-left:1.2em}
+  li{margin:.25em 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="mark"><div class="tile">H</div><div class="word">Haumea</div></div>
+    <h1>Who sees what? The platform, the operator, and their clients</h1>
+    <p>A plain-English + visual answer to: what is a “client”, who logs into the portal, where the security gap is, and why we’re binding each portal login to one client.</p>
+  </header>
+
+  <!-- 1. THE THREE LAYERS -->
+  <h2><span class="n">1</span> Three layers: the platform, your customer, and their customers</h2>
+  <p class="lead">The word “client” is overloaded, so here is exactly who is who in Haumea.</p>
+  <div class="card">
+    <svg viewBox="0 0 920 360" role="img" aria-label="Three-layer hierarchy diagram">
+      <!-- Layer 1: Platform -->
+      <rect x="20" y="20" width="880" height="60" rx="12" fill="#0f1225"/>
+      <text x="40" y="46" fill="#e8772e" font-size="13" font-weight="700" font-family="sans-serif">LAYER 1 — THE PLATFORM</text>
+      <text x="40" y="66" fill="#c9cede" font-size="14" font-family="sans-serif">Haumea (you). You sell the software. Your paying customers are FM operators.</text>
+
+      <!-- arrow -->
+      <line x1="460" y1="80" x2="460" y2="104" stroke="#94a3b8" stroke-width="2"/>
+      <polygon points="460,112 455,102 465,102" fill="#94a3b8"/>
+
+      <!-- Layer 2: Operator / organisation -->
+      <rect x="20" y="114" width="880" height="74" rx="12" fill="#fff" stroke="#e6e9ef"/>
+      <text x="40" y="140" fill="#cf6520" font-size="13" font-weight="700" font-family="sans-serif">LAYER 2 — THE FM OPERATOR  =  organisation  (this is who PAYS Haumea)</text>
+      <text x="40" y="162" fill="#0f172a" font-size="14" font-family="sans-serif">e.g. “Apex Facilities Ltd” — a facilities-management company. In the DB this is one</text>
+      <text x="40" y="180" fill="#0f172a" font-size="14" font-family="sans-serif"><tspan font-family="monospace" fill="#b45309">organisations</tspan> row. ALL their staff + data hang off its <tspan font-family="monospace" fill="#b45309">organisation_id</tspan>.</text>
+
+      <!-- arrows to 3 clients -->
+      <line x1="460" y1="188" x2="460" y2="206" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="160" y1="206" x2="760" y2="206" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="160" y1="206" x2="160" y2="222" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="460" y1="206" x2="460" y2="222" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="760" y1="206" x2="760" y2="222" stroke="#94a3b8" stroke-width="2"/>
+
+      <!-- Layer 3: clients -->
+      <text x="40" y="246" fill="#64748b" font-size="13" font-weight="700" font-family="sans-serif">LAYER 3 — THE OPERATOR’S CLIENTS  =  clients  (the operator’s OWN customers)</text>
+      <rect x="40" y="256" width="240" height="84" rx="10" fill="#fff7f0" stroke="#e8772e"/>
+      <text x="56" y="282" fill="#0f172a" font-size="14" font-weight="700" font-family="sans-serif">Client A — “Acme Retail”</text>
+      <text x="56" y="304" fill="#64748b" font-size="12.5" font-family="sans-serif">5 shops (properties)</text>
+      <text x="56" y="322" fill="#64748b" font-size="12.5" font-family="sans-serif">their own quotes &amp; invoices</text>
+
+      <rect x="340" y="256" width="240" height="84" rx="10" fill="#fff7f0" stroke="#e8772e"/>
+      <text x="356" y="282" fill="#0f172a" font-size="14" font-weight="700" font-family="sans-serif">Client B — “Beta Offices”</text>
+      <text x="356" y="304" fill="#64748b" font-size="12.5" font-family="sans-serif">2 office blocks</text>
+      <text x="356" y="322" fill="#64748b" font-size="12.5" font-family="sans-serif">their own quotes &amp; invoices</text>
+
+      <rect x="640" y="256" width="240" height="84" rx="10" fill="#fff7f0" stroke="#e8772e"/>
+      <text x="656" y="282" fill="#0f172a" font-size="14" font-weight="700" font-family="sans-serif">Client C — “Gamma Care”</text>
+      <text x="656" y="304" fill="#64748b" font-size="12.5" font-family="sans-serif">3 care homes</text>
+      <text x="656" y="322" fill="#64748b" font-size="12.5" font-family="sans-serif">their own quotes &amp; invoices</text>
+    </svg>
+  </div>
+
+  <div class="callout">
+    <p class="q">So “client” = which one?</p>
+    <p style="margin:.3em 0 0">A <strong>client is the customer of your customer</strong> — i.e. the customer of the platform’s customer.
+    Haumea’s paying customer is the <strong>FM operator</strong> (the <code>organisation</code>). That operator does facilities
+    work for several <strong>clients</strong> (Acme, Beta, Gamma). Those clients are <em>not</em> Haumea’s customers — they’re the operator’s.</p>
+  </div>
+
+  <!-- 2. WHO LOGS IN -->
+  <h2><span class="n">2</span> Who logs in, and what they’re meant to see</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Login type (role)</th><th>Who they are</th><th>Should see</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill navy">staff</span><br><span class="small">org_admin, scheduler, finance, engineer…</span></td>
+            <td>Employees of the FM operator (Apex)</td>
+            <td><strong>Everything in their organisation</strong> — all clients, all properties, all jobs. This is correct.</td></tr>
+        <tr><td><span class="pill brand">client_admin</span></td>
+            <td>A person at <em>one of the operator’s clients</em> (e.g. the facilities manager at Acme Retail)</td>
+            <td><strong>Only their own client’s</strong> properties, compliance, visits, quotes &amp; invoices — via the <code>/portal</code> Client Hub.</td></tr>
+        <tr><td><span class="pill navy">tenant_user</span></td>
+            <td>A single-site contact (e.g. the manager of one Acme shop)</td>
+            <td>Only their <strong>one property</strong> — via <code>/site</code>. (This one is already correctly locked down.)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 3. THE BUG -->
+  <h2><span class="n">3</span> The security gap we found</h2>
+  <p class="lead">Today, a <span class="pill brand">client_admin</span> is scoped only to the <em>organisation</em> — not to their client. So Acme’s manager can see Beta’s and Gamma’s data too.</p>
+  <div class="card">
+    <div class="key">
+      <span><span class="dot" style="background:var(--ok)"></span> allowed / correct</span>
+      <span><span class="dot" style="background:var(--bad)"></span> leaked / should be blocked</span>
+    </div>
+    <svg viewBox="0 0 920 250" role="img" aria-label="Data leak diagram">
+      <!-- actor -->
+      <rect x="20" y="95" width="220" height="60" rx="10" fill="#fff7f0" stroke="#e8772e"/>
+      <text x="34" y="120" fill="#0f172a" font-size="13.5" font-weight="700" font-family="sans-serif">Jane @ Acme Retail</text>
+      <text x="34" y="140" fill="#64748b" font-size="12.5" font-family="sans-serif">role: client_admin · /portal</text>
+
+      <!-- three client data stores -->
+      <rect x="640" y="20" width="260" height="56" rx="10" fill="#f0fdf8" stroke="#10b981"/>
+      <text x="656" y="44" fill="#0a7a55" font-size="13.5" font-weight="700" font-family="sans-serif">Acme data (her own)</text>
+      <text x="656" y="63" fill="#0a7a55" font-size="12" font-family="sans-serif">invoices, quotes, properties ✓</text>
+
+      <rect x="640" y="97" width="260" height="56" rx="10" fill="#fef2f2" stroke="#ef4444"/>
+      <text x="656" y="121" fill="#b91c1c" font-size="13.5" font-weight="700" font-family="sans-serif">Beta data (NOT hers)</text>
+      <text x="656" y="140" fill="#b91c1c" font-size="12" font-family="sans-serif">visible today — should be blocked ✗</text>
+
+      <rect x="640" y="174" width="260" height="56" rx="10" fill="#fef2f2" stroke="#ef4444"/>
+      <text x="656" y="198" fill="#b91c1c" font-size="13.5" font-weight="700" font-family="sans-serif">Gamma data (NOT hers)</text>
+      <text x="656" y="217" fill="#b91c1c" font-size="12" font-family="sans-serif">visible today — should be blocked ✗</text>
+
+      <!-- arrows -->
+      <line x1="240" y1="120" x2="636" y2="48" stroke="#10b981" stroke-width="2.5"/>
+      <polygon points="636,48 626,46 629,57" fill="#10b981"/>
+      <line x1="240" y1="125" x2="636" y2="125" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="6 4"/>
+      <polygon points="636,125 626,120 626,130" fill="#ef4444"/>
+      <line x1="240" y1="130" x2="636" y2="202" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="6 4"/>
+      <polygon points="636,202 629,193 626,204" fill="#ef4444"/>
+    </svg>
+    <p class="small" style="margin-top:8px">Why: the database rule (RLS) on quotes/invoices/properties says only <code>organisation_id = my org</code>. Jane’s org <em>is</em> Apex (the operator), the same org Beta &amp; Gamma sit under — so the rule lets her through. There is no “…and only <em>my client</em>” part, because a portal user isn’t tied to a client at all yet.</p>
+  </div>
+
+  <!-- 4. THE FIX -->
+  <h2><span class="n">4</span> The fix — bind each portal login to one client (Model 1)</h2>
+  <div class="card">
+    <p style="margin-top:0">We add one column — <code>profiles.client_id</code> — so each <span class="pill brand">client_admin</span> points at exactly one client. Then the rule becomes
+    “<code>my org</code> <strong>AND</strong> <code>row.client_id = my client</code>”.</p>
+    <svg viewBox="0 0 920 150" role="img" aria-label="Fixed scoping diagram">
+      <rect x="20" y="45" width="220" height="60" rx="10" fill="#fff7f0" stroke="#e8772e"/>
+      <text x="34" y="70" fill="#0f172a" font-size="13.5" font-weight="700" font-family="sans-serif">Jane @ Acme Retail</text>
+      <text x="34" y="90" fill="#64748b" font-size="12" font-family="monospace">client_id = Acme</text>
+
+      <rect x="640" y="12" width="260" height="40" rx="9" fill="#f0fdf8" stroke="#10b981"/>
+      <text x="656" y="37" fill="#0a7a55" font-size="13" font-weight="700" font-family="sans-serif">Acme data ✓</text>
+      <rect x="640" y="58" width="260" height="40" rx="9" fill="#f8fafc" stroke="#e6e9ef"/>
+      <text x="656" y="83" fill="#94a3b8" font-size="13" font-family="sans-serif">Beta data — blocked 🔒</text>
+      <rect x="640" y="104" width="260" height="40" rx="9" fill="#f8fafc" stroke="#e6e9ef"/>
+      <text x="656" y="129" fill="#94a3b8" font-size="13" font-family="sans-serif">Gamma data — blocked 🔒</text>
+
+      <line x1="240" y1="72" x2="636" y2="32" stroke="#10b981" stroke-width="2.5"/>
+      <polygon points="636,32 626,30 629,41" fill="#10b981"/>
+    </svg>
+    <p class="small" style="margin:6px 0 0">Staff logins are unaffected — the “only my client” part only applies to <code>client_admin</code>. Everyone else keeps the full org view.</p>
+  </div>
+
+  <div class="callout ok">
+    <p class="q" style="color:#0a7a55">Why Model 1 (one client per user) and not Model 2?</p>
+    <p style="margin:.3em 0 0">Model 2 (one login can manage <em>several</em> clients) only earns its extra complexity — a join table + a client-switcher in the UI + more intricate rules — if you genuinely have <strong>managing agents</strong>: one person who administers Acme <em>and</em> Beta <em>and</em> Gamma. For a standard portal where each customer org has its own login, Model 1 is simpler, safer, and you can upgrade to Model 2 later <em>without</em> redoing the work. <strong>Unless you know you have multi-client agents, Model 1 is the right call.</strong></p>
+  </div>
+
+  <!-- 5. BACKFILL -->
+  <h2><span class="n">5</span> What “backfill” means (and why I asked)</h2>
+  <div class="card">
+    <p style="margin-top:0">When we turn on the rule “you only see <em>your</em> client’s data”, every existing <span class="pill brand">client_admin</span> login needs to already know <strong>which client it belongs to</strong> (its <code>client_id</code>). If a login’s <code>client_id</code> is blank when the rule goes live, the rule blocks <em>everything</em> for them — they’d be locked out of their own data.</p>
+    <p style="margin:.6em 0 0"><strong>“Backfill”</strong> = filling in that <code>client_id</code> for the logins that <em>already exist</em> in the live database, before the rule switches on. Three situations:</p>
+    <ul>
+      <li><span class="pill ok">No client_admins live yet</span> — the Client Hub isn’t in real use with customer logins, so there’s nothing to fill in. We ship the column + rule and it’s enforced from the first portal user you ever create. <span class="small">(For an MVP this is usually the case.)</span></li>
+      <li><span class="pill navy">You provide the mapping</span> — there ARE real portal logins; you tell me “jane@acme.com → Acme, sam@beta.com → Beta” and I bake that into the change so nobody loses access.</li>
+      <li><span class="pill navy">Infer by email domain</span> — I best-effort match each login to a client by email domain, for you to check before it runs.</li>
+    </ul>
+    <p class="small" style="margin:.6em 0 0">That’s the whole question: “for the portal logins that already exist, who belongs to whom?” If none exist yet, the answer is simply <em>“none — ship it.”</em></p>
+  </div>
+
+  <!-- 6. BILLING -->
+  <h2><span class="n">6</span> Billing — your question about charging per client</h2>
+  <div class="card">
+    <p style="margin-top:0">Two different money flows, don’t mix them up:</p>
+    <table>
+      <thead><tr><th>Money flow</th><th>Who pays whom</th><th>Where in Haumea</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Operator → their clients</strong></td>
+            <td>Apex invoices Acme/Beta/Gamma for the facilities work it does (call-outs, PPM, repairs).</td>
+            <td>The <code>quotes</code> &amp; <code>invoices</code> features. Yes — <strong>the operator invoices their clients</strong>, exactly as you guessed.</td></tr>
+        <tr><td><strong>You → the operator</strong></td>
+            <td>Apex pays Haumea a subscription to use the platform.</td>
+            <td>The Stripe integration (<code>stripe-webhook</code>, <code>subscriptions</code>) — billed <strong>per organisation</strong>, i.e. one subscription per FM operator.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <p class="q">“Do we charge per client they add?”</p>
+      <p style="margin:.3em 0 0">That’s a <strong>pricing-model decision you own</strong> — not something the code forces. <strong>Today the subscription is per-operator (per organisation), not per client.</strong> Adding a client doesn’t change what they pay Haumea. If you <em>want</em> per-client (or per-property, or per-seat) pricing, that’s a deliberate product change we’d build on top — it isn’t wired in now, and the RLS fix above doesn’t depend on it either way. Worth deciding separately from the security fix.</p>
+    </div>
+  </div>
+
+  <div class="callout ok">
+    <p class="q" style="color:#0a7a55">Recap — what I need from you to ship the fix safely</p>
+    <ul style="margin:.4em 0 0">
+      <li><strong>Model:</strong> Model 1 (one client per user) unless you have multi-client managing agents.</li>
+      <li><strong>Backfill:</strong> are there real <code>client_admin</code> logins live yet? If no → “ship it”. If yes → give me the email→client list.</li>
+      <li><strong>Apply:</strong> you said prep + double-check — I’ll write the migration &amp; defence-in-depth code and hand it to you to run after review. ✅</li>
+    </ul>
+  </div>
+
+  <p class="small" style="margin-top:30px">Generated for the SiteSentriq/Haumea repo · docs/portal-model-explained.html</p>
+</div>
+</body>
+</html>

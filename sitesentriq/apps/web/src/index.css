@@ -1,0 +1,858 @@
+@import "tailwindcss";
+
+/* Scan the shared @haumea/ui component package for class names. It's symlinked
+   under node_modules (workspace), which Tailwind ignores by default — without
+   this, arbitrary utilities used only inside the package (e.g. the Button/Chip/
+   overlay variants: bg-[var(--danger)], bg-[var(--backdrop)], status-* tints)
+   are never generated and those styles silently vanish. */
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  /* ─────────────────────────────────────────────
+     Typography scale — six steps.
+
+     Locks in the size vocabulary used by <Heading> and <Text> primitives
+     in `@haumea/ui`. Replaces 350+ ad-hoc `text-[Npx]` declarations that
+     accumulated across detail pages.
+
+       display  → hero numbers (e.g. compliance score 80px)
+       headline → top-of-page titles (~28px) — also the size <PageHeader>
+                  upgrades to once the codemod sweep lands.
+       title    → section / card titles (~20px)
+       body     → default paragraph copy (14px)
+       caption  → metadata, helper text (12px)
+       micro    → badge / chip labels (11px)
+
+     Pixel-fixed for v1 — promote to clamp() later if we want responsive
+     fluid scaling. Tailwind picks these up as `text-display`, `text-headline`,
+     etc. via the v4 `--text-*` token convention.
+     ───────────────────────────────────────────── */
+  --text-display: 80px;
+  --text-headline: 28px;
+  --text-title: 20px;
+  --text-body: 14px;
+  --text-label: 13px;
+  --text-caption: 12px;
+  --text-micro: 11px;
+
+  /* Brand — warm orange accent */
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #f0944a;
+  --color-brand-500: #e8772e;
+  --color-brand-600: #d06420;
+  --color-brand-700: #b85518;
+  --color-brand-800: #944516;
+  --color-brand-900: #7a3a15;
+  --color-brand-950: #421c09;
+
+  /* Navy — dark surfaces & depth */
+  --color-navy-50: #e8e8f0;
+  --color-navy-100: #c8c8d8;
+  --color-navy-200: #9898b0;
+  --color-navy-300: #707090;
+  --color-navy-400: #505070;
+  --color-navy-500: #3a3a58;
+  --color-navy-600: #2a2a44;
+  --color-navy-700: #202038;
+  --color-navy-800: #18182c;
+  --color-navy-900: #12121f;
+  --color-navy-950: #08080f;
+
+  /* Status — clear signals on dark backgrounds */
+  --color-status-compliant: #22c55e;
+  --color-status-due-soon: #f59e0b;
+  --color-status-overdue: #ef4444;
+  --color-status-non-compliant: #dc2626;
+
+  /* Metric accent colors */
+  --color-metric-green: #22c55e;
+  --color-metric-teal: #3b82f6;
+  --color-metric-amber: #e8772e;
+  --color-metric-rose: #f43f5e;
+  --color-metric-violet: #8b5cf6;
+
+  /* Default surfaces (dark theme — overridden per theme below) */
+  --color-surface-page: #0d0d15;
+  --color-surface-card: #1a1a2e;
+  --color-surface-sidebar: #0a0a12;
+  --color-surface-elevated: #252540;
+
+  /* Default borders */
+  --color-border-default: #2a2a40;
+  --color-border-subtle: #1f1f35;
+  --color-border-strong: #3a3a55;
+
+  /* Default text colors */
+  --color-text-primary: #f0f0f5;
+  --color-text-secondary: #a0a0b8;
+  --color-text-muted: #606078;
+  --color-text-accent: #e8772e;
+
+  /* Glass effects */
+  --card-backdrop: none;
+  --card-border-opacity: 1;
+  --card-bg-opacity: 1;
+
+  /* ─────────────────────────────────────────────
+     HeroUI v3 semantic-token bridge (defaults)
+     Each `:root[data-theme="X"]` block below sets
+     concrete values; these defaults map onto the
+     existing internal tokens so anything that ends
+     up rendered before a theme is resolved still
+     reads sensible values.
+     ───────────────────────────────────────────── */
+
+  /* HeroUI v3 base constants */
+  --white: #ffffff;
+  --black: #000000;
+  --snow: #f8fafc;
+  --eclipse: #08080f;
+
+  /* Backgrounds & surfaces */
+  --background: var(--color-surface-page);
+  --foreground: var(--color-text-primary);
+  --surface: var(--color-surface-card);
+  --surface-foreground: var(--color-text-primary);
+  --overlay: var(--color-surface-elevated);
+  --overlay-foreground: var(--color-text-primary);
+
+  /* Brand / accent */
+  --accent: var(--color-brand-500);
+  --accent-foreground: #ffffff;
+  --accent-soft: var(--color-brand-100);
+  --accent-soft-foreground: var(--color-brand-900);
+
+  /* Expose accent as Tailwind COLOR utilities. Without these, `text-accent`,
+     `ring-accent/20`, `border-accent/40`, `bg-accent-soft` etc. (~200 usages)
+     are invalid classes — accent text fell back to currentColor and focus
+     rings rendered as a thick dark (currentColor) ring instead of subtle navy.
+     Aliased to the per-theme --accent vars so they stay theme-aware. */
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-foreground: var(--accent-soft-foreground);
+  /* Same gap for these foreground tokens: text-muted-foreground (×3) and
+     text-overlay-foreground (tooltip) were invalid and fell back to
+     currentColor. */
+  --color-muted-foreground: var(--muted-foreground);
+  --color-overlay-foreground: var(--overlay-foreground);
+  /* `bg-foreground text-background` is the inverted-element pattern (dark pill /
+     avatar with light text — bulk-action bar, avatars). Both were unregistered
+     so the dark background never applied. Theme-aware via --foreground/--background. */
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  /* Status */
+  --success: var(--color-status-compliant);
+  --success-foreground: #ffffff;
+  --warning: var(--color-status-due-soon);
+  --warning-foreground: #111827;
+  --danger: var(--color-status-overdue);
+  --danger-foreground: #ffffff;
+
+  /* Form fields */
+  --field-background: var(--color-surface-card);
+  --field-foreground: var(--color-text-primary);
+  --field-placeholder: var(--color-text-muted);
+  --field-border: var(--color-border-default);
+
+  /* Structural */
+  --default: var(--color-surface-elevated);
+  --default-foreground: var(--color-text-primary);
+  --muted: var(--color-text-muted);
+  --muted-foreground: var(--color-text-secondary);
+  --border: var(--color-border-default);
+  --separator: var(--color-border-default);
+  --focus: var(--color-brand-500);
+  --link: var(--color-brand-500);
+  --backdrop: rgba(0, 0, 0, 0.5);
+  --scrollbar: var(--color-border-default);
+}
+
+/* ═══════════════════════════════════════════
+   THEME: Light — Clean professional
+   ═══════════════════════════════════════════ */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-surface-page: #f4f5f7;
+  --color-surface-card: #ffffff;
+  --color-surface-sidebar: #1b1f2e;
+  --color-surface-elevated: #f9fafb;
+  --color-border-default: #e2e5ea;
+  --color-border-subtle: #f0f1f3;
+  --color-border-strong: #cdd1d8;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #9ca3af;
+  --color-text-accent: #d06420;
+  /* HeroUI v3 semantic tokens.
+     `--accent` paints primary buttons / focus rings / interactive
+     emphasis. The user wants primary CTAs to match the sidebar's
+     dark navy in the light theme — so accent flips to #1b1f2e here.
+     Orange `--color-text-accent` and `--link` are kept separate so
+     headline accents and links stay warm. */
+  --background: #f4f5f7;
+  --foreground: #111827;
+  --surface: #ffffff;
+  --surface-foreground: #111827;
+  --overlay: #ffffff;
+  --overlay-foreground: #111827;
+  --default: #f0f1f3;
+  --default-foreground: #111827;
+  --accent: #1b1f2e;
+  --accent-foreground: #ffffff;
+  --accent-soft: #e8eaf0;
+  --accent-soft-foreground: #1b1f2e;
+  --muted: #9ca3af;
+  --muted-foreground: #4b5563;
+  --border: #e2e5ea;
+  --separator: #e2e5ea;
+  --focus: #1b1f2e;
+  --link: #d06420;
+  --backdrop: rgba(17, 24, 39, 0.45);
+  --scrollbar: #cdd1d8;
+  --field-background: #ffffff;
+  --field-foreground: #111827;
+  --field-placeholder: #9ca3af;
+  --field-border: #e2e5ea;
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #111827;
+  --danger: #ef4444;
+  --danger-foreground: #ffffff;
+  --surface-shadow: 0 2px 4px 0 rgba(0,0,0,0.04), 0 1px 2px 0 rgba(0,0,0,0.06);
+  --overlay-shadow: 0 4px 16px 0 rgba(24,24,27,0.08), 0 8px 24px 0 rgba(24,24,27,0.09);
+  /* Fields are FLAT (crisp border, no resting shadow) — see docs/DESIGN.md.
+     Only cards/overlays/buttons carry a shadow, so fields read distinctly and
+     there's no muddy shadow-on-shadow inside cards. Matches the dark themes,
+     which were already flat — fixes the cross-theme input inconsistency. */
+  --field-shadow: none;
+}
+
+/* ═══════════════════════════════════════════
+   THEME: Dark — Refined minimal
+   ═══════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-surface-page: #0f1015;
+  --color-surface-card: #191a24;
+  --color-surface-sidebar: #0b0c10;
+  --color-surface-elevated: #22232f;
+  --color-border-default: #262736;
+  --color-border-subtle: #1d1e2a;
+  --color-border-strong: #33344a;
+  --color-text-primary: #eaeaf0;
+  --color-text-secondary: #8b8da0;
+  --color-text-muted: #555668;
+  --color-text-accent: #e8772e;
+  /* HeroUI v3 semantic tokens */
+  --background: #0f1015;
+  --foreground: #eaeaf0;
+  --surface: #191a24;
+  --surface-foreground: #eaeaf0;
+  --overlay: #22232f;
+  --overlay-foreground: #eaeaf0;
+  --default: #262736;
+  --default-foreground: #eaeaf0;
+  --accent: #e8772e;
+  --accent-foreground: #ffffff;
+  --accent-soft: #421c09;
+  --accent-soft-foreground: #fed7aa;
+  --muted: #555668;
+  --muted-foreground: #8b8da0;
+  --border: #262736;
+  --separator: #262736;
+  --focus: #e8772e;
+  --link: #f0944a;
+  --backdrop: rgba(0, 0, 0, 0.65);
+  --scrollbar: #33344a;
+  --field-background: #22232f;
+  --field-foreground: #eaeaf0;
+  --field-placeholder: #555668;
+  --field-border: #33344a;
+  --success: #22c55e;
+  --success-foreground: #0f1015;
+  --warning: #f59e0b;
+  --warning-foreground: #0f1015;
+  --danger: #ef4444;
+  --danger-foreground: #ffffff;
+  --surface-shadow: 0 0 0 0 transparent;
+  --overlay-shadow: 0 0 0 0 transparent;
+  --field-shadow: 0 0 0 0 transparent;
+}
+
+/* ═══════════════════════════════════════════
+   THEME: Midnight — OLED deep black
+   ═══════════════════════════════════════════ */
+:root[data-theme="midnight"] {
+  color-scheme: dark;
+  --color-surface-page: #000000;
+  --color-surface-card: #0a0a0f;
+  --color-surface-sidebar: #000000;
+  --color-surface-elevated: #141418;
+  --color-border-default: #1a1a22;
+  --color-border-subtle: #101015;
+  --color-border-strong: #252530;
+  --color-text-primary: #e8e8ed;
+  --color-text-secondary: #777788;
+  --color-text-muted: #444450;
+  --color-text-accent: #e8772e;
+  --background: #000000;
+  --foreground: #e8e8ed;
+  --surface: #0a0a0f;
+  --surface-foreground: #e8e8ed;
+  --overlay: #141418;
+  --overlay-foreground: #e8e8ed;
+  --default: #1a1a22;
+  --default-foreground: #e8e8ed;
+  --accent: #e8772e;
+  --accent-foreground: #ffffff;
+  --accent-soft: #2a1408;
+  --accent-soft-foreground: #fed7aa;
+  --muted: #444450;
+  --muted-foreground: #777788;
+  --border: #1a1a22;
+  --separator: #1a1a22;
+  --focus: #e8772e;
+  --link: #f0944a;
+  --backdrop: rgba(0, 0, 0, 0.8);
+  --scrollbar: #252530;
+  --field-background: #141418;
+  --field-foreground: #e8e8ed;
+  --field-placeholder: #444450;
+  --field-border: #252530;
+  --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
+  --success-foreground: #000; --warning-foreground: #000; --danger-foreground: #fff;
+  --surface-shadow: 0 0 0 0 transparent;
+  --overlay-shadow: 0 0 0 0 transparent;
+  --field-shadow: 0 0 0 0 transparent;
+}
+
+/* ═══════════════════════════════════════════
+   THEME: Glass — Frosted glassmorphism
+   ═══════════════════════════════════════════ */
+:root[data-theme="glass"] {
+  color-scheme: dark;
+  --color-surface-page: #0c0e18;
+  --color-surface-card: rgba(25, 28, 45, 0.65);
+  --color-surface-sidebar: rgba(8, 10, 18, 0.85);
+  --color-surface-elevated: rgba(35, 38, 58, 0.6);
+  --color-border-default: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+  --color-border-strong: rgba(255, 255, 255, 0.12);
+  --color-text-primary: #eaeaf2;
+  --color-text-secondary: #9498b0;
+  --color-text-muted: #5a5e75;
+  --color-text-accent: #e8772e;
+  --card-backdrop: blur(20px) saturate(1.5);
+  --card-bg-opacity: 0.65;
+  --background: #0c0e18;
+  --foreground: #eaeaf2;
+  --surface: rgba(25, 28, 45, 0.65);
+  --surface-foreground: #eaeaf2;
+  --overlay: rgba(35, 38, 58, 0.8);
+  --overlay-foreground: #eaeaf2;
+  --default: rgba(255, 255, 255, 0.08);
+  --default-foreground: #eaeaf2;
+  --accent: #e8772e;
+  --accent-foreground: #ffffff;
+  --accent-soft: rgba(232, 119, 46, 0.18);
+  --accent-soft-foreground: #fed7aa;
+  --muted: #5a5e75;
+  --muted-foreground: #9498b0;
+  --border: rgba(255, 255, 255, 0.08);
+  --separator: rgba(255, 255, 255, 0.06);
+  --focus: #e8772e;
+  --link: #f0944a;
+  --backdrop: rgba(8, 10, 18, 0.7);
+  --scrollbar: rgba(255, 255, 255, 0.12);
+  --field-background: rgba(35, 38, 58, 0.5);
+  --field-foreground: #eaeaf2;
+  --field-placeholder: #5a5e75;
+  --field-border: rgba(255, 255, 255, 0.1);
+  --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
+  --success-foreground: #0c0e18; --warning-foreground: #0c0e18; --danger-foreground: #fff;
+  --surface-shadow: 0 0 0 0 transparent;
+  --overlay-shadow: 0 4px 30px rgba(0,0,0,0.3);
+  --field-shadow: 0 0 0 0 transparent;
+}
+
+/* ═══════════════════════════════════════════
+   THEME: Luxe — Rich gradient warmth
+   ═══════════════════════════════════════════ */
+:root[data-theme="luxe"] {
+  color-scheme: dark;
+  --color-surface-page: #100c18;
+  --color-surface-card: #1c1625;
+  --color-surface-sidebar: #0a0810;
+  --color-surface-elevated: #261e30;
+  --color-border-default: #2e2540;
+  --color-border-subtle: #211a2e;
+  --color-border-strong: #3a3050;
+  --color-text-primary: #f0eaf5;
+  --color-text-secondary: #a098b0;
+  --color-text-muted: #605870;
+  --color-text-accent: #e8772e;
+  --background: #100c18;
+  --foreground: #f0eaf5;
+  --surface: #1c1625;
+  --surface-foreground: #f0eaf5;
+  --overlay: #261e30;
+  --overlay-foreground: #f0eaf5;
+  --default: #2e2540;
+  --default-foreground: #f0eaf5;
+  --accent: #e8772e;
+  --accent-foreground: #ffffff;
+  --accent-soft: #3a1a14;
+  --accent-soft-foreground: #fed7aa;
+  --muted: #605870;
+  --muted-foreground: #a098b0;
+  --border: #2e2540;
+  --separator: #2e2540;
+  --focus: #e8772e;
+  --link: #f0944a;
+  --backdrop: rgba(16, 12, 24, 0.75);
+  --scrollbar: #3a3050;
+  --field-background: #261e30;
+  --field-foreground: #f0eaf5;
+  --field-placeholder: #605870;
+  --field-border: #3a3050;
+  --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
+  --success-foreground: #100c18; --warning-foreground: #100c18; --danger-foreground: #fff;
+  --surface-shadow: 0 0 0 0 transparent;
+  --overlay-shadow: 0 0 0 0 transparent;
+  --field-shadow: 0 0 0 0 transparent;
+}
+
+/* ═══════════════════════════════════════════
+   Base styles
+   ═══════════════════════════════════════════ */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface-page);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.2s ease;
+}
+
+/* NOTE: do NOT put `overflow-x` on `html`/`body`. It was added in 2d60a780 as a
+   horizontal-overflow guard, but ANY overflow on the root/body turns it into a
+   scroll/clip context and breaks `position: sticky` on the dashboard sidebar
+   (it scrolled with the page). The accidental-horizontal-overflow guard now
+   lives on the dashboard CONTENT column (a sibling of the sidebar, so it can't
+   affect the sticky) — see routes/dashboard/layout.tsx. Intentional horizontal
+   scroll regions (nav strips, tables) still own their own overflow-x-auto. */
+
+/* Theme-aware focus ring — visible only on keyboard navigation. */
+:where(a, button, [role="button"], [tabindex="0"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent, var(--color-brand-500));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Card hover lift — subtle, theme-aware shadow. */
+@layer utilities {
+  .card-hover {
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.18), 0 2px 6px -2px rgba(0, 0, 0, 0.12);
+    border-color: var(--color-border-strong);
+  }
+}
+
+/* Glass theme card effects */
+:root[data-theme="glass"] .bg-surface-card {
+  backdrop-filter: var(--card-backdrop);
+  -webkit-backdrop-filter: var(--card-backdrop);
+}
+
+/* Luxe theme gradient overlay on page */
+:root[data-theme="luxe"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 20% 0%, rgba(140, 60, 200, 0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 100%, rgba(232, 119, 46, 0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Scrollbar per theme — uses HeroUI v3 `--scrollbar` token */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar, var(--color-border-default));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Command palette scale-in animation */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Overlay entrance/exit motion (Radix data-state driven) ──
+   Applied via .ui-anim-* classes on @haumea/ui overlay parts. Radix's Presence
+   waits for these animations before unmounting, so exits play too. All of these
+   are auto-neutralised by the prefers-reduced-motion / data-reduce-motion layer
+   below (animation-duration → 0.001ms). */
+@keyframes ui-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ui-content-in { from { opacity: 0; transform: translateY(6px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes ui-content-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(4px) scale(0.98); } }
+@keyframes ui-pop-in { from { opacity: 0; transform: scale(0.96) translateY(-2px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes ui-pop-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.97); } }
+@keyframes ui-slide-up { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+.ui-anim-overlay[data-state="open"] { animation: ui-overlay-in 160ms ease-out; }
+.ui-anim-overlay[data-state="closed"] { animation: ui-overlay-out 120ms ease-in; }
+.ui-anim-content[data-state="open"] { animation: ui-content-in 190ms cubic-bezier(0.16, 1, 0.3, 1); }
+.ui-anim-content[data-state="closed"] { animation: ui-content-out 130ms ease-in; }
+.ui-anim-pop[data-state="open"] { animation: ui-pop-in 150ms cubic-bezier(0.16, 1, 0.3, 1); }
+.ui-anim-pop[data-state="closed"] { animation: ui-pop-out 110ms ease-in; }
+/* Slide-up for floating bottom bars (bulk-select). Keeps the -50% x-centring. */
+.animate-slide-up { animation: ui-slide-up 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+/* Y-only rise — for elements centred via auto-margins (not -translate-x-1/2),
+   so the animation's transform never fights the centring transform (which caused
+   a left→centre flash on the floating bulk-action bar). */
+@keyframes ui-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.animate-rise { animation: ui-rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Tab panel crossfade — the active Radix tab panel fades + rises in. */
+@keyframes ui-tab-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.ui-anim-tab[data-state="active"] { animation: ui-tab-in 200ms ease-out; }
+
+@layer utilities {
+  .animate-scale-in {
+    animation: scale-in 200ms ease-out both;
+  }
+}
+
+/* Sidebar slide-in animation */
+@keyframes slide-in-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.animate-in.slide-in-from-left {
+  animation: slide-in-from-left 0.2s ease-out;
+}
+
+/* Bell ring animation for new notifications */
+@keyframes bell-ring {
+  0%   { transform: rotate(0deg); }
+  15%  { transform: rotate(14deg); }
+  30%  { transform: rotate(-12deg); }
+  45%  { transform: rotate(10deg); }
+  60%  { transform: rotate(-8deg); }
+  75%  { transform: rotate(4deg); }
+  90%  { transform: rotate(-2deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@layer utilities {
+  .animate-bell-ring {
+    animation: bell-ring 0.8s ease-in-out;
+    transform-origin: top center;
+  }
+}
+
+/* Realtime connection status pulse */
+/* Expanding "ping" ring behind the connection dot — a clearly visible live
+   heartbeat (scales out + fades), not just a faint opacity dim. */
+@keyframes status-pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  70% { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@layer utilities {
+  .animate-status-pulse {
+    animation: status-pulse 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Public live-tracking map — pulsing "engineer is here" marker.
+   Used by components/track/track-map.tsx on the /track/<token> page.
+   ─────────────────────────────────────────────────────────────── */
+@keyframes track-pin-halo {
+  0% { transform: scale(0.6); opacity: 0.55; }
+  70% { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.track-engineer-pin {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+.track-engineer-pin__halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--track-pin-color, #f59e0b);
+  animation: track-pin-halo 2s ease-out infinite;
+}
+.track-engineer-pin__dot {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--track-pin-color, #f59e0b);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Form-element default surface.
+
+   Bare <input> / <select> / <textarea> elements default to the white
+   card surface so any new form element added in a future PR
+   automatically picks up the right look. Tailwind utility classes
+   (e.g. `bg-surface-card`) on a specific element still win over this
+   base rule, so explicit overrides remain ergonomic. Excludes
+   role="checkbox"/role="switch" and the type="checkbox"/"radio"
+   variants because those shouldn't carry a card surface. */
+@layer base {
+  input:where(:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"])),
+  select,
+  textarea {
+    background-color: var(--color-surface-card);
+  }
+}
+
+/* Cursor affordance — Tailwind v4's Preflight resets `button` to
+   `cursor: default`, so after dropping HeroUI (which restored pointer)
+   every <button>, Radix trigger, tab, and menu item showed the arrow
+   cursor instead of a pointer. Restore pointer on interactive controls
+   app-wide; disabled controls get not-allowed. Anchors already default
+   to pointer. */
+@layer base {
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="menuitemcheckbox"],
+  [role="option"],
+  [role="switch"],
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+/* Any remaining native checkbox/radio (forms not yet on the <Checkbox>
+   component) follows the active accent instead of the browser default blue,
+   so checkbox colour is consistent app-wide and theme-aware. */
+@layer base {
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--accent);
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Tab labels never wrap.
+
+   HeroUI v3's <Tabs.Tab> renders a React Aria element with
+   `role="tab"`. Multi-word labels like "In Progress" wrap to two
+   lines as soon as the parent is even slightly narrower than the
+   sum of its tabs — which made the bar look like one tab was a
+   stacked phrase. Forcing nowrap on every [role="tab"] (and
+   strictly on the inner content slot HeroUI uses) fixes this
+   structurally for every Tabs in the app instead of patching one
+   page at a time.
+
+   Also pin a sensible flex behaviour so the bar stays single-line
+   and shrinks gracefully (with horizontal scroll on tiny viewports
+   if needed). */
+[role="tab"],
+[role="tab"] > *,
+[data-slot="tab"],
+[data-slot="tab-content"] {
+  white-space: nowrap;
+}
+[role="tablist"] {
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* Reduce motion — honour both system preference and HeroUI's `data-reduce-motion` opt-in.
+   HeroUI's own components already handle this internally; this block covers the bespoke
+   keyframe animations defined above (scale-in, fade-in, slide-in, bell-ring, status-pulse). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+:root[data-reduce-motion="true"] *,
+:root[data-reduce-motion="true"] *::before,
+:root[data-reduce-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* Print styles — hide navigation chrome, show only page content */
+@media print {
+  aside, header, nav, [data-sidebar], [data-topbar] {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
+
+/* Global native <select> styling — apps-wide consistency.
+ * Replaces the dated browser-default chrome (macOS gradient, Windows arrow)
+ * with a clean chevron + neutral fill that respects the active theme.
+ *
+ * Opt out per-element with class="appearance-auto" if you ever need the OS
+ * native control back. */
+select:not(.appearance-auto) {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23606078' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  background-size: 0.875rem 0.875rem;
+  padding-right: 2rem;
+  cursor: pointer;
+}
+
+/* Use a lighter chevron when the page sits on a dark sidebar surface */
+:root[data-theme="dark"] select:not(.appearance-auto),
+:root[data-theme="midnight"] select:not(.appearance-auto),
+:root[data-theme="glass"] select:not(.appearance-auto),
+:root[data-theme="luxe"] select:not(.appearance-auto) {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+
+/* ─────────────────────────────────────────────
+   HeroUI Table overrides — site-wide.
+
+   HeroUI v3's default Table "primary" variant wraps the table in a gray
+   `bg-surface-secondary` frame with `px-1 pb-1` padding and gives the
+   <thead> the same gray fill. In our design system every table sits on a
+   white card on a light-gray page background, so that gray frame reads as
+   a stray grey band above the column headers (visible on /dashboard/clients,
+   /jobs, /quotes, /invoices, /assets, etc.).
+
+   Reset both surfaces to transparent so the white card the route already
+   provides shows through, and clear the padding so column borders/dividers
+   line up flush with the card edge.
+
+   Cells keep their own `bg-surface` which resolves to the active theme's
+   card colour, so dark themes still render correctly.
+   ───────────────────────────────────────────── */
+.table-root--primary {
+  background-color: transparent;
+  padding: 0;
+  border-radius: inherit;
+}
+
+.table-root--primary .table__header,
+.table__header {
+  background-color: transparent;
+}
+
+/* Column header strip — subtle bottom border instead of a gray fill */
+.table__column {
+  background-color: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DESIGN-SYSTEM CONSISTENCY LAYER  —  see docs/DESIGN.md
+   Two app-wide consistency fixes, both purely token-driven so they adapt
+   to every theme automatically:
+
+   1. FIELDS. HeroUI inputs (tagged data-slot) already consume the --field-*
+      tokens (white bg, 1px border, subtle shadow). Raw native inputs/selects/
+      textareas did NOT, so they looked flatter/different. This base layer gives
+      them the SAME field look. It sits in @layer base, so any explicit Tailwind
+      utility on a specific field still wins — this only fills the gaps (mainly
+      the missing shadow) so every field reads identically.
+
+   2. SECONDARY BUTTONS. HeroUI's `outline`/`secondary` variants are
+      transparent / near-page-colour, so page-level secondary actions
+      (Export, Import, …) disappeared into the gray page. Give them a real
+      card surface + border + the same subtle shadow as cards, so a secondary
+      button always reads as a raised, tappable control on any background.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  input:not([data-slot]):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  textarea:not([data-slot]),
+  select:not([data-slot]) {
+    background-color: var(--field-background);
+    color: var(--field-foreground);
+    border: 1px solid var(--field-border);
+    border-radius: 0.5rem;
+    box-shadow: var(--field-shadow);
+  }
+  input:not([data-slot])::placeholder,
+  textarea:not([data-slot])::placeholder {
+    color: var(--field-placeholder);
+  }
+  input:not([data-slot]):focus-visible,
+  textarea:not([data-slot]):focus-visible,
+  select:not([data-slot]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-color: var(--focus);
+  }
+}
+
+/* Visible secondary / outline buttons (un-layered so it beats HeroUI's
+   variant rule of the same specificity by source order). */
+.button--outline,
+.button--secondary {
+  --button-bg: var(--surface);
+  box-shadow: var(--surface-shadow);
+}
+.button--secondary {
+  border: 1px solid var(--border);
+}

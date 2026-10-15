@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haumea Mobile — Final Locked Direction</title>
+<style>
+  :root{
+    --brand:#e8772e; --brand-2:#cf6321; --brand-soft:#fdf0e6;
+    --navy:#0f1225;
+    --bg:#f5f7fa; --card:#ffffff; --border:#e6e9ef;
+    --heading:#0f172a; --body:#475569; --muted:#94a3b8;
+    --sh2:0 4px 12px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+  html,body{margin:0;background:var(--bg);color:var(--heading);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;}
+
+  .hero{background:var(--navy);color:#fff;padding:46px 28px 40px;}
+  .hero .kick{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.7px;
+    text-transform:uppercase;color:var(--brand);background:rgba(232,119,46,.14);padding:6px 12px;border-radius:999px;}
+  .hero h1{font-size:34px;font-weight:700;letter-spacing:-.6px;margin:18px 0 0;}
+  .hero p{font-size:15.5px;line-height:1.6;color:#c2c6d6;max-width:760px;margin:14px 0 0;font-weight:500;}
+  .hero .swatches{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;}
+  .sw{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#aab0c4;
+    background:rgba(255,255,255,.05);padding:7px 12px;border-radius:999px;}
+  .dot{width:13px;height:13px;border-radius:4px;}
+
+  .wrap{max-width:1240px;margin:0 auto;padding:40px 28px 72px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:26px;}
+
+  .tile{display:block;text-decoration:none;color:inherit;}
+  .frame{position:relative;width:100%;aspect-ratio:393/852;border-radius:30px;overflow:hidden;
+    background:#04050a;border:8px solid #04050a;box-shadow:var(--sh2),0 20px 40px -18px rgba(16,24,40,.3);
+    transition:transform .18s ease, box-shadow .18s ease;}
+  .tile:hover .frame{transform:translateY(-6px);box-shadow:0 30px 50px -18px rgba(16,24,40,.4);}
+  .frame iframe{position:absolute;top:0;left:0;width:393px;height:852px;border:0;
+    transform:scale(.595);transform-origin:top left;pointer-events:none;background:#f5f7fa;}
+  .cap{display:flex;align-items:center;justify-content:space-between;margin-top:15px;}
+  .cap .n{font-size:16px;font-weight:700;letter-spacing:-.2px;}
+  .cap .d{font-size:12.5px;color:var(--muted);font-weight:500;margin-top:2px;}
+  .cap .go{width:30px;height:30px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .badge{position:absolute;top:14px;left:14px;z-index:3;font-size:10px;font-weight:700;letter-spacing:.4px;
+    text-transform:uppercase;color:#fff;background:rgba(15,18,37,.78);backdrop-filter:blur(6px);
+    padding:5px 10px;border-radius:999px;}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <div class="kick">● Final · Locked Direction</div>
+    <h1>Haumea — Field Engineer App</h1>
+    <p>This is the <strong style="color:#fff">final locked direction</strong>: clean, modern, premium iOS-native styling with a HeroUI-Native flavour, paired with field-ready action muscle. It is a professional tool for a working engineer — no warm, playful or cartoonish styling, and no gradients. Navy app bar and tab bar, a single warm-orange accent for actions and active states, crisp white cards on a cool grey canvas, and a coloured status spine on every job and asset so state reads at a glance in the field.</p>
+    <div class="swatches">
+      <div class="sw"><span class="dot" style="background:#e8772e"></span>Brand #e8772e</div>
+      <div class="sw"><span class="dot" style="background:#0f1225"></span>Navy #0f1225</div>
+      <div class="sw"><span class="dot" style="background:#3b82f6"></span>Scheduled</div>
+      <div class="sw"><span class="dot" style="background:#6366f1"></span>In progress</div>
+      <div class="sw"><span class="dot" style="background:#10b981"></span>Completed</div>
+      <div class="sw"><span class="dot" style="background:#f59e0b"></span>Due soon</div>
+      <div class="sw"><span class="dot" style="background:#ef4444"></span>Overdue</div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="grid">
+
+      <a class="tile" href="today.html" target="_blank">
+        <div class="frame"><span class="badge">Today</span><iframe src="today.html" scrolling="no"></iframe></div>
+        <div class="cap"><div><div class="n">Today</div><div class="d">Greeting · stats · quick actions · job list</div></div><div class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+      </a>
+
+      <a class="tile" href="job-detail.html" target="_blank">
+        <div class="frame"><span class="badge">Job Detail</span><iframe src="job-detail.html" scrolling="no"></iframe></div>
+        <div class="cap"><div><div class="n">Job Detail</div><div class="d">Live job · actions · checklist · photos</div></div><div class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+      </a>
+
+      <a class="tile" href="schedule.html" target="_blank">
+        <div class="frame"><span class="badge">Schedule</span><iframe src="schedule.html" scrolling="no"></iframe></div>
+        <div class="cap"><div><div class="n">Schedule</div><div class="d">Day-grouped, forward-looking job list</div></div><div class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+      </a>
+
+      <a class="tile" href="reference.html" target="_blank">
+        <div class="frame"><span class="badge">Reference</span><iframe src="reference.html" scrolling="no"></iframe></div>
+        <div class="cap"><div><div class="n">Reference</div><div class="d">Assets / Compliance · filters · status</div></div><div class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+      </a>
+
+      <a class="tile" href="profile.html" target="_blank">
+        <div class="frame"><span class="badge">Profile</span><iframe src="profile.html" scrolling="no"></iframe></div>
+        <div class="cap"><div><div class="n">Profile</div><div class="d">Identity · account info · app · sign out</div></div><div class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+      </a>
+
+    </div>
+  </div>
+</body>
+</html>

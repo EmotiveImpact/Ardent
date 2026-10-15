@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SiteSentriq — Two decisions, explained</title>
+<style>
+  :root{
+    --navy:#0f1225; --brand:#e8772e; --brand-d:#cf6520; --page:#f5f7fa;
+    --card:#ffffff; --border:#e6e9ef; --text:#0f172a; --muted:#64748b;
+    --ok:#10b981; --bad:#ef4444; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--page);color:var(--text);line-height:1.55}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 24px 80px}
+  header.hero{background:var(--navy);color:#fff;border-radius:18px;padding:34px 32px;margin-bottom:32px}
+  header.hero .mark{display:inline-flex;align-items:center;gap:12px;margin-bottom:14px}
+  header.hero .mark .tile{width:34px;height:34px;border-radius:8px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--navy)}
+  header.hero .mark .word{letter-spacing:3px;font-weight:200;font-size:18px;text-transform:uppercase}
+  header.hero h1{margin:.2em 0 .3em;font-size:26px;letter-spacing:-.02em}
+  header.hero p{margin:0;color:#c9cede;font-size:15px}
+  h2{font-size:20px;letter-spacing:-.01em;margin:38px 0 8px;display:flex;align-items:center;gap:10px}
+  h2 .n{width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin:14px 0}
+  .lead{color:var(--muted);font-size:15px;margin:.2em 0 1em}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.brand{background:rgba(232,119,46,.12);color:var(--brand-d)}
+  .pill.ok{background:rgba(16,185,129,.13);color:#0a7a55}
+  .pill.warn{background:rgba(245,158,11,.15);color:#92600c}
+  .pill.navy{background:rgba(15,18,37,.08);color:var(--navy)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f8fafc}
+  code{background:#f1f5f9;border-radius:5px;padding:1px 6px;font-size:13px;color:#0f172a}
+  .callout{border-left:4px solid var(--brand);background:#fff7f0;border-radius:0 10px 10px 0;padding:14px 18px;margin:14px 0}
+  .callout.ok{border-color:var(--ok);background:#f0fdf8}
+  .callout.warn{border-color:var(--warn);background:#fffbeb}
+  .q{font-weight:700;color:var(--navy)}
+  svg{max-width:100%;height:auto;display:block;margin:6px auto}
+  .small{font-size:13px;color:var(--muted)}
+  ul{margin:.4em 0 .2em;padding-left:1.2em}
+  li{margin:.3em 0}
+  .opt{border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:12px 0}
+  .opt.rec{border-color:var(--brand);background:#fff9f4}
+  .opt h4{margin:0 0 6px;font-size:15px;color:var(--navy);display:flex;align-items:center;gap:8px}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0}
+  @media(max-width:680px){.vs{grid-template-columns:1fr}}
+  .rest{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:14px 0}
+  .rest>div{padding:18px 20px}
+  .rest .a{background:#fff7f0;border-right:1px solid var(--border)}
+  .rest .b{background:#f0fdf8}
+  .rest .t{font-weight:800;color:var(--navy);font-size:15px;margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="mark"><div class="tile">S</div><div class="word">SiteSentriq</div></div>
+    <h1>Two decisions, explained</h1>
+    <p>Neither is broken or blocking — both are small choices about how you want things to behave. Here's exactly what you're choosing between, in plain English.</p>
+  </header>
+
+  <!-- DECISION A -->
+  <h2><span class="n">A</span> When does your customer get their certificate email?</h2>
+  <p class="lead">When an engineer finishes a compliance job, the app can automatically email the customer their certificate. The only question is: <strong>which moment triggers that email?</strong></p>
+
+  <div class="card">
+    <p style="margin-top:0">Your app has two "the job is finished" statuses:</p>
+    <table>
+      <thead><tr><th>Status</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill navy">Performed</span></td><td>The engineer physically did the work on site.</td></tr>
+        <tr><td><span class="pill ok">Completed</span></td><td>The job is fully signed off.</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-bottom:0"><strong>Right now</strong>, the certificate email <strong>only fires on "Completed."</strong> Marking a job "Performed" sends the customer nothing.</p>
+  </div>
+
+  <div class="callout">
+    <strong>The restaurant analogy.</strong>
+    <div class="rest">
+      <div class="a"><div class="t">🍳 "Performed"</div>The chef has finished cooking the meal.</div>
+      <div class="b"><div class="t">✅ "Completed"</div>The manager checked the plate before it leaves the kitchen.</div>
+    </div>
+    Your choice is simply: <strong>do you want a manager-check step before the customer gets their certificate, or not?</strong>
+  </div>
+
+  <div class="opt rec">
+    <h4>Option 1 — Keep it as-is &nbsp;<span class="pill brand">Recommended</span></h4>
+    <p style="margin:0">The engineer marks "Performed" in the field. Someone in your office reviews the cert &amp; photos, then marks "Completed" — and <em>that</em> emails the certificate to the customer. There's a human check before a legal document goes out.</p>
+  </div>
+  <div class="opt">
+    <h4>Option 2 — Let "Performed" also send</h4>
+    <p style="margin:0">The moment the engineer marks the job done on site, the customer instantly gets their certificate. Faster and fewer steps — but no review step in between.</p>
+  </div>
+
+  <div class="callout warn">
+    <span class="q">The real-world trade-off.</span> An engineer finishes a fire-alarm test but forgets to upload the photos and marks it done.
+    <ul style="margin:.5em 0 0">
+      <li>With <strong>Option 1</strong>, your office catches it before the customer ever sees an incomplete certificate.</li>
+      <li>With <strong>Option 2</strong>, the customer has already received a half-finished compliance document.</li>
+    </ul>
+  </div>
+
+  <div class="callout ok">
+    <span class="q">Recommendation.</span> Keep <strong>Option 1</strong>. A compliance certificate is a legal record — most FM businesses want that office check. Only switch to Option 2 if your engineers are the final word with no back-office review. It's a tiny change either way, whenever you decide.
+  </div>
+
+  <!-- DECISION B -->
+  <h2><span class="n">B</span> How automatic should multi-property invoicing be?</h2>
+  <p class="lead">Your customer wants one client (e.g. "Acme Retail") with many properties (their 5 shops) <strong>billed together on one invoice</strong>, while each property keeps its own number (<code>P-101</code>, <code>P-102</code>…).</p>
+
+  <div class="card">
+    <p style="margin-top:0"><strong>The key thing:</strong> you can <strong>already do this today.</strong> An invoice is attached to a client, and you can add as many line items as you like — so you can bill all 5 shops on one invoice right now. The catch is you <strong>type those lines in by hand.</strong></p>
+    <p style="margin-bottom:0">What doesn't exist yet is a <strong>one-click generator</strong> that gathers every finished, not-yet-billed job across all of Acme's shops and builds the invoice for you — each line tagged with its <code>P-</code> number.</p>
+  </div>
+
+  <div class="opt">
+    <h4>Option 1 — Leave it manual</h4>
+    <p style="margin:0">Already works. You hand-type the lines. Zero new work. Fine if you only bill multiple sites occasionally.</p>
+  </div>
+  <div class="opt">
+    <h4>Option 2 — Build the full auto-generator &nbsp;<span class="pill navy">~1–2 days</span></h4>
+    <p style="margin:0">A "Generate consolidated invoice" button on each client that gathers all their completed, un-billed jobs across every property and builds the line items automatically. This is the literal thing your customer described.</p>
+  </div>
+  <div class="opt">
+    <h4>Option 3 — A lighter middle ground</h4>
+    <p style="margin:0">A button on the invoice form that lets you <em>pull in</em> a client's finished jobs as pre-filled lines (no typing), but stops short of the full automatic gather. Roughly half the work of Option 2, covers most of the benefit.</p>
+  </div>
+
+  <div class="callout warn">
+    <span class="q">The real-world trade-off — it comes down to volume.</span>
+    <ul style="margin:.5em 0 0">
+      <li>Billing <strong>dozens of sites every month</strong>? Hand-typing is exactly the pain your customer flagged → <strong>Option 2</strong> pays for itself fast.</li>
+      <li>Billing multiple sites <strong>only occasionally</strong>? <strong>Option 1 or 3</strong> is plenty — no point building something elaborate you rarely use.</li>
+    </ul>
+  </div>
+
+  <div class="callout ok">
+    <span class="q">Recommendation.</span> This one genuinely depends on how often you bill many sites at once — which is easier to judge <em>after</em> it's in real use. That's why it's parked. Tell us "we bill 20+ sites monthly" and it's <strong>Option 2</strong>; if it's rare, leave it manual.
+  </div>
+
+  <!-- SUMMARY -->
+  <h2><span class="n">✓</span> In one line each</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Decision</th><th>Safe default</th><th>When to change it</th></tr></thead>
+      <tbody>
+        <tr><td><strong>A — Certificate email</strong></td><td>Keep the office check (fires on "Completed")</td><td>If engineers are the final word with no review step</td></tr>
+        <tr><td><strong>B — Multi-site invoicing</strong></td><td>Manual works now — leave it</td><td>If you bill many sites every month, build the generator</td></tr>
+      </tbody>
+    </table>
+    <p class="small" style="margin-bottom:0">Neither is urgent or blocking. Both are easy to change after the deploy, once you've seen the app in real use.</p>
+  </div>
+
+  <p class="small" style="margin-top:30px;text-align:center;color:#94a3b8">SiteSentriq — Facilities OS · the two parked product decisions</p>
+
+</div>
+</body>
+</html>

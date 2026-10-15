@@ -1,0 +1,21 @@
+-- 00082_drop_permissive_org_insert.sql
+--
+-- O9 (iter 10 RLS audit). `organisations_insert_authenticated` was an INSERT
+-- policy with `WITH CHECK (true)` for the `authenticated` role — i.e. ANY signed-in
+-- user could `INSERT INTO organisations (...)` directly, creating unlimited
+-- arbitrary org rows and squatting slugs. The advisor flagged it (0024
+-- permissive_rls_policy).
+--
+-- It's a leftover from the old client-side "create org" path. Since iter 4 the
+-- ONLY ways an org is created are:
+--   * handle_new_user()  — signup trigger, SECURITY DEFINER (bypasses RLS)
+--   * claim_workspace()  — recovery RPC, SECURITY DEFINER (bypasses RLS)
+-- Neither needs an INSERT policy, and a full grep confirms NO app code does a
+-- direct `from('organisations').insert(...)`. So dropping this policy removes the
+-- abuse vector with zero functional impact — org creation still works via the two
+-- definer paths; direct client INSERTs are now denied (RLS on + no INSERT policy).
+--
+-- (UPDATE/SELECT policies on organisations are unchanged — they remain org-scoped
+-- so branding/onboarding edits and reads keep working.)
+
+drop policy if exists organisations_insert_authenticated on public.organisations;
