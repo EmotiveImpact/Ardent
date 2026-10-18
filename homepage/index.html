@@ -18,14 +18,14 @@
     </div>
     <ul class="mnav__links">
       <li><a href="index.html" aria-current="page"><span class="mnav__num mono">01</span>Home</a></li>
-      <li><a href="index.html#services"><span class="mnav__num mono">02</span>Product</a></li>
+      <li><a href="index.html#console"><span class="mnav__num mono">02</span>Product</a></li>
       <li><a href="index.html#trades"><span class="mnav__num mono">03</span>Trades</a></li>
       <li><a href="engineers.html"><span class="mnav__num mono">04</span>Engineer app</a></li>
       <li><a href="news.html"><span class="mnav__num mono">05</span>News</a></li>
-      <li><a href="index.html#contact"><span class="mnav__num mono">06</span>Contact</a></li>
+      <li><a href="pricing.html"><span class="mnav__num mono">06</span>Pricing</a></li>
     </ul>
     <div class="mnav__foot">
-      <a class="btn btn--light" href="index.html#contact">Book a demo</a>
+      <a class="btn btn--light" href="pricing.html#demo">Book a demo</a>
       <p class="mono">hello@ardent.example</p>
     </div>
   </div>
@@ -39,13 +39,13 @@
     <nav class="nav wrap" aria-label="Main">
       <a class="logo" href="index.html">ARDENT<sup>&reg;</sup></a>
       <ul class="nav__links">
-        <li><a href="index.html#services">Product</a></li>
+        <li><a href="index.html#console">Product</a></li>
         <li><a href="index.html#trades">Trades</a></li>
         <li><a href="engineers.html">Engineer app</a></li>
         <li><a href="news.html">News</a></li>
-        <li><a href="index.html#contact">Contact</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
       </ul>
-      <a class="nav__cta" href="index.html#contact">Book a demo</a>
+      <a class="nav__cta" href="pricing.html#demo">Book a demo</a>
       <button class="nav__toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu"><span></span><span></span></button>
     </nav>
     <div class="hero__foot wrap">
@@ -67,6 +67,40 @@
         <div class="focus__cols">
           <p>From the first call to the final invoice, every job carries its own record. Engineers see what they need on site, the office sees progress as it happens, and clients get proof without asking twice.</p>
           <p>Compliance sits inside the workflow. Expired accreditations block dispatch, permits gate the start of work, and gas, electrical and fire certificates are issued from the job itself.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2b. The product itself: real screens from Ardent Core -->
+    <section id="console" class="console">
+      <div class="wrap">
+        <div class="console__head">
+          <p class="eyebrow mono">+ The console</p>
+          <h2>Every job, crew and certificate on one screen.</h2>
+        </div>
+        <div class="console__tabs" role="tablist" aria-label="Ardent screens">
+          <button type="button" role="tab" class="console__tab is-active" aria-selected="true" aria-controls="screen-overview" id="tab-overview" data-screen="overview"><span class="mono">01</span>Overview</button>
+          <button type="button" role="tab" class="console__tab" aria-selected="false" aria-controls="screen-dispatch" id="tab-dispatch" data-screen="dispatch" tabindex="-1"><span class="mono">02</span>Dispatch</button>
+          <button type="button" role="tab" class="console__tab" aria-selected="false" aria-controls="screen-certificates" id="tab-certificates" data-screen="certificates" tabindex="-1"><span class="mono">03</span>Certificates</button>
+          <button type="button" role="tab" class="console__tab" aria-selected="false" aria-controls="screen-money" id="tab-money" data-screen="money" tabindex="-1"><span class="mono">04</span>Money</button>
+        </div>
+        <div class="console__stage">
+          <figure class="console__screen is-active" id="screen-overview" role="tabpanel" aria-labelledby="tab-overview" data-screen="overview">
+            <img src="images/screen-overview.jpg" alt="Ardent overview: jobs completed, response time, takings, crew on the road and a live job sheet" width="2000" height="972">
+            <figcaption>Crew on the road, today&rsquo;s numbers and the live job sheet, updated as engineers move.</figcaption>
+          </figure>
+          <figure class="console__screen" id="screen-dispatch" role="tabpanel" aria-labelledby="tab-dispatch" data-screen="dispatch" hidden>
+            <img src="images/screen-dispatch.jpg" alt="Ardent dispatch board showing each engineer's jobs across the day" width="2000" height="972" loading="lazy">
+            <figcaption>Drag jobs across the day, see who is running late, and auto-assign whatever is waiting for a slot.</figcaption>
+          </figure>
+          <figure class="console__screen" id="screen-certificates" role="tabpanel" aria-labelledby="tab-certificates" data-screen="certificates" hidden>
+            <img src="images/screen-certificates.jpg" alt="Ardent certificates register with CP12, EICR, PAT and BS 5839 expiry dates" width="2000" height="972" loading="lazy">
+            <figcaption>CP12, EICR, PAT and BS 5839 certificates in one register, with renewals chased before they lapse.</figcaption>
+          </figure>
+          <figure class="console__screen" id="screen-money" role="tabpanel" aria-labelledby="tab-money" data-screen="money" hidden>
+            <img src="images/screen-money.jpg" alt="Ardent quotes and invoices with outstanding, overdue and paid totals" width="2000" height="972" loading="lazy">
+            <figcaption>Quotes, invoices and cash in, so you know what is owed and who to call.</figcaption>
+          </figure>
         </div>
       </div>
     </section>
@@ -166,7 +200,7 @@
       </figure>
       <div class="cta__body">
         <h2>Keep your business<br>moving forward</h2>
-        <a class="btn btn--dark" href="mailto:hello@ardent.example">Book a demo</a>
+        <a class="btn btn--dark" href="pricing.html#demo">Book a demo</a>
       </div>
     </section>
 
@@ -179,7 +213,7 @@
         <p class="footer__label mono">Contact</p>
         <div class="footer__start">
           <p>Let&rsquo;s get started</p>
-          <a class="btn btn--dark btn--sm" href="mailto:hello@ardent.example">Book a demo</a>
+          <a class="btn btn--dark btn--sm" href="pricing.html#demo">Book a demo</a>
         </div>
       </div>
       <div class="footer__cols mono">
@@ -189,7 +223,7 @@
         </div>
         <div>
           <p class="footer__label">Menu</p>
-          <a href="index.html">Home</a><a href="index.html#services">Product</a><a href="index.html#trades">Trades</a><a href="engineers.html">Engineer app</a><a href="#">Pricing</a><a href="news.html">News</a>
+          <a href="index.html">Home</a><a href="index.html#console">Product</a><a href="index.html#trades">Trades</a><a href="engineers.html">Engineer app</a><a href="pricing.html">Pricing</a><a href="news.html">News</a>
         </div>
         <div>
           <p class="footer__label">Support</p>

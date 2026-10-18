@@ -94,3 +94,88 @@ tradeItems.forEach((item) => {
   item.addEventListener('focus', show)
   item.addEventListener('click', show)
 })
+
+// Console: tabs that switch between real product screens
+const consoleTabs = [...document.querySelectorAll('.console__tab')]
+
+function showScreen(tab, focus = false) {
+  consoleTabs.forEach((t) => {
+    const on = t === tab
+    t.classList.toggle('is-active', on)
+    t.setAttribute('aria-selected', String(on))
+    t.tabIndex = on ? 0 : -1
+    document.getElementById(t.getAttribute('aria-controls')).hidden = !on
+  })
+  if (focus) tab.focus()
+}
+
+consoleTabs.forEach((tab, i) => {
+  tab.addEventListener('click', () => showScreen(tab))
+  tab.addEventListener('keydown', (e) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key]
+    if (!step) return
+    e.preventDefault()
+    showScreen(consoleTabs[(i + step + consoleTabs.length) % consoleTabs.length], true)
+  })
+})
+
+// Demo form: posts JSON to data-endpoint when one is set, otherwise opens an
+// email to data-email with the details filled in.
+const demoForm = document.getElementById('demo-form')
+
+if (demoForm) {
+  const error = demoForm.querySelector('.demo__error')
+  const done = demoForm.querySelector('.demo__done')
+  const submit = demoForm.querySelector('[type="submit"]')
+
+  document.querySelectorAll('[data-plan]').forEach((link) => {
+    link.addEventListener('click', () => { demoForm.elements.plan.value = link.dataset.plan })
+  })
+
+  demoForm.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    error.hidden = true
+    let firstBad = null
+    demoForm.querySelectorAll('input, select, textarea').forEach((el) => {
+      const bad = !el.checkValidity()
+      el.closest('.field2')?.classList.toggle('is-invalid', bad)
+      if (bad && !firstBad) firstBad = el
+    })
+    if (firstBad) {
+      error.textContent = 'Please fill in the highlighted fields.'
+      error.hidden = false
+      firstBad.focus()
+      return
+    }
+
+    const data = Object.fromEntries(new FormData(demoForm))
+    const endpoint = demoForm.dataset.endpoint
+    submit.disabled = true
+
+    try {
+      if (endpoint) {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(data),
+        })
+        if (!res.ok) throw new Error(res.status)
+      } else {
+        const body = Object.entries(data).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join('\n')
+        location.href = `mailto:${demoForm.dataset.email}?subject=${encodeURIComponent(`Demo request: ${data.company}`)}&body=${encodeURIComponent(body)}`
+        done.querySelector('h3').textContent = 'Your email app should open with your details filled in. Press send and we\u2019ll call you to book a time.'
+      }
+      demoForm.classList.add('is-sent')
+      done.hidden = false
+    } catch {
+      error.textContent = `That didn't send. Please try again or email ${demoForm.dataset.email}.`
+      error.hidden = false
+    } finally {
+      submit.disabled = false
+    }
+  })
+
+  demoForm.addEventListener('input', (e) => {
+    if (e.target.checkValidity()) e.target.closest('.field2')?.classList.remove('is-invalid')
+  })
+}

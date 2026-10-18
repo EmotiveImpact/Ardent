@@ -14,7 +14,7 @@ python3 -m http.server 8000   # then open http://localhost:8000
 **`index.html`, the homepage**, follows the Freight services page reference:
 
 1. Hero with full-bleed warehouse photograph
-2. Our focus statement
+2. Our focus statement, then the console: tabs switching between real Ardent screens
 3. Full-bleed aerial with trade labels
 4. What Ardent does: four numbered services, each with a photograph
 5. Trades we work with
@@ -25,7 +25,11 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 **`news.html`, News & Updates**, follows the News & Events reference: an orange gradient page with a grid of regulation, guide, product and event cards.
 
-All three share `styles.css`, `main.js`, the menu and the footer.
+**`pricing.html`, Pricing and demo**: three plans, common questions and a demo request form. The form posts JSON to the URL in its `data-endpoint` attribute; while that is empty it opens an email to `data-email` with the details filled in.
+
+The homepage's **console** section shows real screens from the Ardent Core app (`images/screen-*.jpg`), captured from the Core prototype at 1440 by 900.
+
+All four share `styles.css`, `main.js`, the menu and the footer.
 
 ## Images (GPT Image)
 
