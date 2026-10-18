@@ -14,7 +14,7 @@ python3 -m http.server 8000   # then open http://localhost:8000
 **`index.html`, the homepage**, follows the Freight services page reference:
 
 1. Hero with full-bleed warehouse photograph
-2. Our focus statement, then the console: tabs switching between real Ardent screens
+2. Our focus statement
 3. Full-bleed aerial with trade labels
 4. What Ardent does: four numbered services, each with a photograph
 5. Trades we work with
@@ -27,9 +27,11 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 **`pricing.html`, Pricing and demo**: three plans, common questions and a demo request form. The form posts JSON to the URL in its `data-endpoint` attribute; while that is empty it opens an email to `data-email` with the details filled in.
 
-The homepage's **console** section shows real screens from the Ardent Core app (`images/screen-*.jpg`), captured from the Core prototype at 1440 by 900.
+**`product.html`, Product**: a tabbed tour of real Ardent Core screens (`images/screen-*.jpg`), then six features, each with a close-up from the app (`images/ui-*.jpg`). All were captured from the Core prototype at 1440 by 900.
 
-All four share `styles.css`, `main.js`, the menu and the footer.
+**`for-<trade>.html`, one page per trade** (electricians, gas, plumbers, fire, hvac, lifts, roofers, multi), linked from the homepage trades list. They are generated: edit the copy in `scripts/build-trades.mjs` and run `node scripts/build-trades.mjs`. The menu and footer are taken from `product.html`, so rebuild after changing those.
+
+Every page shares `styles.css`, `main.js`, the menu and the footer.
 
 ## Images (GPT Image)
 

@@ -18,7 +18,7 @@
     </div>
     <ul class="mnav__links">
       <li><a href="index.html" aria-current="page"><span class="mnav__num mono">01</span>Home</a></li>
-      <li><a href="index.html#console"><span class="mnav__num mono">02</span>Product</a></li>
+      <li><a href="product.html"><span class="mnav__num mono">02</span>Product</a></li>
       <li><a href="index.html#trades"><span class="mnav__num mono">03</span>Trades</a></li>
       <li><a href="engineers.html"><span class="mnav__num mono">04</span>Engineer app</a></li>
       <li><a href="news.html"><span class="mnav__num mono">05</span>News</a></li>
@@ -39,7 +39,7 @@
     <nav class="nav wrap" aria-label="Main">
       <a class="logo" href="index.html">ARDENT<sup>&reg;</sup></a>
       <ul class="nav__links">
-        <li><a href="index.html#console">Product</a></li>
+        <li><a href="product.html">Product</a></li>
         <li><a href="index.html#trades">Trades</a></li>
         <li><a href="engineers.html">Engineer app</a></li>
         <li><a href="news.html">News</a></li>
@@ -67,40 +67,6 @@
         <div class="focus__cols">
           <p>From the first call to the final invoice, every job carries its own record. Engineers see what they need on site, the office sees progress as it happens, and clients get proof without asking twice.</p>
           <p>Compliance sits inside the workflow. Expired accreditations block dispatch, permits gate the start of work, and gas, electrical and fire certificates are issued from the job itself.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 2b. The product itself: real screens from Ardent Core -->
-    <section id="console" class="console">
-      <div class="wrap">
-        <div class="console__head">
-          <p class="eyebrow mono">+ The console</p>
-          <h2>Every job, crew and certificate on one screen.</h2>
-        </div>
-        <div class="console__tabs" role="tablist" aria-label="Ardent screens">
-          <button type="button" role="tab" class="console__tab is-active" aria-selected="true" aria-controls="screen-overview" id="tab-overview" data-screen="overview"><span class="mono">01</span>Overview</button>
-          <button type="button" role="tab" class="console__tab" aria-selected="false" aria-controls="screen-dispatch" id="tab-dispatch" data-screen="dispatch" tabindex="-1"><span class="mono">02</span>Dispatch</button>
-          <button type="button" role="tab" class="console__tab" aria-selected="false" aria-controls="screen-certificates" id="tab-certificates" data-screen="certificates" tabindex="-1"><span class="mono">03</span>Certificates</button>
-          <button type="button" role="tab" class="console__tab" aria-selected="false" aria-controls="screen-money" id="tab-money" data-screen="money" tabindex="-1"><span class="mono">04</span>Money</button>
-        </div>
-        <div class="console__stage">
-          <figure class="console__screen is-active" id="screen-overview" role="tabpanel" aria-labelledby="tab-overview" data-screen="overview">
-            <img src="images/screen-overview.jpg" alt="Ardent overview: jobs completed, response time, takings, crew on the road and a live job sheet" width="2000" height="972">
-            <figcaption>Crew on the road, today&rsquo;s numbers and the live job sheet, updated as engineers move.</figcaption>
-          </figure>
-          <figure class="console__screen" id="screen-dispatch" role="tabpanel" aria-labelledby="tab-dispatch" data-screen="dispatch" hidden>
-            <img src="images/screen-dispatch.jpg" alt="Ardent dispatch board showing each engineer's jobs across the day" width="2000" height="972" loading="lazy">
-            <figcaption>Drag jobs across the day, see who is running late, and auto-assign whatever is waiting for a slot.</figcaption>
-          </figure>
-          <figure class="console__screen" id="screen-certificates" role="tabpanel" aria-labelledby="tab-certificates" data-screen="certificates" hidden>
-            <img src="images/screen-certificates.jpg" alt="Ardent certificates register with CP12, EICR, PAT and BS 5839 expiry dates" width="2000" height="972" loading="lazy">
-            <figcaption>CP12, EICR, PAT and BS 5839 certificates in one register, with renewals chased before they lapse.</figcaption>
-          </figure>
-          <figure class="console__screen" id="screen-money" role="tabpanel" aria-labelledby="tab-money" data-screen="money" hidden>
-            <img src="images/screen-money.jpg" alt="Ardent quotes and invoices with outstanding, overdue and paid totals" width="2000" height="972" loading="lazy">
-            <figcaption>Quotes, invoices and cash in, so you know what is owed and who to call.</figcaption>
-          </figure>
         </div>
       </div>
     </section>
@@ -181,14 +147,14 @@
       <div class="trades__list">
         <p class="eyebrow">Trades we work with</p>
         <ul>
-          <li><button type="button" class="trades__item is-active" data-trade="electricians" aria-pressed="true">Electricians</button></li>
-          <li><button type="button" class="trades__item" data-trade="gas" aria-pressed="false">Gas &amp; heating engineers</button></li>
-          <li><button type="button" class="trades__item" data-trade="plumbers" aria-pressed="false">Plumbers</button></li>
-          <li><button type="button" class="trades__item" data-trade="fire" aria-pressed="false">Fire &amp; security</button></li>
-          <li><button type="button" class="trades__item" data-trade="hvac" aria-pressed="false">HVAC &amp; refrigeration</button></li>
-          <li><button type="button" class="trades__item" data-trade="lifts" aria-pressed="false">Lift engineers</button></li>
-          <li><button type="button" class="trades__item" data-trade="roofers" aria-pressed="false">Roofers</button></li>
-          <li><button type="button" class="trades__item" data-trade="multi" aria-pressed="false">Multi-trade contractors</button></li>
+          <li><a class="trades__item is-active" href="for-electricians.html" data-trade="electricians">Electricians<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-gas.html" data-trade="gas">Gas &amp; heating engineers<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-plumbers.html" data-trade="plumbers">Plumbers<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-fire.html" data-trade="fire">Fire &amp; security<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-hvac.html" data-trade="hvac">HVAC &amp; refrigeration<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-lifts.html" data-trade="lifts">Lift engineers<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-roofers.html" data-trade="roofers">Roofers<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-multi.html" data-trade="multi">Multi-trade contractors<span class="trades__go mono">View page</span></a></li>
         </ul>
       </div>
     </section>
@@ -223,7 +189,7 @@
         </div>
         <div>
           <p class="footer__label">Menu</p>
-          <a href="index.html">Home</a><a href="index.html#console">Product</a><a href="index.html#trades">Trades</a><a href="engineers.html">Engineer app</a><a href="pricing.html">Pricing</a><a href="news.html">News</a>
+          <a href="index.html">Home</a><a href="product.html">Product</a><a href="index.html#trades">Trades</a><a href="engineers.html">Engineer app</a><a href="pricing.html">Pricing</a><a href="news.html">News</a>
         </div>
         <div>
           <p class="footer__label">Support</p>

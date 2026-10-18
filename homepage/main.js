@@ -73,7 +73,7 @@ document.querySelectorAll('.shot[data-img]').forEach((figure) => {
   img.addEventListener('error', () => markPlaceholder(figure), { once: true })
 })
 
-// Trades list: hovering, focusing or tapping a trade shows its photograph
+// Trades list: hovering or focusing a trade shows its photograph; clicking opens its page
 const tradeItems = document.querySelectorAll('.trades__item')
 const tradeShots = document.querySelectorAll('.trades__shot')
 const tradeCount = document.querySelector('.trades__count')
@@ -82,7 +82,6 @@ function showTrade(key) {
   tradeItems.forEach((item, i) => {
     const on = item.dataset.trade === key
     item.classList.toggle('is-active', on)
-    item.setAttribute('aria-pressed', String(on))
     if (on && tradeCount) tradeCount.textContent = String(i + 1).padStart(2, '0')
   })
   tradeShots.forEach((shot) => shot.classList.toggle('is-active', shot.dataset.trade === key))
@@ -92,7 +91,6 @@ tradeItems.forEach((item) => {
   const show = () => showTrade(item.dataset.trade)
   item.addEventListener('mouseenter', show)
   item.addEventListener('focus', show)
-  item.addEventListener('click', show)
 })
 
 // Console: tabs that switch between real product screens
