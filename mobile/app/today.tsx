@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     padding: space[4],
     marginBottom: space[2],
     borderRadius: radius.xl,
-    backgroundColor: 'rgba(17,17,17,0.72)',
+    backgroundColor: 'rgba(18,18,18,0.78)',
   },
   jobPressed: { backgroundColor: color.raised },
   jobTime: { width: 44 },

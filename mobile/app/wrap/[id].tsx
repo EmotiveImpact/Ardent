@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   clocks: { flexDirection: 'row', marginTop: space[6], paddingVertical: space[4], borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: color.line },
   clockValue: { color: color.fg, fontFamily: font.monoMedium, fontSize: 18 },
   clockLabel: { color: color.fgFaint, fontFamily: font.sansMedium, fontSize: 11, marginTop: 4 },
-  panel: { borderRadius: radius.xl, backgroundColor: 'rgba(17,17,17,0.72)', paddingHorizontal: space[4], paddingVertical: space[1] },
+  panel: { borderRadius: radius.xl, backgroundColor: 'rgba(18,18,18,0.78)', paddingHorizontal: space[4], paddingVertical: space[1] },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space[3], paddingVertical: space[2] + 2 },
   openRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], flex: 1 },
   dot: { width: 6, height: 6, borderRadius: 3 },
