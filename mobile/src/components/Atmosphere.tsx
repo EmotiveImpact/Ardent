@@ -36,8 +36,8 @@ function Bloom({ spec, active }: { spec: ModeSpec; active: boolean }) {
           >
             <Stop offset="0" stopColor={spec.glow} stopOpacity={0.5} />
             <Stop offset="0.35" stopColor={spec.glow} stopOpacity={0.16} />
-            <Stop offset="0.7" stopColor={color.graphite} stopOpacity={0.4} />
-            <Stop offset="1" stopColor={color.void} stopOpacity={0} />
+            <Stop offset="0.7" stopColor={color.raised} stopOpacity={0.4} />
+            <Stop offset="1" stopColor={color.bg} stopOpacity={0} />
           </RadialGradient>
         </Defs>
         <Rect x={0} y={0} width={width} height={height} fill={`url(#${gid})`} />
@@ -49,13 +49,13 @@ function Bloom({ spec, active }: { spec: ModeSpec; active: boolean }) {
 /** Near-black field, a cool steel haze, a slow light bloom that follows the mode, and film grain on top. */
 export function Atmosphere({ mode }: { mode: OperatorMode }) {
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color.void }]}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color.bg }]}>
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
         <Defs>
           <RadialGradient id="cool" cx="62%" cy="38%" rx="80%" ry="45%" fx="62%" fy="38%">
             <Stop offset="0" stopColor="#4A5A60" stopOpacity={0.45} />
             <Stop offset="0.6" stopColor="#2A3236" stopOpacity={0.25} />
-            <Stop offset="1" stopColor={color.void} stopOpacity={0} />
+            <Stop offset="1" stopColor={color.bg} stopOpacity={0} />
           </RadialGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#cool)" />

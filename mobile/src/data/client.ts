@@ -1,4 +1,4 @@
-import type { DaySummary, JobCard, Operator, OperatorMode } from './types';
+import type { DaySummary, Engineer, JobCard } from './types';
 import { mockClient } from './mock';
 
 /**
@@ -6,8 +6,8 @@ import { mockClient } from './mock';
  * interface, so swapping the mock for Core's real API is a one-line change.
  */
 export interface ArdentClient {
-  getOperator(): Promise<Operator>;
-  setMode(mode: OperatorMode): Promise<Operator>;
+  /** The engineer signed in on this phone. */
+  getMe(): Promise<Engineer>;
   getDaySummary(): Promise<DaySummary>;
   getTodayJobs(): Promise<JobCard[]>;
 }

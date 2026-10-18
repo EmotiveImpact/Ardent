@@ -59,7 +59,7 @@ export function HoldToEnter({ label, onEnter }: { label: string; onEnter: () => 
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', paddingVertical: 14, gap: 12 },
-  label: { color: color.bone, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label },
-  track: { width: 148, height: 4, borderRadius: 2, backgroundColor: color.boneFaint, overflow: 'hidden' },
-  fill: { height: '100%', backgroundColor: color.bone, borderRadius: 2 },
+  label: { color: color.fg, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label },
+  track: { width: 148, height: 4, borderRadius: 2, backgroundColor: color.lineStrong, overflow: 'hidden' },
+  fill: { height: '100%', backgroundColor: color.ember, borderRadius: 2 },
 });

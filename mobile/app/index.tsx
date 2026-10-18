@@ -57,8 +57,8 @@ export default function Opening() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Animated.View entering={FadeIn.duration(700)} style={styles.readouts}>
           <Readout glyph="jobs" value={summary ? `${summary.jobsDone}/${summary.jobsToday} jobs` : '–'} />
-          <Readout glyph="quotes" value={summary ? `${summary.quotesOpen} quotes` : '–'} />
-          <Readout glyph="owed" value={summary ? `${pounds(summary.unpaidPence)} owed` : '–'} />
+          <Readout glyph="quotes" value={summary ? `${summary.quotesOpen} ${summary.quotesOpen === 1 ? 'quote' : 'quotes'}` : '–'} />
+          <Readout glyph="owed" value={summary ? `${pounds(summary.owedPence)} owed` : '–'} />
         </Animated.View>
 
         <Text style={styles.wordmark}>ARDENT</Text>
@@ -87,27 +87,27 @@ export default function Opening() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.void },
+  root: { flex: 1, backgroundColor: color.bg },
   safe: { flex: 1, paddingHorizontal: space.xl },
   readouts: { flexDirection: 'row', justifyContent: 'center', gap: space.lg, paddingTop: space.md },
   wordmark: {
     marginTop: space.xl,
-    color: color.boneFaint,
+    color: color.fgFaint,
     fontFamily: font.display,
     fontSize: 10,
     letterSpacing: tracking.label * 2,
   },
   stage: { flex: 1, justifyContent: 'flex-end', paddingBottom: space.xxl },
   activeBlock: { marginBottom: space.xl },
-  activeLabel: { color: color.bone, fontFamily: font.display, fontSize: 30, letterSpacing: tracking.display },
+  activeLabel: { color: color.fg, fontFamily: font.display, fontSize: 30, letterSpacing: tracking.display },
   blurb: {
     marginTop: space.sm,
     maxWidth: 270,
-    color: color.boneDim,
-    fontFamily: font.body,
+    color: color.fgMuted,
+    fontFamily: font.sans,
     fontSize: 12.5,
     lineHeight: 17,
   },
   queue: { gap: space.xs, paddingLeft: space.xl },
-  queueLabel: { color: color.bone, fontFamily: font.display, fontSize: 19, letterSpacing: tracking.display, paddingVertical: 2 },
+  queueLabel: { color: color.fg, fontFamily: font.display, fontSize: 19, letterSpacing: tracking.display, paddingVertical: 2 },
 });

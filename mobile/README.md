@@ -17,6 +17,7 @@ npx expo start        # scan the QR with Expo Go (SDK 58), or press i / a / w
 
 ## How it connects to Ardent Core
 
-- `src/data/types.ts` holds the domain model (Operator, Customer, Site, Job, Quote, Invoice, TimeEntry, Material). Ardent Core owns the canonical shapes; this file mirrors them until Core publishes a shared package.
-- `src/data/client.ts` is the only thing screens call. It currently points at `src/data/mock.ts`; pointing it at Core's API is a one-line change.
-- `src/theme/tokens.ts` mirrors Core's design tokens as plain values, ready to be replaced by Core's shared export.
+- `src/data/core/` is a straight copy of Core's shared data model and mock records (`core/src/data/model.ts`, `mock.ts`). Core owns them; refresh with `scripts/sync-core.sh` (reads `../core`, or pass a git ref) and never edit the copies by hand.
+- `src/data/types.ts` re-exports Core's model and adds the few mobile-only shapes (working mode, a job joined with its customer and site, the day summary).
+- `src/data/client.ts` is the only thing screens call. It currently reads Core's mock data as engineer Dan Mercer; pointing it at Core's API is a one-line change.
+- `src/theme/tokens.ts` mirrors Core's `:root` tokens (colours, radius) and fonts (Geist, Geist Mono for numbers). Michroma is the one mobile addition, used for mode names and headlines.

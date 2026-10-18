@@ -1,32 +1,39 @@
-// Ardent design tokens, mobile mirror.
-// Ardent Core owns the canonical set. These values are kept framework neutral
-// (plain hex, numbers, font names) so they can be swapped for Core's shared
-// export without touching any screen.
+// Ardent design tokens, mobile mirror of Ardent Core's :root in
+// core/src/index.css. Core owns them: keep names and values in step.
 
 export const color = {
-  void: '#0B0C0D',
-  carbon: '#121416',
-  graphite: '#1A1D20',
-  slate: '#2A2F33',
-  line: 'rgba(232, 226, 214, 0.10)',
-  bone: '#E8E2D6',
-  boneDim: 'rgba(232, 226, 214, 0.62)',
-  boneFaint: 'rgba(232, 226, 214, 0.32)',
-  ember: '#D9B98A',
-  signal: '#9FD3A8',
-  hazard: '#E2A23B',
-  alert: '#E0644F',
+  bg: '#070707',
+  surface: '#111111',
+  inset: '#0c0c0c',
+  raised: '#1a1a1a',
+  line: '#222222',
+  lineStrong: '#2e2e2e',
+  fg: '#f2f2f2',
+  fgMuted: '#9a9a9a',
+  fgFaint: '#5f5f5f',
+  ember: '#ff6a1a',
+  emberSoft: '#ff6a1a26',
+  ok: '#22c55e',
+  warn: '#f59e0b',
+  danger: '#ef4444',
+  info: '#3b82f6',
+  violet: '#8b5cf6',
 } as const;
 
 export const font = {
+  /** Wide display face for mode names and headlines. Mobile only, proposed to Core. */
   display: 'Michroma_400Regular',
-  body: 'Inter_400Regular',
-  bodyMedium: 'Inter_500Medium',
-  bodySemi: 'Inter_600SemiBold',
+  sans: 'Geist_400Regular',
+  sansMedium: 'Geist_500Medium',
+  sansSemi: 'Geist_600SemiBold',
+  /** Every number, code and postcode, as in Core. */
+  mono: 'GeistMono_400Regular',
+  monoMedium: 'GeistMono_500Medium',
 } as const;
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const;
 
-export const radius = { sm: 6, md: 10, lg: 16, pill: 999 } as const;
+/** Core's --radius is 10px; sm, md and xl follow its calc steps. */
+export const radius = { sm: 6, md: 8, lg: 10, xl: 14, pill: 999 } as const;
 
 export const tracking = { display: 1.2, label: 2.4 } as const;

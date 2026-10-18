@@ -1,10 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { ardent } from '@/data/client';
-import type { DaySummary, Operator, OperatorMode } from '@/data/types';
+import type { DaySummary, Engineer, EngineerState, OperatorMode } from '@/data/types';
 
 interface OperatorState {
-  operator?: Operator;
+  me?: Engineer;
   summary?: DaySummary;
   mode: OperatorMode;
   setMode: (mode: OperatorMode) => void;
@@ -12,26 +12,29 @@ interface OperatorState {
 
 const Ctx = createContext<OperatorState | null>(null);
 
+// Starting mode from what Core says the engineer is doing right now.
+const FROM_STATE: Record<EngineerState, OperatorMode> = {
+  on_site: 'on_site',
+  en_route: 'en_route',
+  delayed: 'en_route',
+  available: 'on_call',
+  off: 'off_shift',
+};
+
 export function OperatorProvider({ children }: { children: ReactNode }) {
-  const [operator, setOperator] = useState<Operator>();
+  const [me, setMe] = useState<Engineer>();
   const [summary, setSummary] = useState<DaySummary>();
-  const [mode, setLocalMode] = useState<OperatorMode>('on_site');
+  const [mode, setMode] = useState<OperatorMode>('on_site');
 
   useEffect(() => {
-    ardent.getOperator().then((o) => {
-      setOperator(o);
-      setLocalMode(o.mode);
+    ardent.getMe().then((e) => {
+      setMe(e);
+      setMode(FROM_STATE[e.state]);
     });
     ardent.getDaySummary().then(setSummary);
   }, []);
 
-  // Optimistic: the screen moves straight away, Core catches up behind it.
-  const setMode = useCallback((next: OperatorMode) => {
-    setLocalMode(next);
-    ardent.setMode(next).then(setOperator).catch(() => {});
-  }, []);
-
-  return <Ctx.Provider value={{ operator, summary, mode, setMode }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ me, summary, mode, setMode }}>{children}</Ctx.Provider>;
 }
 
 export function useOperator() {
