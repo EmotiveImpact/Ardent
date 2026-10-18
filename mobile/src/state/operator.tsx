@@ -1,10 +1,10 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
-import { ardent } from '@/data/client';
-import type { DaySummary, Engineer, EngineerState, OperatorMode } from '@/data/types';
+import { ardent, daySummary } from '@/data/client';
+import type { DaySummary, Operator, OperatorMode } from '@/data/types';
 
 interface OperatorState {
-  me?: Engineer;
+  me?: Operator;
   summary?: DaySummary;
   mode: OperatorMode;
   setMode: (mode: OperatorMode) => void;
@@ -12,27 +12,28 @@ interface OperatorState {
 
 const Ctx = createContext<OperatorState | null>(null);
 
-// Starting mode from what Core says the engineer is doing right now.
-const FROM_STATE: Record<EngineerState, OperatorMode> = {
-  on_site: 'on_site',
-  en_route: 'en_route',
-  delayed: 'en_route',
-  available: 'on_call',
-  off: 'off_shift',
-};
-
 export function OperatorProvider({ children }: { children: ReactNode }) {
-  const [me, setMe] = useState<Engineer>();
+  const [me, setMe] = useState<Operator>();
   const [summary, setSummary] = useState<DaySummary>();
-  const [mode, setMode] = useState<OperatorMode>('on_site');
+  const [mode, setLocalMode] = useState<OperatorMode>('on_site');
 
   useEffect(() => {
-    ardent.getMe().then((e) => {
-      setMe(e);
-      setMode(FROM_STATE[e.state]);
+    ardent.operators.me().then((o) => {
+      setMe(o);
+      // Dispatch marks a late operator 'delayed'; on the phone they are still en route.
+      setLocalMode(o.state === 'delayed' ? 'en_route' : o.state);
+      daySummary(o).then(setSummary);
     });
-    ardent.getDaySummary().then(setSummary);
   }, []);
+
+  // Optimistic: the screen moves straight away, Core catches up behind it.
+  const setMode = useCallback(
+    (next: OperatorMode) => {
+      setLocalMode(next);
+      if (me) ardent.operators.setState(me.id, next).then(setMe).catch(() => {});
+    },
+    [me],
+  );
 
   return <Ctx.Provider value={{ me, summary, mode, setMode }}>{children}</Ctx.Provider>;
 }

@@ -5,7 +5,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '@/components/Atmosphere';
-import { ardent } from '@/data/client';
+import { todayJobs } from '@/data/client';
 import { modeById } from '@/data/modes';
 import type { JobCard, JobStatus, Priority } from '@/data/types';
 import { clock, pounds } from '@/format';
@@ -55,7 +55,7 @@ function JobRow({ job, index }: { job: JobCard; index: number }) {
         </View>
         <View style={styles.jobBody}>
           <View style={styles.jobTop}>
-            <Text style={styles.ref}>{job.number}</Text>
+            <Text style={styles.ref}>{job.ref}</Text>
             {flag && <Text style={[styles.flag, { color: flag }]}>{job.priority.toUpperCase()}</Text>}
           </View>
           <Text style={styles.title}>{job.title}</Text>
@@ -79,8 +79,8 @@ export default function Today() {
   const m = modeById(mode);
 
   useEffect(() => {
-    ardent.getTodayJobs().then(setJobs);
-  }, []);
+    if (me) todayJobs(me).then(setJobs);
+  }, [me]);
 
   const first = me?.name.split(' ')[0];
 
@@ -125,12 +125,12 @@ export default function Today() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingTop: space.sm },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[6], paddingTop: space[2] },
   modeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.md,
+    gap: space[2],
+    paddingHorizontal: space[3],
     paddingVertical: 7,
     borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
@@ -139,14 +139,14 @@ const styles = StyleSheet.create({
   },
   modeChipText: { color: color.fg, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label },
   wordmark: { color: color.fgFaint, fontFamily: font.display, fontSize: 10, letterSpacing: tracking.label * 2 },
-  scroll: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.xxxl },
+  scroll: { paddingHorizontal: space[6], paddingTop: space[8], paddingBottom: space[12] },
   hello: { color: color.fgMuted, fontFamily: font.sans, fontSize: 14 },
-  headline: { color: color.fg, fontFamily: font.display, fontSize: 34, letterSpacing: tracking.display, marginTop: space.xs },
+  headline: { color: color.fg, fontFamily: font.display, fontSize: 34, letterSpacing: tracking.display, marginTop: space[1] },
   stats: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: space.xl,
-    paddingVertical: space.lg,
+    marginTop: space[6],
+    paddingVertical: space[4],
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: color.line,
@@ -154,13 +154,13 @@ const styles = StyleSheet.create({
   stat: { flex: 1 },
   statValue: { color: color.fg, fontFamily: font.monoMedium, fontSize: 20 },
   statLabel: { color: color.fgFaint, fontFamily: font.sansMedium, fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
-  rule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: color.line, marginHorizontal: space.md },
-  section: { color: color.fgFaint, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label * 1.5, marginTop: space.xxl, marginBottom: space.md },
+  rule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: color.line, marginHorizontal: space[3] },
+  section: { color: color.fgFaint, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label * 1.5, marginTop: space[8], marginBottom: space[3] },
   job: {
     flexDirection: 'row',
-    gap: space.md,
-    padding: space.lg,
-    marginBottom: space.sm,
+    gap: space[3],
+    padding: space[4],
+    marginBottom: space[2],
     borderRadius: radius.xl,
     backgroundColor: 'rgba(17,17,17,0.72)',
     borderWidth: StyleSheet.hairlineWidth,
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   time: { color: color.fg, fontFamily: font.monoMedium, fontSize: 13 },
   timeEnd: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, marginTop: 2 },
   jobBody: { flex: 1 },
-  jobTop: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
+  jobTop: { flexDirection: 'row', gap: space[2], alignItems: 'center' },
   ref: { color: color.fgFaint, fontFamily: font.mono, fontSize: 10.5 },
   flag: { fontFamily: font.display, fontSize: 8, letterSpacing: tracking.label },
   title: { color: color.fg, fontFamily: font.sansSemi, fontSize: 15, marginTop: 3 },

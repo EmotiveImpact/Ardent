@@ -88,26 +88,26 @@ export default function Opening() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
-  safe: { flex: 1, paddingHorizontal: space.xl },
-  readouts: { flexDirection: 'row', justifyContent: 'center', gap: space.lg, paddingTop: space.md },
+  safe: { flex: 1, paddingHorizontal: space[6] },
+  readouts: { flexDirection: 'row', justifyContent: 'center', gap: space[4], paddingTop: space[3] },
   wordmark: {
-    marginTop: space.xl,
+    marginTop: space[6],
     color: color.fgFaint,
     fontFamily: font.display,
     fontSize: 10,
     letterSpacing: tracking.label * 2,
   },
-  stage: { flex: 1, justifyContent: 'flex-end', paddingBottom: space.xxl },
-  activeBlock: { marginBottom: space.xl },
+  stage: { flex: 1, justifyContent: 'flex-end', paddingBottom: space[8] },
+  activeBlock: { marginBottom: space[6] },
   activeLabel: { color: color.fg, fontFamily: font.display, fontSize: 30, letterSpacing: tracking.display },
   blurb: {
-    marginTop: space.sm,
+    marginTop: space[2],
     maxWidth: 270,
     color: color.fgMuted,
     fontFamily: font.sans,
     fontSize: 12.5,
     lineHeight: 17,
   },
-  queue: { gap: space.xs, paddingLeft: space.xl },
+  queue: { gap: space[1], paddingLeft: space[6] },
   queueLabel: { color: color.fg, fontFamily: font.display, fontSize: 19, letterSpacing: tracking.display, paddingVertical: 2 },
 });

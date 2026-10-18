@@ -1,4 +1,4 @@
-import type { Certificate, Customer, Engineer, Exception, Job, Site } from './model'
+import type { Certificate, Customer, Operator, Exception, Job, Site } from './model'
 
 const day = '2026-10-18'
 const t = (hhmm: string) => `${day}T${hhmm}:00Z`
@@ -21,33 +21,33 @@ export const sites: Site[] = [
   { id: 'sit_06', customerId: 'cus_06', line1: '19 Brindle Street', town: 'Ancoats', postcode: 'M4 6DE', lat: 60, lng: 50 },
 ]
 
-export const engineers: Engineer[] = [
+export const operators: Operator[] = [
   {
-    id: 'eng_01', name: 'Dan Mercer', initials: 'DM', trades: ['gas', 'heating'], van: 'VN21 KTX',
+    id: 'opr_01', name: 'Dan Mercer', role: 'owner', initials: 'DM', trades: ['gas', 'heating'], van: 'VN21 KTX',
     state: 'on_site', currentJobId: 'job_1042',
     registrations: [{ body: 'Gas Safe', number: '558 213', expires: '2027-03-31' }],
   },
   {
-    id: 'eng_02', name: 'Kofi Asante', initials: 'KA', trades: ['electrical'], van: 'VK70 HBA',
+    id: 'opr_02', name: 'Kofi Asante', role: 'operator', initials: 'KA', trades: ['electrical'], van: 'VK70 HBA',
     state: 'en_route', currentJobId: 'job_1045', etaMinutes: 12,
     registrations: [{ body: 'NICEIC', number: 'D-81772', expires: '2026-11-02' }],
   },
   {
-    id: 'eng_03', name: 'Ryan Holt', initials: 'RH', trades: ['plumbing', 'heating'], van: 'VE19 PLM',
+    id: 'opr_03', name: 'Ryan Holt', role: 'operator', initials: 'RH', trades: ['plumbing', 'heating'], van: 'VE19 PLM',
     state: 'delayed', currentJobId: 'job_1047', etaMinutes: 38,
     registrations: [{ body: 'WRAS', number: 'AP-20381', expires: '2027-06-30' }],
   },
   {
-    id: 'eng_04', name: 'Tom Byrne', initials: 'TB', trades: ['general', 'carpentry'], van: 'VA68 RRT',
-    state: 'available',
+    id: 'opr_04', name: 'Tom Byrne', role: 'subcontractor', initials: 'TB', trades: ['general', 'carpentry'], van: 'VA68 RRT',
+    state: 'on_call',
     registrations: [],
   },
 ]
 
 export const jobs: Job[] = [
   {
-    id: 'job_1042', number: 'J-1042', title: 'Combi boiler swap', trade: 'gas', status: 'on_site', priority: 'high',
-    customerId: 'cus_01', siteId: 'sit_01', engineerIds: ['eng_01'], start: t('08:00'), end: t('15:00'),
+    id: 'job_1042', ref: 'J-1042', title: 'Combi boiler swap', trade: 'gas', status: 'on_site', priority: 'high',
+    customerId: 'cus_01', siteId: 'sit_01', operatorIds: ['opr_01'], start: t('08:00'), end: t('15:00'),
     lines: [
       { id: 'li_1', kind: 'material', description: 'Worcester Bosch 4000 30kW', quantity: 1, unitPrice: 132000 },
       { id: 'li_2', kind: 'material', description: 'Magnetic filter and flush kit', quantity: 1, unitPrice: 14500 },
@@ -60,8 +60,8 @@ export const jobs: Job[] = [
     ],
   },
   {
-    id: 'job_1045', number: 'J-1045', title: 'Consumer unit upgrade', trade: 'electrical', status: 'en_route', priority: 'normal',
-    customerId: 'cus_04', siteId: 'sit_04', engineerIds: ['eng_02'], start: t('10:00'), end: t('14:00'),
+    id: 'job_1045', ref: 'J-1045', title: 'Consumer unit upgrade', trade: 'electrical', status: 'en_route', priority: 'normal',
+    customerId: 'cus_04', siteId: 'sit_04', operatorIds: ['opr_02'], start: t('10:00'), end: t('14:00'),
     lines: [
       { id: 'li_4', kind: 'material', description: '18th Ed. RCBO board, 10 way', quantity: 1, unitPrice: 26800 },
       { id: 'li_5', kind: 'labour', description: 'Swap board, test, certify', quantity: 4, unitPrice: 5000 },
@@ -73,8 +73,8 @@ export const jobs: Job[] = [
     ],
   },
   {
-    id: 'job_1047', number: 'J-1047', title: 'Leak under kitchen sink', trade: 'plumbing', status: 'en_route', priority: 'emergency',
-    customerId: 'cus_02', siteId: 'sit_02', engineerIds: ['eng_03'], start: t('09:30'), end: t('11:00'),
+    id: 'job_1047', ref: 'J-1047', title: 'Leak under kitchen sink', trade: 'plumbing', status: 'en_route', priority: 'emergency',
+    customerId: 'cus_02', siteId: 'sit_02', operatorIds: ['opr_03'], start: t('09:30'), end: t('11:00'),
     lines: [
       { id: 'li_6', kind: 'callout', description: 'Emergency call-out', quantity: 1, unitPrice: 9500 },
     ],
@@ -82,20 +82,20 @@ export const jobs: Job[] = [
     notes: 'Tenant reports water through ceiling below.',
   },
   {
-    id: 'job_1048', number: 'J-1048', title: 'Annual CP12, 4 appliances', trade: 'gas', status: 'booked', priority: 'normal',
-    customerId: 'cus_03', siteId: 'sit_03', engineerIds: ['eng_01'], start: t('15:30'), end: t('17:00'),
+    id: 'job_1048', ref: 'J-1048', title: 'Annual CP12, 4 appliances', trade: 'gas', status: 'booked', priority: 'normal',
+    customerId: 'cus_03', siteId: 'sit_03', operatorIds: ['opr_01'], start: t('15:30'), end: t('17:00'),
     lines: [{ id: 'li_7', kind: 'labour', description: 'Landlord gas safety inspection', quantity: 1, unitPrice: 8500 }],
     checks: [{ key: 'registration', label: 'Gas Safe', state: 'pass' }],
   },
   {
-    id: 'job_1049', number: 'J-1049', title: 'Hang fire door, fit closer', trade: 'carpentry', status: 'booked', priority: 'low',
-    customerId: 'cus_06', siteId: 'sit_06', engineerIds: ['eng_04'], start: t('11:00'), end: t('13:30'),
+    id: 'job_1049', ref: 'J-1049', title: 'Hang fire door, fit closer', trade: 'carpentry', status: 'booked', priority: 'low',
+    customerId: 'cus_06', siteId: 'sit_06', operatorIds: ['opr_04'], start: t('11:00'), end: t('13:30'),
     lines: [{ id: 'li_8', kind: 'labour', description: 'FD30 door set install', quantity: 3, unitPrice: 4500 }],
     checks: [{ key: 'rams', label: 'RAMS', state: 'pass' }],
   },
   {
-    id: 'job_1039', number: 'J-1039', title: 'Radiator valves x6', trade: 'heating', status: 'complete', priority: 'normal',
-    customerId: 'cus_05', siteId: 'sit_05', engineerIds: ['eng_03'], start: '2026-10-17T13:00:00Z', end: '2026-10-17T16:00:00Z',
+    id: 'job_1039', ref: 'J-1039', title: 'Radiator valves x6', trade: 'heating', status: 'complete', priority: 'normal',
+    customerId: 'cus_05', siteId: 'sit_05', operatorIds: ['opr_03'], start: '2026-10-17T13:00:00Z', end: '2026-10-17T16:00:00Z',
     lines: [
       { id: 'li_9', kind: 'material', description: 'TRV, Drayton TRV4', quantity: 6, unitPrice: 2200 },
       { id: 'li_10', kind: 'labour', description: 'Drain down, fit, refill', quantity: 3, unitPrice: 5500 },
@@ -103,25 +103,25 @@ export const jobs: Job[] = [
     checks: [{ key: 'signature', label: 'Customer sign-off', state: 'pass' }],
   },
   {
-    id: 'job_1036', number: 'J-1036', title: 'Outside socket and lighting', trade: 'electrical', status: 'invoiced', priority: 'normal',
-    customerId: 'cus_05', siteId: 'sit_05', engineerIds: ['eng_02'], start: '2026-10-16T09:00:00Z', end: '2026-10-16T12:00:00Z',
+    id: 'job_1036', ref: 'J-1036', title: 'Outside socket and lighting', trade: 'electrical', status: 'invoiced', priority: 'normal',
+    customerId: 'cus_05', siteId: 'sit_05', operatorIds: ['opr_02'], start: '2026-10-16T09:00:00Z', end: '2026-10-16T12:00:00Z',
     lines: [{ id: 'li_11', kind: 'labour', description: 'IP66 socket, PIR flood', quantity: 1, unitPrice: 26000 }],
     checks: [{ key: 'eicr', label: 'Minor works cert', state: 'pass' }],
   },
   {
-    id: 'job_1051', number: 'J-1051', title: 'Bathroom refit, quote visit', trade: 'plumbing', status: 'quoted', priority: 'normal',
-    customerId: 'cus_01', siteId: 'sit_01', engineerIds: [], start: '2026-10-22T10:00:00Z', end: '2026-10-22T11:00:00Z',
+    id: 'job_1051', ref: 'J-1051', title: 'Bathroom refit, quote visit', trade: 'plumbing', status: 'quoted', priority: 'normal',
+    customerId: 'cus_01', siteId: 'sit_01', operatorIds: [], start: '2026-10-22T10:00:00Z', end: '2026-10-22T11:00:00Z',
     lines: [{ id: 'li_12', kind: 'other', description: 'Full refit, supply and fit', quantity: 1, unitPrice: 685000 }],
     checks: [],
   },
   {
-    id: 'job_1052', number: 'J-1052', title: 'No hot water', trade: 'heating', status: 'enquiry', priority: 'high',
-    customerId: 'cus_02', siteId: 'sit_02', engineerIds: [], start: '2026-10-20T08:00:00Z', end: '2026-10-20T10:00:00Z',
+    id: 'job_1052', ref: 'J-1052', title: 'No hot water', trade: 'heating', status: 'enquiry', priority: 'high',
+    customerId: 'cus_02', siteId: 'sit_02', operatorIds: [], start: '2026-10-20T08:00:00Z', end: '2026-10-20T10:00:00Z',
     lines: [], checks: [],
   },
   {
-    id: 'job_1030', number: 'J-1030', title: 'Cellar pump service', trade: 'plumbing', status: 'paid', priority: 'normal',
-    customerId: 'cus_03', siteId: 'sit_03', engineerIds: ['eng_03'], start: '2026-10-12T07:00:00Z', end: '2026-10-12T09:00:00Z',
+    id: 'job_1030', ref: 'J-1030', title: 'Cellar pump service', trade: 'plumbing', status: 'paid', priority: 'normal',
+    customerId: 'cus_03', siteId: 'sit_03', operatorIds: ['opr_03'], start: '2026-10-12T07:00:00Z', end: '2026-10-12T09:00:00Z',
     lines: [{ id: 'li_13', kind: 'labour', description: 'Service and descale', quantity: 1, unitPrice: 16500 }],
     checks: [],
   },
