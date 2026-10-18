@@ -123,7 +123,7 @@ function Wires() {
 function LiveClock() {
   const now = useNow()
   return (
-    <span className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-md border border-line bg-surface/90 px-2 py-1 text-[11px] text-muted backdrop-blur">
+    <span className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-md bg-surface/90 px-2 py-1 text-[11px] text-muted backdrop-blur">
       <span className="relative flex size-1.5">
         <span className="absolute inset-0 animate-pulse-ring rounded-full bg-ember" />
         <span className="relative size-1.5 rounded-full bg-ember" />
@@ -139,7 +139,7 @@ function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
   const site = byId(sites, job?.siteId)
   const meta = stateMeta[eng.state]
   return (
-    <div className={cn('w-[208px] rounded-lg border border-line-strong bg-surface/95 p-1 shadow-xl shadow-black/50 backdrop-blur', className)}>
+    <div className={cn('w-[208px] rounded-lg bg-surface/95 p-1 shadow-xl shadow-black/50 backdrop-blur', className)}>
       <div className="flex items-center gap-2 px-2 py-1.5">
         <Avatar initials={eng.initials} className="size-5 text-[9px]" />
         <span className="truncate text-[13px]">{eng.name}</span>
@@ -147,7 +147,7 @@ function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
           {meta.label}
         </Badge>
       </div>
-      <div className="rounded-md border border-line bg-inset text-[12px]">
+      <div className="rounded-md bg-inset text-[12px]">
         <div className="flex items-center justify-between px-2 py-1.5">
           <span className="text-muted">Job</span>
           {job ? (
@@ -158,7 +158,7 @@ function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
             <span className="text-faint">Unassigned</span>
           )}
         </div>
-        <div className="flex items-center justify-between border-t border-line px-2 py-1.5">
+        <div className="flex items-center justify-between border-t px-2 py-1.5">
           <span className="text-muted">{eng.etaMinutes ? 'ETA' : 'Site'}</span>
           <span className="font-mono">
             {eng.etaMinutes ? (
@@ -201,7 +201,7 @@ export function LiveBoard() {
         <Wires />
 
         <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${yard.x}%`, top: `${yard.y}%` }}>
-          <div className="w-[228px] rounded-lg border border-line-strong bg-surface p-1 shadow-xl shadow-black/50">
+          <div className="w-[228px] rounded-lg bg-surface p-1 shadow-xl shadow-black/50">
             <div className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
               <Warehouse className="size-4 text-muted" />
               Yard, Trafford Park
@@ -210,7 +210,7 @@ export function LiveBoard() {
                 <span className="relative size-2 rounded-full bg-ok" />
               </span>
             </div>
-            <div className="flex items-center justify-between rounded-md border border-line bg-inset px-2 py-1.5 text-[12px]">
+            <div className="flex items-center justify-between rounded-md bg-inset px-2 py-1.5 text-[12px]">
               <span className="text-muted">Vans out</span>
               <span className="font-mono">
                 {out}

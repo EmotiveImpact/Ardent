@@ -35,7 +35,7 @@ function ProgressTrack({ job }: { job: Job }) {
   const planned = Date.parse(job.end) - Date.parse(job.start)
   const pct = Math.min(100, Math.max(0, (elapsed / planned) * 100))
   return (
-    <div className="mt-2 rounded-lg border border-line bg-surface p-3">
+    <div className="mt-2 rounded-lg bg-surface p-3">
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-[11px] tracking-[0.08em] text-faint uppercase">{live ? statusMeta[job.status].label + ' for' : 'Status'}</p>
@@ -77,7 +77,7 @@ function ProgressTrack({ job }: { job: Job }) {
 }
 
 function Token({ children }: { children: React.ReactNode }) {
-  return <Chip className="h-7 bg-surface px-2.5 font-sans text-[12px]">{children}</Chip>
+  return <Chip className="h-7 bg-raised px-2.5 font-sans text-[12px]">{children}</Chip>
 }
 
 export function JobSheet({ job }: { job: Job }) {
@@ -106,7 +106,7 @@ export function JobSheet({ job }: { job: Job }) {
       <Well className="flex-1 overflow-y-auto px-2 pb-2">
         <ProgressTrack job={job} />
         <SectionLabel>1. Intake</SectionLabel>
-        <div className="divide-y divide-line rounded-lg border border-line bg-surface">
+        <div className="divide-y divide-line rounded-lg bg-surface">
           <Row label="Job">
             <span className="truncate">{job.title}</span>
             <Badge tone={statusMeta[job.status].tone} dot>
@@ -133,12 +133,12 @@ export function JobSheet({ job }: { job: Job }) {
         <SectionLabel>2. Compliance gates</SectionLabel>
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
           {job.checks.map((c) => (
-            <div key={c.key} className="rounded-lg border border-line bg-surface p-1">
+            <div key={c.key} className="rounded-lg bg-surface p-1">
               <div className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
                 <ShieldCheck className="size-4 text-muted" />
                 {c.label}
               </div>
-              <div className="flex items-center justify-between rounded-md border border-line bg-inset px-2 py-2 text-[12px]">
+              <div className="flex items-center justify-between rounded-md bg-inset px-2 py-2 text-[12px]">
                 <span className="truncate text-muted">{c.detail ?? c.state}</span>
                 {checkIcon[c.state]}
               </div>
@@ -147,7 +147,7 @@ export function JobSheet({ job }: { job: Job }) {
         </div>
 
         <SectionLabel>3. Rules on this job</SectionLabel>
-        <div className="rounded-lg border border-line bg-surface p-1">
+        <div className="rounded-lg bg-surface p-1">
           <div className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
             Rule <Chip>01</Chip>
             <span className="text-faint">·</span>
@@ -156,8 +156,8 @@ export function JobSheet({ job }: { job: Job }) {
               <MoreHorizontal />
             </Button>
           </div>
-          <div className="rounded-md border border-line bg-inset">
-            <div className="m-2 flex flex-wrap items-center gap-1.5 rounded-md border border-line bg-surface p-2 font-mono text-[12px] text-muted">
+          <div className="rounded-md bg-inset">
+            <div className="m-2 flex flex-wrap items-center gap-1.5 rounded-md bg-surface p-2 font-mono text-[12px] text-muted">
               IF <span className="text-faint">[</span>
               <Token>Trade</Token>
               <span className="text-faint">]</span> == <span className="text-faint">[</span>
@@ -178,7 +178,7 @@ export function JobSheet({ job }: { job: Job }) {
         </div>
 
         <SectionLabel>4. Price</SectionLabel>
-        <div className="divide-y divide-line rounded-lg border border-line bg-surface">
+        <div className="divide-y divide-line rounded-lg bg-surface">
           {job.lines.map((l) => (
             <Row key={l.id} label={<span className="text-foreground/90">{l.description}</span>}>
               <span className="font-mono text-[12px] text-muted">

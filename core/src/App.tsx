@@ -50,7 +50,7 @@ export default function App() {
         position="bottom-right"
         toastOptions={{
           classNames: {
-            toast: '!bg-raised !border-line-strong !text-foreground !font-sans !rounded-lg !shadow-2xl',
+            toast: '!bg-raised !text-foreground !font-sans !rounded-lg !shadow-2xl',
             description: '!text-muted',
           },
         }}

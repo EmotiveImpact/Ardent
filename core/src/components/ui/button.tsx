@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-primary text-primary-foreground shadow-[inset_0_-1px_0_#0000002e] hover:bg-white',
         ember: 'bg-ember text-black hover:bg-[#ff7d38]',
-        outline: 'border border-line-strong bg-raised text-foreground hover:bg-[#222] hover:border-[#383838]',
+        outline: 'bg-raised text-foreground hover:bg-[#222]',
         ghost: 'text-muted hover:bg-raised hover:text-foreground',
         subtle: 'bg-raised text-foreground hover:bg-[#222]',
       },

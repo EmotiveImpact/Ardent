@@ -11,7 +11,7 @@ function SparkBars({ values, color, labels }: { values: number[]; color: string;
   return (
     <div className="relative hidden h-11 items-end gap-[3px] sm:flex" onMouseLeave={() => setHover(null)}>
       {hover !== null && (
-        <span className="absolute -top-7 right-0 rounded border border-line-strong bg-raised px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-foreground shadow-lg">
+        <span className="absolute -top-7 right-0 rounded bg-raised px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-foreground shadow-lg">
           {labels[hover]} · {values[hover]}
         </span>
       )}

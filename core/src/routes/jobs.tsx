@@ -48,7 +48,7 @@ export function Jobs() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Filter by job, customer, postcode"
-            className="h-9 w-full rounded-md border border-line bg-surface pr-3 pl-8 text-[13px] outline-none placeholder:text-faint focus:border-line-strong"
+            className="h-9 w-full rounded-md bg-surface pr-3 pl-8 text-[13px] outline-none placeholder:text-faint"
           />
         </label>
       </div>
@@ -58,7 +58,7 @@ export function Jobs() {
         <Well className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-[13px]">
             <thead className="text-muted">
-              <tr className="border-b border-line">
+              <tr className="border-b ">
                 {['Job', 'What', 'Customer', 'Site', 'When', 'Crew', 'Priority', 'Value', 'Status'].map((h) => (
                   <th key={h} className={`h-10 px-3 font-normal ${h === 'Value' || h === 'Status' ? 'text-right' : ''}`}>
                     {h}
@@ -71,7 +71,7 @@ export function Jobs() {
                 const c = byId(customers, j.customerId)
                 const s = byId(sites, j.siteId)
                 return (
-                  <tr key={j.id} className="group border-b border-line/70 last:border-0 hover:bg-white/[0.02]">
+                  <tr key={j.id} className="group border-b last:border-0 hover:bg-white/[0.02]">
                     <td className="h-12 px-3">
                       <Link to={`/jobs/${j.id}`} className="font-mono text-[12px] text-foreground group-hover:text-ember">
                         {j.ref}

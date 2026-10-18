@@ -35,7 +35,7 @@ export function ExceptionsTable() {
       <Well className="overflow-x-auto">
         <table className="w-full min-w-[620px] text-left text-[13px]">
           <thead className="text-muted">
-            <tr className="border-b border-line">
+            <tr className="border-b ">
               <th className="h-10 px-3 font-normal">
                 <span className="inline-flex items-center gap-1">
                   Time <ChevronsUpDown className="size-3.5" />
@@ -51,7 +51,7 @@ export function ExceptionsTable() {
             {rows.map((ex, i) => (
               <tr
                 key={ex.id}
-                className="group border-b border-line/70 transition-[opacity,background-color] last:border-0 hover:bg-white/[0.025]"
+                className="group border-b transition-[opacity,background-color] last:border-0 hover:bg-white/[0.025]"
                 style={{ opacity: ex.outcome === 'resolved' ? 0.5 : 1 - i * 0.04 }}
               >
                 <td className="h-11 px-3 font-mono text-[12px] whitespace-nowrap">{time(ex.at)}</td>

@@ -6,7 +6,7 @@ function Panel({ className, ...props }: React.ComponentProps<'section'>) {
   return (
     <section
       className={cn(
-        'panel-edge animate-rise flex min-w-0 flex-col rounded-xl border border-line bg-surface/90 p-1.5 shadow-[0_24px_48px_-24px_#000000cc] backdrop-blur-sm transition-colors hover:border-line-strong',
+        'animate-rise flex min-w-0 flex-col rounded-xl bg-surface/90 p-1.5 shadow-[0_24px_48px_-24px_#000000cc] backdrop-blur-sm transition-colors',
         className,
       )}
       {...props}
@@ -36,7 +36,7 @@ function PanelHeader({
 
 /** Recessed content well inside a panel. */
 function Well({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('rounded-lg border border-line bg-inset', className)} {...props} />
+  return <div className={cn('rounded-lg bg-inset', className)} {...props} />
 }
 
 /** Label / value row used in detail lists. */

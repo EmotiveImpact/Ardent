@@ -23,13 +23,13 @@ const hourOf = (iso: string) => {
 const pct = (h: number) => ((h - START) / (END - START)) * 100
 
 const toneClass: Record<string, string> = {
-  ok: 'border-ok/40 bg-ok/10 [--bar:var(--ok)]',
-  ember: 'border-ember/40 bg-ember/10 [--bar:var(--ember)]',
-  info: 'border-info/40 bg-info/10 [--bar:var(--info)]',
-  warn: 'border-warn/40 bg-warn/10 [--bar:var(--warn)]',
-  neutral: 'border-line-strong bg-raised [--bar:#555]',
-  violet: 'border-violet/40 bg-violet/10 [--bar:var(--violet)]',
-  danger: 'border-danger/40 bg-danger/10 [--bar:var(--danger)]',
+  ok: 'bg-ok/10 [--bar:var(--ok)]',
+  ember: 'bg-ember/10 [--bar:var(--ember)]',
+  info: 'bg-info/10 [--bar:var(--info)]',
+  warn: 'bg-warn/10 [--bar:var(--warn)]',
+  neutral: 'bg-raised [--bar:#555]',
+  violet: 'bg-violet/10 [--bar:var(--violet)]',
+  danger: 'bg-danger/10 [--bar:var(--danger)]',
 }
 
 export function Schedule() {
@@ -55,7 +55,7 @@ export function Schedule() {
         <PanelHeader icon={<CalendarRange />} title="Dispatch board" />
         <Well className="overflow-x-auto">
           <div className="min-w-[900px]">
-            <div className="grid grid-cols-[180px_1fr] border-b border-line">
+            <div className="grid grid-cols-[180px_1fr] border-b ">
               <div className="px-3 py-2 text-[12px] text-muted">Crew</div>
               <div className="relative h-9">
                 <span
@@ -78,7 +78,7 @@ export function Schedule() {
             {operators.map((eng) => {
               const mine = todays.filter((j) => j.operatorIds.includes(eng.id))
               return (
-                <div key={eng.id} className="grid grid-cols-[180px_1fr] border-b border-line/70 last:border-0">
+                <div key={eng.id} className="grid grid-cols-[180px_1fr] border-b last:border-0">
                   <div className="flex items-center gap-2.5 px-3 py-4">
                     <Avatar initials={eng.initials} className="size-7" />
                     <div className="min-w-0">
@@ -101,7 +101,7 @@ export function Schedule() {
                           key={j.id}
                           to={`/jobs/${j.id}`}
                           className={cn(
-                            'absolute inset-y-2 overflow-hidden rounded-md border px-2.5 py-1.5 transition-transform before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--bar)] hover:-translate-y-px',
+                            'absolute inset-y-2 overflow-hidden rounded-md px-2.5 py-1.5 transition-transform before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--bar)] hover:-translate-y-px',
                             toneClass[tone],
                             j.priority === 'emergency' && 'hatch',
                           )}
@@ -130,7 +130,7 @@ export function Schedule() {
           {jobs
             .filter((j) => j.operatorIds.length === 0)
             .map((j) => (
-              <div key={j.id} className="rounded-lg border border-line bg-inset p-3">
+              <div key={j.id} className="rounded-lg bg-inset p-3">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[12px] text-faint">{j.ref}</span>
                   <Badge tone={priorityMeta[j.priority].tone}>{priorityMeta[j.priority].label}</Badge>

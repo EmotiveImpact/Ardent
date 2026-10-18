@@ -6,7 +6,7 @@ export function Placeholder({ title, blurb, icon: Icon }: { title: string; blurb
     <div className="mx-auto max-w-[1600px]">
       <Panel>
         <Well className="dot-grid flex h-[60vh] flex-col items-center justify-center gap-3 text-center">
-          <span className="flex size-11 items-center justify-center rounded-xl border border-line-strong bg-surface">
+          <span className="flex size-11 items-center justify-center rounded-xl bg-surface">
             <Icon className="size-5 text-ember" strokeWidth={1.75} />
           </span>
           <h1 className="text-[15px] font-medium">{title}</h1>

@@ -10,12 +10,13 @@ export const color = {
   /** Page background. */
   bg: '#070707',
   /** Panels and cards. */
-  surface: '#111111',
+  surface: '#121212',
   /** Recessed wells inside a panel. */
-  inset: '#0c0c0c',
+  inset: '#0b0b0b',
   /** Controls, chips, hovered rows. */
-  raised: '#1a1a1a',
-  line: '#222222',
+  raised: '#1d1d1d',
+  /** Dividers between table rows only. Cards, panels and buttons never take a border. */
+  line: '#1c1c1c',
   lineStrong: '#2e2e2e',
   fg: '#f2f2f2',
   fgMuted: '#9a9a9a',

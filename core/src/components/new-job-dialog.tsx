@@ -58,8 +58,8 @@ export function NewJobDialog({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => setTrade(key)}
                 className={cn(
-                  'flex flex-col items-center gap-1.5 rounded-lg border border-line bg-surface py-3 text-[12px] text-muted transition-colors hover:text-foreground',
-                  trade === key && 'border-ember/50 bg-ember-soft text-foreground',
+                  'flex flex-col items-center gap-1.5 rounded-lg bg-surface py-3 text-[12px] text-muted transition-colors hover:text-foreground',
+                  trade === key && 'bg-ember-soft text-foreground',
                 )}
               >
                 <Icon className={cn('size-4', trade === key && 'text-ember')} />
@@ -81,7 +81,7 @@ export function NewJobDialog({ children }: { children: ReactNode }) {
               <Input id="nj-pc" placeholder="M20 6BT" className="font-mono uppercase" />
             </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-line bg-surface px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2.5">
             <div>
               <p className="text-[13px]">Emergency call-out</p>
               <p className="text-[12px] text-muted">Jumps the queue and alerts the nearest van</p>

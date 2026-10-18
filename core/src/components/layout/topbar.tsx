@@ -30,11 +30,11 @@ export function Topbar({ trail }: { trail: string[] }) {
       <div className="ml-auto flex items-center gap-2">
         <button
           onClick={openCommandMenu}
-          className="group hidden h-8 w-72 items-center gap-2 rounded-md border border-line bg-surface/80 px-2.5 text-[13px] text-faint transition-colors hover:border-line-strong hover:text-muted lg:flex"
+          className="group hidden h-8 w-72 items-center gap-2 rounded-md bg-surface/80 px-2.5 text-[13px] text-faint transition-colors hover:text-muted lg:flex"
         >
           <Search className="size-4" />
           Search jobs, customers, postcodes
-          <kbd className="ml-auto rounded border border-line-strong px-1 font-mono text-[10px]">⌘K</kbd>
+          <kbd className="ml-auto rounded px-1 font-mono text-[10px]">⌘K</kbd>
         </button>
         <Button variant="outline" size="icon-sm" aria-label="Search" className="lg:hidden" onClick={openCommandMenu}>
           <Search />
@@ -46,7 +46,7 @@ export function Topbar({ trail }: { trail: string[] }) {
         <NewJobDialog>
           <Button size="sm" className="gap-1.5">
             <Plus /> <span className="hidden sm:inline">New job</span>
-            <kbd className="ml-1 hidden rounded border border-black/15 px-1 font-mono text-[10px] text-black/50 sm:inline">N</kbd>
+            <kbd className="ml-1 hidden rounded px-1 font-mono text-[10px] text-black/50 sm:inline">N</kbd>
           </Button>
         </NewJobDialog>
       </div>

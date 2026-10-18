@@ -48,7 +48,7 @@ function RailLink({ to, label, icon: Icon, end }: { to: string; label: string; i
 
 export function Sidebar() {
   return (
-    <aside className="hidden w-14 shrink-0 flex-col items-center border-r border-line py-3 md:flex">
+    <aside className="hidden w-14 shrink-0 flex-col items-center py-3 md:flex">
       <ArdentMark />
       <nav className="mt-6 flex flex-col items-center gap-1">
         {nav.map((item, i) =>
@@ -58,7 +58,7 @@ export function Sidebar() {
       <div className="mt-auto flex flex-col items-center gap-2">
         <RailLink to="/settings" label="Settings" icon={Settings} />
         <Tooltip content="Edem, owner">
-          <button className="mt-1 flex size-8 items-center justify-center rounded-full border border-line-strong bg-raised font-mono text-[10px]">
+          <button className="mt-1 flex size-8 items-center justify-center rounded-full bg-raised font-mono text-[10px]">
             ED
           </button>
         </Tooltip>

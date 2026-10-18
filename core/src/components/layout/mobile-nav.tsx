@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 export function MobileNav() {
   const items = nav.filter(Boolean).slice(0, 5)
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[calc(4rem+env(safe-area-inset-bottom,0px))] items-stretch pb-[env(safe-area-inset-bottom,0px)] border-t border-line bg-background/95 backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[calc(4rem+env(safe-area-inset-bottom,0px))] items-stretch pb-[env(safe-area-inset-bottom,0px)] bg-surface/95 backdrop-blur md:hidden">
       {items.map((item) => {
         if (!item) return null
         const Icon = item.icon
@@ -20,7 +20,7 @@ export function MobileNav() {
             }
           >
             <Icon className="size-5" strokeWidth={1.75} />
-            {item.label.split(' ')[0]}
+            {item.label.split('')[0]}
           </NavLink>
         )
       })}

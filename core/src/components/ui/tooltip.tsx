@@ -12,7 +12,7 @@ function Tooltip({ content, children, side = 'right' }: { content: React.ReactNo
         <TP.Content
           side={side}
           sideOffset={8}
-          className={cn('z-50 rounded-md border border-line-strong bg-raised px-2 py-1 text-xs text-foreground shadow-xl')}
+          className={cn('z-50 rounded-md bg-raised px-2 py-1 text-xs text-foreground shadow-xl')}
         >
           {content}
         </TP.Content>

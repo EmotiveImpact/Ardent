@@ -92,8 +92,8 @@ export function Certificates() {
                   key={k}
                   onClick={() => setFilter(filter === k ? 'all' : k)}
                   className={cn(
-                    'rounded-lg border border-line bg-surface px-3 py-2.5 text-left transition-colors hover:border-line-strong',
-                    filter === k && 'border-line-strong bg-raised',
+                    'rounded-lg bg-surface px-3 py-2.5 text-left transition-colors',
+                    filter === k && 'bg-raised',
                   )}
                 >
                   <span className="flex items-center gap-2 text-[12px] text-muted">
@@ -127,7 +127,7 @@ export function Certificates() {
         <Well className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-[13px]">
             <thead className="text-muted">
-              <tr className="border-b border-line">
+              <tr className="border-b ">
                 <th className="h-10 px-3 font-normal">Type</th>
                 <th className="px-3 font-normal">Site</th>
                 <th className="px-3 font-normal">Customer</th>
@@ -141,7 +141,7 @@ export function Certificates() {
                 const d = daysFrom(c.expires)
                 const isBooked = booked.has(c.id) || !!c.jobId
                 return (
-                  <tr key={c.id} className="group border-b border-line/70 last:border-0 hover:bg-white/[0.025]">
+                  <tr key={c.id} className="group border-b last:border-0 hover:bg-white/[0.025]">
                     <td className="h-12 px-3">
                       <Chip>{c.kind}</Chip>
                     </td>

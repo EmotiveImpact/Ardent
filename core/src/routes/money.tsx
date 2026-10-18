@@ -26,7 +26,7 @@ const quoteTone: Record<Quote['status'], 'neutral' | 'info' | 'ok' | 'danger' | 
   declined: 'danger',
   expired: 'warn',
 }
-const label = (s: string) => (s.charAt(0).toUpperCase() + s.slice(1)).replace('_', ' ')
+const label = (s: string) => (s.charAt(0).toUpperCase() + s.slice(1)).replace('_', '')
 
 function Stat({ icon, title, pence, note, tone, index }: { icon: React.ReactNode; title: string; pence: number; note: string; tone?: string; index: number }) {
   const v = useCountUp(pence)
@@ -140,7 +140,7 @@ export function Money() {
             {tab === 'invoices' ? (
               <table className="w-full min-w-[620px] text-left text-[13px]">
                 <thead className="text-muted">
-                  <tr className="border-b border-line">
+                  <tr className="border-b ">
                     <th className="h-10 px-3 font-normal">Invoice</th>
                     <th className="px-3 font-normal">Customer</th>
                     <th className="px-3 font-normal">Due</th>
@@ -150,7 +150,7 @@ export function Money() {
                 </thead>
                 <tbody>
                   {rows.map((inv) => (
-                    <tr key={inv.id} className="group border-b border-line/70 last:border-0 hover:bg-white/[0.025]">
+                    <tr key={inv.id} className="group border-b last:border-0 hover:bg-white/[0.025]">
                       <td className="h-12 px-3 font-mono text-[12px]">{inv.ref}</td>
                       <td className="px-3">{byId(customers, inv.customerId)?.name}</td>
                       <td className={cn('px-3 font-mono text-[12px] text-muted', inv.status === 'overdue' && 'text-danger')}>
@@ -184,7 +184,7 @@ export function Money() {
             ) : (
               <table className="w-full min-w-[620px] text-left text-[13px]">
                 <thead className="text-muted">
-                  <tr className="border-b border-line">
+                  <tr className="border-b ">
                     <th className="h-10 px-3 font-normal">Quote</th>
                     <th className="px-3 font-normal">For</th>
                     <th className="px-3 font-normal">Customer</th>
@@ -195,7 +195,7 @@ export function Money() {
                 </thead>
                 <tbody>
                   {quotes.map((q) => (
-                    <tr key={q.id} className="border-b border-line/70 last:border-0 hover:bg-white/[0.025]">
+                    <tr key={q.id} className="border-b last:border-0 hover:bg-white/[0.025]">
                       <td className="h-12 px-3 font-mono text-[12px]">{q.ref}</td>
                       <td className="px-3">{q.lines[0]?.description}</td>
                       <td className="px-3 text-muted">{byId(customers, q.customerId)?.name}</td>
