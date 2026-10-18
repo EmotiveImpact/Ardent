@@ -5,7 +5,7 @@ import { Panel, PanelHeader, Well } from '@/components/ui/panel'
 import { Badge, Chip } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { byId, customers, engineers, jobTotal, jobs, sites } from '@/data/mock'
+import { byId, customers, operators, jobTotal, jobs, sites } from '@/data/mock'
 import type { JobStatus } from '@/data/model'
 import { priorityMeta, shortDate, statusMeta, time } from '@/lib/format'
 import { formatGBP } from '@/lib/utils'
@@ -27,7 +27,7 @@ export function Jobs() {
       if (!term) return true
       const c = byId(customers, j.customerId)
       const s = byId(sites, j.siteId)
-      return [j.number, j.title, c?.name, s?.postcode].some((v) => v?.toLowerCase().includes(term))
+      return [j.ref, j.title, c?.name, s?.postcode].some((v) => v?.toLowerCase().includes(term))
     })
   }, [group, q])
 
@@ -74,7 +74,7 @@ export function Jobs() {
                   <tr key={j.id} className="group border-b border-line/70 last:border-0 hover:bg-white/[0.02]">
                     <td className="h-12 px-3">
                       <Link to={`/jobs/${j.id}`} className="font-mono text-[12px] text-foreground group-hover:text-ember">
-                        {j.number}
+                        {j.ref}
                       </Link>
                     </td>
                     <td className="px-3">
@@ -89,8 +89,8 @@ export function Jobs() {
                     </td>
                     <td className="px-3">
                       <div className="flex -space-x-1.5">
-                        {j.engineerIds.length ? (
-                          j.engineerIds.map((id) => <Avatar key={id} initials={byId(engineers, id)?.initials ?? '?'} />)
+                        {j.operatorIds.length ? (
+                          j.operatorIds.map((id) => <Avatar key={id} initials={byId(operators, id)?.initials ?? '?'} />)
                         ) : (
                           <span className="text-faint">None</span>
                         )}

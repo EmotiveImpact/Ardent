@@ -3,7 +3,7 @@ import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Panel, PanelHeader, Well } from '@/components/ui/panel'
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { byId, engineers, jobs, sites } from '@/data/mock'
+import { byId, operators, jobs, sites } from '@/data/mock'
 import { statusMeta, time } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -64,8 +64,8 @@ export function Schedule() {
                 ))}
               </div>
             </div>
-            {engineers.map((eng) => {
-              const mine = todays.filter((j) => j.engineerIds.includes(eng.id))
+            {operators.map((eng) => {
+              const mine = todays.filter((j) => j.operatorIds.includes(eng.id))
               return (
                 <div key={eng.id} className="grid grid-cols-[180px_1fr] border-b border-line/70 last:border-0">
                   <div className="flex items-center gap-2.5 px-3 py-4">
@@ -95,7 +95,7 @@ export function Schedule() {
                           style={{ left: `${left}%`, width: `${width}%` }}
                         >
                           <p className="truncate text-[12px] text-foreground">
-                            <span className="font-mono text-muted">{j.number}</span> {j.title}
+                            <span className="font-mono text-muted">{j.ref}</span> {j.title}
                           </p>
                           <p className="truncate font-mono text-[11px] text-muted">
                             {time(j.start)} to {time(j.end)} · {byId(sites, j.siteId)?.postcode}

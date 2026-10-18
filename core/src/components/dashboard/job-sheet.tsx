@@ -3,7 +3,7 @@ import { CheckCircle2, CircleDashed, ClipboardList, MoreHorizontal, PenLine, Shi
 import { Panel, PanelHeader, Row, SectionLabel, Well } from '@/components/ui/panel'
 import { Badge, Chip } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { byId, customers, engineers, jobTotal, sites } from '@/data/mock'
+import { byId, customers, operators, jobTotal, sites } from '@/data/mock'
 import type { ComplianceCheck, Job } from '@/data/model'
 import { priorityMeta, statusMeta, time } from '@/lib/format'
 import { formatGBP } from '@/lib/utils'
@@ -22,7 +22,7 @@ function Token({ children }: { children: React.ReactNode }) {
 export function JobSheet({ job }: { job: Job }) {
   const customer = byId(customers, job.customerId)
   const site = byId(sites, job.siteId)
-  const crew = job.engineerIds.map((id) => byId(engineers, id)?.name).join(', ')
+  const crew = job.operatorIds.map((id) => byId(operators, id)?.name).join(', ')
   const net = jobTotal(job)
   return (
     <Panel className="h-full">
@@ -31,7 +31,7 @@ export function JobSheet({ job }: { job: Job }) {
         title={
           <span className="flex items-center gap-2">
             Live job sheet
-            <span className="font-mono text-muted">{job.number}</span>
+            <span className="font-mono text-muted">{job.ref}</span>
           </span>
         }
         actions={

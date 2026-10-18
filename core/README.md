@@ -36,6 +36,7 @@ All data is mock data in `src/data/mock.ts` until the API lands.
 Ardent Core owns two things the mobile app builds on:
 
 - **Data model**: `src/data/model.ts`. Money is integer pence, times are ISO 8601 in UTC, ids carry a readable prefix (`job_`, `cus_`, `eng_`), and human numbers (`J-1042`) are separate from ids.
-- **Design tokens**: the `:root` block in `src/index.css`. Surfaces step from `--bg` to `--surface` to `--inset` to `--raised`; `--ember` is the single brand accent; `--ok`, `--warn`, `--danger`, `--info` and `--violet` are status colours only.
+- **Data client**: `src/data/client.ts`, the `ArdentClient` interface both apps code against. Mock-backed today; the backend will be Supabase, as in SiteSentriq.
+- **Design tokens**: `tokens/tokens.ts` exports plain values (hex colours, radii, spacing, fonts, type scale) for Tailwind and React Native alike. `src/index.css` mirrors them as CSS variables. Surfaces step from `--bg` to `--surface` to `--inset` to `--raised`; `--ember` is the single brand accent; `--ok`, `--warn`, `--danger`, `--info` and `--violet` are status colours only.
 
 Change either here first and tell the mobile app.

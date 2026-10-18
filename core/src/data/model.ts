@@ -4,7 +4,7 @@
  * Ardent Core (this web app) owns these shapes; the Ardent mobile app and any
  * future service read and write the same records. Money is integer pence,
  * times are ISO 8601 strings in UTC, ids are opaque strings with a readable
- * prefix (job_, cus_, eng_ ...). Human-facing numbers (J-1042, Q-311) are
+ * prefix (job_, cus_, opr_ ...). Human-facing numbers (J-1042, Q-311) are
  * separate from ids.
  */
 
@@ -46,15 +46,18 @@ export interface Site {
   lng: number
 }
 
-export type EngineerState = 'available' | 'en_route' | 'on_site' | 'delayed' | 'off'
+/** What an operator is doing right now. The mobile app sets this; Core reads it. */
+export type OperatorState = 'available' | 'en_route' | 'on_site' | 'workshop' | 'delayed' | 'off_shift'
 
-export interface Engineer {
+/** A tradesperson using Ardent, whether owner, employee or subbie. */
+export interface Operator {
   id: string
   name: string
+  role: 'owner' | 'operator' | 'subcontractor'
   initials: string
   trades: Trade[]
   van: string
-  state: EngineerState
+  state: OperatorState
   /** Job they are travelling to or working on. */
   currentJobId?: string
   etaMinutes?: number
@@ -80,14 +83,14 @@ export interface ComplianceCheck {
 
 export interface Job {
   id: string
-  number: string // J-1042
+  ref: string // J-1042
   title: string
   trade: Trade
   status: JobStatus
   priority: Priority
   customerId: string
   siteId: string
-  engineerIds: string[]
+  operatorIds: string[]
   /** Booked window. */
   start: string
   end: string
@@ -115,4 +118,57 @@ export interface Exception {
   rule: string
   detail: string
   outcome: 'blocked' | 'chasing' | 'overridden' | 'resolved'
+}
+
+export interface TimeEntry {
+  id: string
+  jobId?: string
+  operatorId: string
+  kind: 'travel' | 'labour' | 'admin'
+  start: string
+  /** Missing while the clock is running. */
+  end?: string
+}
+
+export interface Photo {
+  id: string
+  jobId: string
+  operatorId: string
+  stage: 'before' | 'during' | 'after'
+  url: string
+  takenAt: string
+  caption?: string
+}
+
+export interface Note {
+  id: string
+  jobId: string
+  operatorId: string
+  body: string
+  at: string
+}
+
+export interface Quote {
+  id: string
+  ref: string // Q-311
+  jobId: string
+  customerId: string
+  lines: LineItem[]
+  status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
+  validUntil: string
+  sentAt?: string
+}
+
+export interface Invoice {
+  id: string
+  ref: string // INV-2207
+  jobId: string
+  customerId: string
+  lines: LineItem[]
+  /** VAT rate in basis points, 2000 = 20%. */
+  vatRate: number
+  status: 'draft' | 'sent' | 'part_paid' | 'paid' | 'overdue' | 'void'
+  issuedAt?: string
+  dueAt?: string
+  paidAmount: number
 }

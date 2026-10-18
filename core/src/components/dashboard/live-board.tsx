@@ -4,24 +4,25 @@ import { Panel, PanelHeader, Well } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
-import { byId, engineers, jobs, sites } from '@/data/mock'
-import type { Engineer, EngineerState } from '@/data/model'
+import { byId, operators, jobs, sites } from '@/data/mock'
+import type { Operator, OperatorState } from '@/data/model'
 import { cn } from '@/lib/utils'
 
-const stateMeta: Record<EngineerState, { label: string; tone: 'ok' | 'ember' | 'warn' | 'neutral'; stroke: string }> = {
+const stateMeta: Record<OperatorState, { label: string; tone: 'ok' | 'ember' | 'warn' | 'neutral'; stroke: string }> = {
   on_site: { label: 'On site', tone: 'ok', stroke: 'var(--ok)' },
   en_route: { label: 'En route', tone: 'ember', stroke: 'var(--ember)' },
   delayed: { label: 'Delayed', tone: 'warn', stroke: 'var(--warn)' },
   available: { label: 'Free', tone: 'neutral', stroke: '#4a4a4a' },
-  off: { label: 'Off', tone: 'neutral', stroke: '#333' },
+  workshop: { label: 'Workshop', tone: 'neutral', stroke: '#6b6b6b' },
+  off_shift: { label: 'Off shift', tone: 'neutral', stroke: '#333' },
 }
 
 /** Where each crew card sits on the board, in percent of the board. */
 const slots: Record<string, { x: number; y: number }> = {
-  eng_01: { x: 19, y: 47 },
-  eng_02: { x: 81, y: 47 },
-  eng_03: { x: 33, y: 83 },
-  eng_04: { x: 67, y: 83 },
+  opr_01: { x: 19, y: 47 },
+  opr_02: { x: 81, y: 47 },
+  opr_03: { x: 33, y: 83 },
+  opr_04: { x: 67, y: 83 },
 }
 const yard = { x: 50, y: 15 }
 
@@ -30,7 +31,7 @@ function connector(to: { x: number; y: number }) {
   return `M${yard.x} ${yard.y + 7} V${bus} H${to.x} V${to.y - 9}`
 }
 
-function CrewCard({ eng, className }: { eng: Engineer; className?: string }) {
+function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
   const job = byId(jobs, eng.currentJobId)
   const site = byId(sites, job?.siteId)
   const meta = stateMeta[eng.state]
@@ -48,7 +49,7 @@ function CrewCard({ eng, className }: { eng: Engineer; className?: string }) {
           <span className="text-muted">Job</span>
           {job ? (
             <Link to={`/jobs/${job.id}`} className="font-mono text-foreground hover:text-ember">
-              {job.number}
+              {job.ref}
             </Link>
           ) : (
             <span className="text-faint">Unassigned</span>
@@ -73,7 +74,7 @@ function CrewCard({ eng, className }: { eng: Engineer; className?: string }) {
 }
 
 export function LiveBoard() {
-  const out = engineers.filter((e) => e.state !== 'available' && e.state !== 'off').length
+  const out = operators.filter((e) => e.state !== 'available' && e.state !== 'off_shift').length
   return (
     <Panel>
       <PanelHeader
@@ -96,7 +97,7 @@ export function LiveBoard() {
         </span>
 
         <svg className="absolute inset-0 size-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-          {engineers.map((eng) => {
+          {operators.map((eng) => {
             const meta = stateMeta[eng.state]
             const moving = eng.state === 'en_route' || eng.state === 'delayed'
             return (
@@ -134,13 +135,13 @@ export function LiveBoard() {
               <span className="text-muted">Vans out</span>
               <span className="font-mono">
                 {out}
-                <span className="text-muted"> / {engineers.length}</span>
+                <span className="text-muted"> / {operators.length}</span>
               </span>
             </div>
           </div>
         </div>
 
-        {engineers.map((eng) => (
+        {operators.map((eng) => (
           <div
             key={eng.id}
             className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -152,7 +153,7 @@ export function LiveBoard() {
       </Well>
 
       <div className="grid gap-1.5 sm:hidden">
-        {engineers.map((eng) => (
+        {operators.map((eng) => (
           <CrewCard key={eng.id} eng={eng} className="w-full" />
         ))}
       </div>
