@@ -8,14 +8,39 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0C0D",
-    "ios": { "supportsTablet": false, "bundleIdentifier": "app.ardent.mobile" },
-    "android": { "package": "app.ardent.mobile", "edgeToEdgeEnabled": true },
-    "web": { "bundler": "metro", "output": "single" },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.ardent.mobile"
+    },
+    "android": {
+      "package": "app.ardent.mobile",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "plugins": [
       "expo-router",
       "expo-font",
-      ["expo-splash-screen", { "backgroundColor": "#0B0C0D", "image": "./assets/icon.png", "imageWidth": 1 }]
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0B0C0D",
+          "image": "./assets/icon.png",
+          "imageWidth": 1
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Ardent uses the camera to photograph your work on site.",
+          "photosPermission": "Ardent attaches photos of your work to the job."
+        }
+      ]
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

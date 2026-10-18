@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,26 +7,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Atmosphere } from '@/components/Atmosphere';
 import { todayJobs } from '@/data/client';
 import { modeById } from '@/data/modes';
-import type { JobCard, JobStatus, Priority } from '@/data/types';
+import type { JobCard } from '@/data/types';
 import { clock, pounds } from '@/format';
 import { useOperator } from '@/state/operator';
+import { DONE, FLAG, STATUS } from '@/theme/status';
 import { color, font, radius, space, tracking } from '@/theme/tokens';
-
-const STATUS: Record<JobStatus, { label: string; tint: string }> = {
-  enquiry: { label: 'Enquiry', tint: color.fgMuted },
-  quoted: { label: 'Quoted', tint: color.fgMuted },
-  booked: { label: 'Booked', tint: color.fgMuted },
-  en_route: { label: 'En route', tint: color.info },
-  on_site: { label: 'On site', tint: color.ok },
-  paused: { label: 'Paused', tint: color.warn },
-  complete: { label: 'Done', tint: color.fgFaint },
-  invoiced: { label: 'Invoiced', tint: color.fgFaint },
-  paid: { label: 'Paid', tint: color.fgFaint },
-  cancelled: { label: 'Cancelled', tint: color.fgFaint },
-};
-
-const FLAG: Partial<Record<Priority, string>> = { emergency: color.danger, high: color.ember };
-const DONE = new Set<JobStatus>(['complete', 'invoiced', 'paid', 'cancelled']);
 
 function greeting() {
   const h = new Date().getHours();
@@ -43,12 +28,16 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 function JobRow({ job, index }: { job: JobCard; index: number }) {
+  const router = useRouter();
   const s = STATUS[job.status];
   const done = DONE.has(job.status);
   const flag = FLAG[job.priority];
   return (
     <Animated.View entering={FadeInDown.delay(120 + index * 70).duration(420)}>
-      <Pressable style={({ pressed }) => [styles.job, pressed && styles.jobPressed, done && { opacity: 0.55 }]}>
+      <Pressable
+        onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.job, pressed && styles.jobPressed, done && { opacity: 0.55 }]}>
         <View style={styles.jobTime}>
           <Text style={styles.time}>{clock(job.start)}</Text>
           <Text style={styles.timeEnd}>{clock(job.end)}</Text>
@@ -74,13 +63,17 @@ function JobRow({ job, index }: { job: JobCard; index: number }) {
 
 export default function Today() {
   const router = useRouter();
-  const { mode, me, summary } = useOperator();
+  const { mode, me, summary, refresh } = useOperator();
   const [jobs, setJobs] = useState<JobCard[]>([]);
   const m = modeById(mode);
 
-  useEffect(() => {
-    if (me) todayJobs(me).then(setJobs);
-  }, [me]);
+  // Reload on focus so a job finished on its own screen shows here straight away.
+  useFocusEffect(
+    useCallback(() => {
+      if (me) todayJobs(me).then(setJobs);
+      refresh();
+    }, [me, refresh]),
+  );
 
   const first = me?.name.split(' ')[0];
 

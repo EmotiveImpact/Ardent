@@ -8,6 +8,8 @@ interface OperatorState {
   summary?: DaySummary;
   mode: OperatorMode;
   setMode: (mode: OperatorMode) => void;
+  /** Re-read the day's numbers after something changed them. */
+  refresh: () => void;
 }
 
 const Ctx = createContext<OperatorState | null>(null);
@@ -35,7 +37,11 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     [me],
   );
 
-  return <Ctx.Provider value={{ me, summary, mode, setMode }}>{children}</Ctx.Provider>;
+  const refresh = useCallback(() => {
+    if (me) daySummary(me).then(setSummary);
+  }, [me]);
+
+  return <Ctx.Provider value={{ me, summary, mode, setMode, refresh }}>{children}</Ctx.Provider>;
 }
 
 export function useOperator() {
