@@ -9,19 +9,23 @@ cd homepage
 python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
-## Sections
+## Pages
+
+**`index.html`, the homepage**, follows the Freight services page reference:
 
 1. Hero with full-bleed warehouse photograph
 2. Our focus statement
 3. Full-bleed aerial with trade labels
 4. What Ardent does: four numbered services, each with a photograph
 5. Trades we work with
-6. Dark engineer section with certificate and sign-off log cards, hatched dividers and a teal call to action
-7. News & Updates card grid on an orange gradient
-8. Closing call to action over a night motorway photograph
-9. Footer with oversized wordmark
+6. Closing call to action over a night motorway photograph
+7. Footer with oversized wordmark
 
-Sections 1 to 5, 8 and 9 follow the Freight services page reference; section 6 follows the dark developer-tool reference; section 7 follows the News & Events reference.
+**`engineers.html`, the engineer app page**, follows the dark developer-tool reference: certificate and sign-off log cards, hatched dividers, two feature blurbs and a teal call to action.
+
+**`news.html`, News & Updates**, follows the News & Events reference: an orange gradient page with a grid of regulation, guide, product and event cards.
+
+All three share `styles.css`, `main.js`, the menu and the footer.
 
 ## Images (GPT Image)
 

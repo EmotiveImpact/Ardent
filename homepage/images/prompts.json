@@ -61,6 +61,18 @@
       "file": "news-guide.jpg",
       "size": "1536x1024",
       "prompt": "A scaffold-wrapped Victorian building in morning fog, debris netting softly lit, muted grey and sand tones, minimal and atmospheric."
+    },
+    {
+      "id": "news-event",
+      "file": "news-event.jpg",
+      "size": "1536x1024",
+      "prompt": "A quiet trade exhibition hall before opening, rows of simple stands with boilers, cable reels and heat pumps on display, high industrial ceiling with cool overhead light and a few people setting up in the distance."
+    },
+    {
+      "id": "news-product",
+      "file": "news-product.jpg",
+      "size": "1536x1024",
+      "prompt": "Over-the-shoulder close-up of a gas engineer in a dim kitchen holding a phone out to a customer for a signature, the screen glow lighting their hands, a wall-hung boiler softly lit behind. Faces out of frame."
     }
   ]
 }

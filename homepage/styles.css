@@ -361,3 +361,16 @@ img { display: block; max-width: 100%; }
   .footer__start { flex-direction: column; align-items: flex-start; }
   .log--stack > .log__body { margin-right: -6px; }
 }
+
+/* ---------- Inner pages ---------- */
+
+.page--ink { background: var(--ink); }
+.page-nav--ink { background: var(--ink); color: var(--on-dark); }
+.page--ink .field { padding-top: 56px; }
+.field h1 { font-weight: 400; font-size: clamp(36px, 5vw, 64px); line-height: 1.02; letter-spacing: -0.04em; max-width: 720px; margin: 28px 0 18px; }
+.news .nav { color: #fff; }
+.news:has(> .nav) { padding-top: 0; }
+.news:has(> .nav) .news__title { margin-top: clamp(40px, 6vw, 80px); }
+.tag--inline { position: static !important; align-self: flex-start; margin: 20px 20px 0; }
+.card--plain .tag--inline + h3 { padding-top: 14px; }
+.tag--light { background: #f1f1ef; color: var(--ink); }
