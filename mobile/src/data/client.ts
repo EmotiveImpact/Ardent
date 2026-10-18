@@ -1,11 +1,17 @@
 import type { ArdentClient } from './core/client';
-import { mockClient } from './mock';
+import { invoiceTotals, mockClient, mockPending } from './mock';
+import type { PendingClient } from './pending';
 import type { DaySummary, JobCard, Operator } from './types';
 
 export type { ArdentClient };
 
 /** The one client the app uses. Swap for Core's Supabase client when it lands. */
 export const ardent: ArdentClient = mockClient;
+
+/** Calls proposed to Core and not yet in its client (see ./pending.ts). */
+export const field: PendingClient = mockPending;
+
+export { invoiceTotals };
 
 const DONE = new Set(['complete', 'invoiced', 'paid', 'cancelled']);
 

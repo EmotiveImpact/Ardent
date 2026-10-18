@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -7,6 +6,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '@/components/Atmosphere';
+import { Action } from '@/components/Action';
 import { HoldToEnter } from '@/components/HoldToEnter';
 import { ardent } from '@/data/client';
 import { advance, elapsed, hms, pause, STEPS } from '@/data/jobs';
@@ -25,27 +25,8 @@ const CHECK: Record<ComplianceCheck['state'], string> = {
 
 const STAGES: Photo['stage'][] = ['before', 'during', 'after'];
 
-const tap = () => {
-  if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-};
-
 function Label({ children }: { children: string }) {
   return <Text style={styles.label}>{children}</Text>;
-}
-
-function Action({ title, onPress, tone = 'plain' }: { title: string; onPress: () => void; tone?: 'plain' | 'ember' }) {
-  return (
-    <Pressable
-      onPress={() => {
-        tap();
-        onPress();
-      }}
-      style={({ pressed }) => [styles.action, tone === 'ember' && styles.actionEmber, pressed && { opacity: 0.7 }]}
-      accessibilityRole="button"
-    >
-      <Text style={[styles.actionText, tone === 'ember' && { color: color.bg }]}>{title}</Text>
-    </Pressable>
-  );
 }
 
 export default function JobScreen() {
@@ -117,7 +98,10 @@ export default function JobScreen() {
       await advance(job.id, me, running);
       // Keep the opening screen's mode in step with what the job just did.
       if (step?.next === 'en_route' || step?.next === 'on_site') setMode(step.next);
-      if (step?.next === 'complete') setMode('on_call');
+      if (step?.next === 'complete') {
+        setMode('on_call');
+        router.replace({ pathname: '/wrap/[id]', params: { id: job.id } });
+      }
     });
 
   const snap = async () => {
@@ -334,6 +318,11 @@ export default function JobScreen() {
           ))}
         </ScrollView>
 
+        {job.status === 'complete' && (
+          <View style={styles.dock}>
+            <Action title="Sign off and invoice" tone="ember" onPress={() => router.push({ pathname: '/wrap/[id]', params: { id: job.id } })} />
+          </View>
+        )}
         {step && (
           <View style={styles.dock}>
             {step.hold ? (
@@ -368,17 +357,6 @@ const styles = StyleSheet.create({
   addr: { color: color.fgMuted, fontFamily: font.sans, fontSize: 13, marginTop: space[2], lineHeight: 18 },
   mono: { color: color.fgMuted, fontFamily: font.mono, fontSize: 12 },
   row: { flexDirection: 'row', gap: space[2], marginTop: space[4] },
-  action: {
-    paddingHorizontal: space[4],
-    paddingVertical: space[3],
-    borderRadius: radius.lg,
-    backgroundColor: color.raised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.lineStrong,
-    alignItems: 'center',
-  },
-  actionEmber: { backgroundColor: color.ember, borderColor: color.ember },
-  actionText: { color: color.fg, fontFamily: font.sansSemi, fontSize: 14 },
   access: { marginTop: space[4], padding: space[3], borderRadius: radius.lg, backgroundColor: 'rgba(17,17,17,0.72)', borderLeftWidth: 2, borderLeftColor: color.ember },
   body: { color: color.fg, fontFamily: font.sans, fontSize: 13, lineHeight: 18, marginTop: 2 },
   label: { color: color.fgFaint, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label * 1.5, marginTop: space[8], marginBottom: space[3] },
