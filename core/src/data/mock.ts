@@ -1,0 +1,156 @@
+import type { Certificate, Customer, Engineer, Exception, Job, Site } from './model'
+
+const day = '2026-10-18'
+const t = (hhmm: string) => `${day}T${hhmm}:00Z`
+
+export const customers: Customer[] = [
+  { id: 'cus_01', name: 'Sarah Whitfield', kind: 'homeowner', phone: '07700 900412', balance: 0 },
+  { id: 'cus_02', name: 'Northgate Lettings', kind: 'letting_agent', phone: '0161 496 0321', balance: 184000 },
+  { id: 'cus_03', name: 'The Crown & Anchor', kind: 'business', phone: '0161 496 0877', balance: 42500 },
+  { id: 'cus_04', name: 'Imran Haq', kind: 'landlord', phone: '07700 900193', balance: 0 },
+  { id: 'cus_05', name: 'Grace Okafor', kind: 'homeowner', phone: '07700 900650', balance: 31200 },
+  { id: 'cus_06', name: 'Brindle Street Dental', kind: 'business', phone: '0161 496 0145', balance: 0 },
+]
+
+export const sites: Site[] = [
+  { id: 'sit_01', customerId: 'cus_01', line1: '14 Alder Road', town: 'Didsbury', postcode: 'M20 6BT', lat: 22, lng: 70 },
+  { id: 'sit_02', customerId: 'cus_02', line1: 'Flat 3, 88 Wilmslow Rd', town: 'Rusholme', postcode: 'M14 5AL', lat: 76, lng: 30, accessNotes: 'Keys at agent, code 4471' },
+  { id: 'sit_03', customerId: 'cus_03', line1: '2 Quay Street', town: 'Castlefield', postcode: 'M3 4LP', lat: 50, lng: 82 },
+  { id: 'sit_04', customerId: 'cus_04', line1: '61 Mauldeth Rd', town: 'Levenshulme', postcode: 'M19 2RF', lat: 84, lng: 74 },
+  { id: 'sit_05', customerId: 'cus_05', line1: '7 Heaton Close', town: 'Stockport', postcode: 'SK4 3QJ', lat: 30, lng: 24 },
+  { id: 'sit_06', customerId: 'cus_06', line1: '19 Brindle Street', town: 'Ancoats', postcode: 'M4 6DE', lat: 60, lng: 50 },
+]
+
+export const engineers: Engineer[] = [
+  {
+    id: 'eng_01', name: 'Dan Mercer', initials: 'DM', trades: ['gas', 'heating'], van: 'VN21 KTX',
+    state: 'on_site', currentJobId: 'job_1042',
+    registrations: [{ body: 'Gas Safe', number: '558 213', expires: '2027-03-31' }],
+  },
+  {
+    id: 'eng_02', name: 'Kofi Asante', initials: 'KA', trades: ['electrical'], van: 'VK70 HBA',
+    state: 'en_route', currentJobId: 'job_1045', etaMinutes: 12,
+    registrations: [{ body: 'NICEIC', number: 'D-81772', expires: '2026-11-02' }],
+  },
+  {
+    id: 'eng_03', name: 'Ryan Holt', initials: 'RH', trades: ['plumbing', 'heating'], van: 'VE19 PLM',
+    state: 'delayed', currentJobId: 'job_1047', etaMinutes: 38,
+    registrations: [{ body: 'WRAS', number: 'AP-20381', expires: '2027-06-30' }],
+  },
+  {
+    id: 'eng_04', name: 'Tom Byrne', initials: 'TB', trades: ['general', 'carpentry'], van: 'VA68 RRT',
+    state: 'available',
+    registrations: [],
+  },
+]
+
+export const jobs: Job[] = [
+  {
+    id: 'job_1042', number: 'J-1042', title: 'Combi boiler swap', trade: 'gas', status: 'on_site', priority: 'high',
+    customerId: 'cus_01', siteId: 'sit_01', engineerIds: ['eng_01'], start: t('08:00'), end: t('15:00'),
+    lines: [
+      { id: 'li_1', kind: 'material', description: 'Worcester Bosch 4000 30kW', quantity: 1, unitPrice: 132000 },
+      { id: 'li_2', kind: 'material', description: 'Magnetic filter and flush kit', quantity: 1, unitPrice: 14500 },
+      { id: 'li_3', kind: 'labour', description: 'Install, commission, power flush', quantity: 7, unitPrice: 5500 },
+    ],
+    checks: [
+      { key: 'registration', label: 'Gas Safe', state: 'pass', detail: '558 213' },
+      { key: 'rams', label: 'RAMS', state: 'pass', detail: 'Signed 07:52' },
+      { key: 'gas_tightness', label: 'Tightness test', state: 'pending', detail: 'Due on commission' },
+    ],
+  },
+  {
+    id: 'job_1045', number: 'J-1045', title: 'Consumer unit upgrade', trade: 'electrical', status: 'en_route', priority: 'normal',
+    customerId: 'cus_04', siteId: 'sit_04', engineerIds: ['eng_02'], start: t('10:00'), end: t('14:00'),
+    lines: [
+      { id: 'li_4', kind: 'material', description: '18th Ed. RCBO board, 10 way', quantity: 1, unitPrice: 26800 },
+      { id: 'li_5', kind: 'labour', description: 'Swap board, test, certify', quantity: 4, unitPrice: 5000 },
+    ],
+    checks: [
+      { key: 'registration', label: 'NICEIC', state: 'pass', detail: 'Expires in 15 days' },
+      { key: 'rams', label: 'RAMS', state: 'pending' },
+      { key: 'eicr', label: 'EIC', state: 'pending' },
+    ],
+  },
+  {
+    id: 'job_1047', number: 'J-1047', title: 'Leak under kitchen sink', trade: 'plumbing', status: 'en_route', priority: 'emergency',
+    customerId: 'cus_02', siteId: 'sit_02', engineerIds: ['eng_03'], start: t('09:30'), end: t('11:00'),
+    lines: [
+      { id: 'li_6', kind: 'callout', description: 'Emergency call-out', quantity: 1, unitPrice: 9500 },
+    ],
+    checks: [{ key: 'photos', label: 'Before photos', state: 'pending' }],
+    notes: 'Tenant reports water through ceiling below.',
+  },
+  {
+    id: 'job_1048', number: 'J-1048', title: 'Annual CP12, 4 appliances', trade: 'gas', status: 'booked', priority: 'normal',
+    customerId: 'cus_03', siteId: 'sit_03', engineerIds: ['eng_01'], start: t('15:30'), end: t('17:00'),
+    lines: [{ id: 'li_7', kind: 'labour', description: 'Landlord gas safety inspection', quantity: 1, unitPrice: 8500 }],
+    checks: [{ key: 'registration', label: 'Gas Safe', state: 'pass' }],
+  },
+  {
+    id: 'job_1049', number: 'J-1049', title: 'Hang fire door, fit closer', trade: 'carpentry', status: 'booked', priority: 'low',
+    customerId: 'cus_06', siteId: 'sit_06', engineerIds: ['eng_04'], start: t('11:00'), end: t('13:30'),
+    lines: [{ id: 'li_8', kind: 'labour', description: 'FD30 door set install', quantity: 3, unitPrice: 4500 }],
+    checks: [{ key: 'rams', label: 'RAMS', state: 'pass' }],
+  },
+  {
+    id: 'job_1039', number: 'J-1039', title: 'Radiator valves x6', trade: 'heating', status: 'complete', priority: 'normal',
+    customerId: 'cus_05', siteId: 'sit_05', engineerIds: ['eng_03'], start: '2026-10-17T13:00:00Z', end: '2026-10-17T16:00:00Z',
+    lines: [
+      { id: 'li_9', kind: 'material', description: 'TRV, Drayton TRV4', quantity: 6, unitPrice: 2200 },
+      { id: 'li_10', kind: 'labour', description: 'Drain down, fit, refill', quantity: 3, unitPrice: 5500 },
+    ],
+    checks: [{ key: 'signature', label: 'Customer sign-off', state: 'pass' }],
+  },
+  {
+    id: 'job_1036', number: 'J-1036', title: 'Outside socket and lighting', trade: 'electrical', status: 'invoiced', priority: 'normal',
+    customerId: 'cus_05', siteId: 'sit_05', engineerIds: ['eng_02'], start: '2026-10-16T09:00:00Z', end: '2026-10-16T12:00:00Z',
+    lines: [{ id: 'li_11', kind: 'labour', description: 'IP66 socket, PIR flood', quantity: 1, unitPrice: 26000 }],
+    checks: [{ key: 'eicr', label: 'Minor works cert', state: 'pass' }],
+  },
+  {
+    id: 'job_1051', number: 'J-1051', title: 'Bathroom refit, quote visit', trade: 'plumbing', status: 'quoted', priority: 'normal',
+    customerId: 'cus_01', siteId: 'sit_01', engineerIds: [], start: '2026-10-22T10:00:00Z', end: '2026-10-22T11:00:00Z',
+    lines: [{ id: 'li_12', kind: 'other', description: 'Full refit, supply and fit', quantity: 1, unitPrice: 685000 }],
+    checks: [],
+  },
+  {
+    id: 'job_1052', number: 'J-1052', title: 'No hot water', trade: 'heating', status: 'enquiry', priority: 'high',
+    customerId: 'cus_02', siteId: 'sit_02', engineerIds: [], start: '2026-10-20T08:00:00Z', end: '2026-10-20T10:00:00Z',
+    lines: [], checks: [],
+  },
+  {
+    id: 'job_1030', number: 'J-1030', title: 'Cellar pump service', trade: 'plumbing', status: 'paid', priority: 'normal',
+    customerId: 'cus_03', siteId: 'sit_03', engineerIds: ['eng_03'], start: '2026-10-12T07:00:00Z', end: '2026-10-12T09:00:00Z',
+    lines: [{ id: 'li_13', kind: 'labour', description: 'Service and descale', quantity: 1, unitPrice: 16500 }],
+    checks: [],
+  },
+]
+
+export const certificates: Certificate[] = [
+  { id: 'cer_1', kind: 'CP12', siteId: 'sit_03', expires: '2026-10-21', state: 'due_soon' },
+  { id: 'cer_2', kind: 'EICR', siteId: 'sit_02', expires: '2026-10-02', state: 'overdue' },
+  { id: 'cer_3', kind: 'CP12', siteId: 'sit_04', expires: '2026-09-28', state: 'overdue' },
+  { id: 'cer_4', kind: 'Boiler service', siteId: 'sit_05', expires: '2027-01-14', state: 'valid' },
+  { id: 'cer_5', kind: 'PAT', siteId: 'sit_06', expires: '2026-11-05', state: 'due_soon' },
+]
+
+export const exceptions: Exception[] = [
+  { id: 'ex_1', at: t('09:42'), who: 'Kofi Asante', rule: 'Registration expiring', detail: 'NICEIC D-81772 lapses 2 Nov', outcome: 'chasing' },
+  { id: 'ex_2', at: t('09:15'), who: 'Ryan Holt', rule: 'Arrival window missed', detail: 'J-1047 emergency, ETA +38 min', outcome: 'chasing' },
+  { id: 'ex_3', at: t('08:30'), who: 'Northgate Lettings', rule: 'EICR overdue', detail: '88 Wilmslow Rd, 17 days late', outcome: 'blocked' },
+  { id: 'ex_4', at: t('08:04'), who: 'Dan Mercer', rule: 'RAMS signed late', detail: 'J-1042 signed after arrival', outcome: 'overridden' },
+  { id: 'ex_5', at: t('07:45'), who: 'Tom Byrne', rule: 'Van check incomplete', detail: 'Tyre tread photo missing', outcome: 'resolved' },
+]
+
+/** Hourly series for KPI sparklines, oldest first. */
+export const kpiSeries = {
+  jobs: [3, 5, 4, 6, 7, 5, 8, 6],
+  response: [62, 48, 70, 55, 90, 66, 58, 44],
+  invoiced: [420, 610, 380, 890, 720, 540, 980, 760],
+  exceptions: [1, 0, 2, 1, 3, 1, 2, 4],
+}
+
+export const byId = <T extends { id: string }>(list: T[], id: string | undefined) => list.find((x) => x.id === id)
+
+export const jobTotal = (job: Job) => job.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)

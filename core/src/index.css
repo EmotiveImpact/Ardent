@@ -1,0 +1,117 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Ardent design tokens. Shared with the mobile app: keep names stable.
+  Surfaces step up in lightness from the page (bg) to panels (surface)
+  to inset wells (inset) to controls (raised).
+*/
+:root {
+  --bg: #070707;
+  --surface: #111111;
+  --inset: #0c0c0c;
+  --raised: #1a1a1a;
+  --line: #222222;
+  --line-strong: #2e2e2e;
+  --fg: #f2f2f2;
+  --fg-muted: #9a9a9a;
+  --fg-faint: #5f5f5f;
+
+  --ember: #ff6a1a;
+  --ember-soft: #ff6a1a26;
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --violet: #8b5cf6;
+
+  --radius: 0.625rem;
+}
+
+@theme inline {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-foreground: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-faint: var(--fg-faint);
+  --color-ember: var(--ember);
+  --color-ember-soft: var(--ember-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-violet: var(--violet);
+
+  /* shadcn aliases so stock components drop in unchanged */
+  --color-border: var(--line);
+  --color-input: var(--line-strong);
+  --color-ring: var(--ember);
+  --color-primary: var(--fg);
+  --color-primary-foreground: var(--bg);
+  --color-popover: var(--raised);
+  --color-popover-foreground: var(--fg);
+  --color-accent: #222222;
+  --color-accent-foreground: var(--fg);
+  --color-muted-foreground: var(--fg-muted);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-line;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  ::selection {
+    background: var(--ember-soft);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a2a transparent;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dotted engineering grid used behind the live map */
+@utility dot-grid {
+  background-image: radial-gradient(circle at 1px 1px, #ffffff14 1px, transparent 0);
+  background-size: 14px 14px;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes dash {
+  to { stroke-dashoffset: -24; }
+}
+@utility animate-pulse-ring {
+  animation: pulse-ring 2.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+@utility animate-dash {
+  animation: dash 1.2s linear infinite;
+}
