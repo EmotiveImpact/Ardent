@@ -54,12 +54,14 @@ export function Dashboard() {
         </DropdownMenu>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <KpiCard
           icon={<Wrench />}
           title="Jobs completed"
-          value="24"
+          value={24}
+          format={(n) => String(Math.round(n))}
           unit="of 31"
+          index={0}
           series={kpiSeries.jobs}
           color="var(--info)"
           caption="Completion up by"
@@ -69,8 +71,10 @@ export function Dashboard() {
         <KpiCard
           icon={<Clock />}
           title="Avg. response"
-          value="1h 42"
+          value={102}
+          format={(n) => `${Math.floor(n / 60)}h ${String(Math.round(n % 60)).padStart(2, '0')}`}
           unit="m"
+          index={1}
           series={kpiSeries.response}
           color="var(--violet)"
           caption="Response time up by"
@@ -81,7 +85,9 @@ export function Dashboard() {
           icon={<PoundSterling />}
           title="Invoiced"
           prefix="£"
-          value="8,420.50"
+          value={842050}
+          format={(n) => (Math.round(n) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          index={2}
           series={kpiSeries.invoiced}
           color="var(--ember)"
           caption="Takings up by"
@@ -91,7 +97,9 @@ export function Dashboard() {
         <KpiCard
           icon={<ShieldAlert />}
           title="Overdue certificates"
-          value="7"
+          value={7}
+          format={(n) => String(Math.round(n))}
+          index={3}
           series={kpiSeries.exceptions}
           color="var(--danger)"
           caption="Overdue up by"

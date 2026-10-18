@@ -1,4 +1,4 @@
-import type { Certificate, Customer, Operator, Exception, Job, Site } from './model'
+import type { Certificate, Customer, Operator, Exception, Invoice, Job, Quote, Site } from './model'
 
 const day = '2026-10-18'
 const t = (hhmm: string) => `${day}T${hhmm}:00Z`
@@ -128,11 +128,21 @@ export const jobs: Job[] = [
 ]
 
 export const certificates: Certificate[] = [
-  { id: 'cer_1', kind: 'CP12', siteId: 'sit_03', expires: '2026-10-21', state: 'due_soon' },
-  { id: 'cer_2', kind: 'EICR', siteId: 'sit_02', expires: '2026-10-02', state: 'overdue' },
-  { id: 'cer_3', kind: 'CP12', siteId: 'sit_04', expires: '2026-09-28', state: 'overdue' },
-  { id: 'cer_4', kind: 'Boiler service', siteId: 'sit_05', expires: '2027-01-14', state: 'valid' },
-  { id: 'cer_5', kind: 'PAT', siteId: 'sit_06', expires: '2026-11-05', state: 'due_soon' },
+  { id: 'cer_01', kind: 'EICR', siteId: 'sit_02', issued: '2021-10-02', expires: '2026-10-02', state: 'overdue' },
+  { id: 'cer_02', kind: 'CP12', siteId: 'sit_04', issued: '2025-09-28', expires: '2026-09-28', state: 'overdue' },
+  { id: 'cer_03', kind: 'PAT', siteId: 'sit_03', issued: '2025-10-05', expires: '2026-10-05', state: 'overdue' },
+  { id: 'cer_04', kind: 'BS5839', siteId: 'sit_06', issued: '2026-04-09', expires: '2026-10-09', state: 'overdue' },
+  { id: 'cer_05', kind: 'CP12', siteId: 'sit_02', issued: '2025-10-11', expires: '2026-10-11', state: 'overdue' },
+  { id: 'cer_06', kind: 'Unvented', siteId: 'sit_05', issued: '2025-10-14', expires: '2026-10-14', state: 'overdue' },
+  { id: 'cer_07', kind: 'Boiler service', siteId: 'sit_01', issued: '2025-10-16', expires: '2026-10-16', state: 'overdue' },
+  { id: 'cer_08', kind: 'CP12', siteId: 'sit_03', issued: '2025-10-21', expires: '2026-10-21', state: 'due_soon', jobId: 'job_1048' },
+  { id: 'cer_09', kind: 'PAT', siteId: 'sit_06', issued: '2025-11-05', expires: '2026-11-05', state: 'due_soon' },
+  { id: 'cer_10', kind: 'EICR', siteId: 'sit_04', issued: '2021-11-12', expires: '2026-11-12', state: 'due_soon' },
+  { id: 'cer_11', kind: 'Boiler service', siteId: 'sit_05', issued: '2026-01-14', expires: '2027-01-14', state: 'valid' },
+  { id: 'cer_12', kind: 'EICR', siteId: 'sit_01', issued: '2024-03-02', expires: '2029-03-02', state: 'valid' },
+  { id: 'cer_13', kind: 'CP12', siteId: 'sit_05', issued: '2026-06-20', expires: '2027-06-20', state: 'valid' },
+  { id: 'cer_14', kind: 'BS5839', siteId: 'sit_03', issued: '2026-08-30', expires: '2027-02-28', state: 'valid' },
+  { id: 'cer_15', kind: 'Unvented', siteId: 'sit_01', issued: '2026-02-11', expires: '2027-02-11', state: 'valid' },
 ]
 
 export const exceptions: Exception[] = [
@@ -154,3 +164,42 @@ export const kpiSeries = {
 export const byId = <T extends { id: string }>(list: T[], id: string | undefined) => list.find((x) => x.id === id)
 
 export const jobTotal = (job: Job) => job.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
+
+const li = (id: string, description: string, unitPrice: number, quantity = 1, kind: 'labour' | 'material' | 'callout' | 'other' = 'labour') => ({
+  id,
+  kind,
+  description,
+  quantity,
+  unitPrice,
+})
+
+export const invoices: Invoice[] = [
+  { id: 'inv_2207', ref: 'INV-2207', jobId: 'job_1036', customerId: 'cus_05', lines: [li('a', 'IP66 socket, PIR flood', 26000)], vatRate: 2000, status: 'sent', issuedAt: '2026-10-16T15:00:00Z', dueAt: '2026-10-30T00:00:00Z', paidAmount: 0 },
+  { id: 'inv_2204', ref: 'INV-2204', jobId: 'job_1030', customerId: 'cus_03', lines: [li('b', 'Cellar pump service', 16500)], vatRate: 2000, status: 'paid', issuedAt: '2026-10-12T12:00:00Z', dueAt: '2026-10-26T00:00:00Z', paidAmount: 19800 },
+  { id: 'inv_2198', ref: 'INV-2198', jobId: 'job_0998', customerId: 'cus_02', lines: [li('c', 'Void property gas and electric checks', 153333)], vatRate: 2000, status: 'overdue', issuedAt: '2026-09-22T12:00:00Z', dueAt: '2026-10-06T00:00:00Z', paidAmount: 0 },
+  { id: 'inv_2201', ref: 'INV-2201', jobId: 'job_1011', customerId: 'cus_03', lines: [li('d', 'Glass washer drain, new trap', 35417)], vatRate: 2000, status: 'part_paid', issuedAt: '2026-10-02T12:00:00Z', dueAt: '2026-10-16T00:00:00Z', paidAmount: 20000 },
+  { id: 'inv_2206', ref: 'INV-2206', jobId: 'job_1022', customerId: 'cus_06', lines: [li('e', 'Emergency lighting test, 14 fittings', 42000)], vatRate: 2000, status: 'paid', issuedAt: '2026-10-14T12:00:00Z', dueAt: '2026-10-28T00:00:00Z', paidAmount: 50400 },
+  { id: 'inv_2208', ref: 'INV-2208', jobId: 'job_1039', customerId: 'cus_05', lines: [li('f', 'TRV, Drayton TRV4', 2200, 6, 'material'), li('g', 'Drain down, fit, refill', 5500, 3)], vatRate: 2000, status: 'draft', paidAmount: 0 },
+]
+
+export const quotes: Quote[] = [
+  { id: 'quo_311', ref: 'Q-311', jobId: 'job_1051', customerId: 'cus_01', lines: [li('h', 'Full bathroom refit, supply and fit', 685000, 1, 'other')], status: 'sent', validUntil: '2026-11-05', sentAt: '2026-10-15T18:20:00Z' },
+  { id: 'quo_309', ref: 'Q-309', jobId: 'job_1040', customerId: 'cus_04', lines: [li('i', 'Rewire, 3 bed semi', 520000, 1, 'other')], status: 'accepted', validUntil: '2026-10-30', sentAt: '2026-10-09T10:00:00Z' },
+  { id: 'quo_312', ref: 'Q-312', jobId: 'job_1052', customerId: 'cus_02', lines: [li('j', 'Cylinder thermostat and immersion', 38500)], status: 'draft', validUntil: '2026-11-01' },
+  { id: 'quo_305', ref: 'Q-305', jobId: 'job_1019', customerId: 'cus_06', lines: [li('k', 'Air con service, 4 units', 64000)], status: 'declined', validUntil: '2026-10-12', sentAt: '2026-09-28T10:00:00Z' },
+]
+
+/** Weekly takings in pounds, last 8 weeks, oldest first. */
+export const weeklyCash = [
+  { week: '25 Aug', invoiced: 6200, paid: 5400 },
+  { week: '1 Sep', invoiced: 7400, paid: 6900 },
+  { week: '8 Sep', invoiced: 5900, paid: 6100 },
+  { week: '15 Sep', invoiced: 8800, paid: 7200 },
+  { week: '22 Sep', invoiced: 9600, paid: 8100 },
+  { week: '29 Sep', invoiced: 7100, paid: 8400 },
+  { week: '6 Oct', invoiced: 10200, paid: 8800 },
+  { week: '13 Oct', invoiced: 11800, paid: 9300 },
+]
+
+export const invoiceTotal = (inv: Invoice) =>
+  Math.round(inv.lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0) * (1 + inv.vatRate / 10000))

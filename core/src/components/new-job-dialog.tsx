@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { Flame, Hammer, Plug, Droplets } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -18,6 +19,29 @@ const trades = [
 export function NewJobDialog({ children }: { children: ReactNode }) {
   const [trade, setTrade] = useState('gas')
   const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [emergency, setEmergency] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable]')
+      if (e.key.toLowerCase() === 'n' && !typing && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        setOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const create = () => {
+    setOpen(false)
+    toast.success(`J-1053 logged${emergency ? ' as emergency' : ''}`, {
+      description: (title || 'New job') + (emergency ? '. Nearest van alerted: Tom Byrne, 9 min.' : '. Waiting to be priced.'),
+    })
+    setTitle('')
+    setEmergency(false)
+  }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -45,7 +69,7 @@ export function NewJobDialog({ children }: { children: ReactNode }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="nj-title">What needs doing</Label>
-            <Input id="nj-title" placeholder="Boiler losing pressure, kitchen" />
+            <Input id="nj-title" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Boiler losing pressure, kitchen" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -62,15 +86,15 @@ export function NewJobDialog({ children }: { children: ReactNode }) {
               <p className="text-[13px]">Emergency call-out</p>
               <p className="text-[12px] text-muted">Jumps the queue and alerts the nearest van</p>
             </div>
-            <Switch />
+            <Switch checked={emergency} onCheckedChange={setEmergency} />
           </div>
         </Well>
         <div className="flex justify-end gap-2 p-2 pt-3">
           <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button size="sm" onClick={() => setOpen(false)}>
-            Create job
+          <Button size="sm" variant={emergency ? 'ember' : 'default'} onClick={create}>
+            {emergency ? 'Dispatch now' : 'Create job'}
           </Button>
         </div>
       </DialogContent>

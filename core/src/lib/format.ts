@@ -1,7 +1,18 @@
 import type { JobStatus, Priority } from '@/data/model'
 
-export const time = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
+export const time = (iso: string, seconds = false) =>
+  new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: seconds ? '2-digit' : undefined,
+    timeZone: 'UTC',
+  })
+
+/** 7380000 ms to "2h 03m". */
+export const duration = (ms: number) => {
+  const m = Math.max(0, Math.floor(ms / 60000))
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
+}
 
 export const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })

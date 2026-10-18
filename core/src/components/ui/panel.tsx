@@ -6,7 +6,7 @@ function Panel({ className, ...props }: React.ComponentProps<'section'>) {
   return (
     <section
       className={cn(
-        'flex min-w-0 flex-col rounded-xl border border-line bg-surface p-1.5 shadow-[0_1px_0_#ffffff08_inset]',
+        'panel-edge animate-rise flex min-w-0 flex-col rounded-xl border border-line bg-surface/90 p-1.5 shadow-[0_24px_48px_-24px_#000000cc] backdrop-blur-sm transition-colors hover:border-line-strong',
         className,
       )}
       {...props}

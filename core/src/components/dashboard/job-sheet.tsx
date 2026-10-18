@@ -5,7 +5,10 @@ import { Badge, Chip } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { byId, customers, operators, jobTotal, sites } from '@/data/mock'
 import type { ComplianceCheck, Job } from '@/data/model'
-import { priorityMeta, statusMeta, time } from '@/lib/format'
+import { duration, priorityMeta, statusMeta, time } from '@/lib/format'
+import { useNow } from '@/hooks/use-now'
+import { cn } from '@/lib/utils'
+import type { JobStatus } from '@/data/model'
 import { formatGBP } from '@/lib/utils'
 
 const checkIcon: Record<ComplianceCheck['state'], React.ReactNode> = {
@@ -13,6 +16,64 @@ const checkIcon: Record<ComplianceCheck['state'], React.ReactNode> = {
   fail: <XCircle className="size-4 text-danger" />,
   pending: <CircleDashed className="size-4 text-warn" />,
   'n/a': <CircleDashed className="size-4 text-faint" />,
+}
+
+const track: { key: JobStatus; label: string }[] = [
+  { key: 'booked', label: 'Booked' },
+  { key: 'en_route', label: 'En route' },
+  { key: 'on_site', label: 'On site' },
+  { key: 'complete', label: 'Done' },
+  { key: 'invoiced', label: 'Invoiced' },
+  { key: 'paid', label: 'Paid' },
+]
+
+function ProgressTrack({ job }: { job: Job }) {
+  const now = useNow()
+  const at = track.findIndex((t) => t.key === job.status)
+  const live = job.status === 'on_site' || job.status === 'en_route'
+  const elapsed = now - Date.parse(job.start)
+  const planned = Date.parse(job.end) - Date.parse(job.start)
+  const pct = Math.min(100, Math.max(0, (elapsed / planned) * 100))
+  return (
+    <div className="mt-2 rounded-lg border border-line bg-surface p-3">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] tracking-[0.08em] text-faint uppercase">{live ? statusMeta[job.status].label + ' for' : 'Status'}</p>
+          <p className="mt-1 font-mono text-[26px] leading-none tracking-tight tabular">
+            {live ? duration(elapsed) : statusMeta[job.status].label}
+          </p>
+        </div>
+        {live && (
+          <div className="text-right font-mono text-[12px] text-muted">
+            <span className="text-foreground">{Math.round(pct)}%</span> of booked time
+            <p className="text-faint">ends {time(job.end)}</p>
+          </div>
+        )}
+      </div>
+      {live && (
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-raised">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-ember/60 to-ember shadow-[0_0_12px_var(--ember)] transition-[width] duration-1000"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+      <ol className="mt-3 grid grid-cols-6 gap-1">
+        {track.map((t, i) => (
+          <li key={t.key} className="flex flex-col gap-1.5">
+            <span
+              className={cn(
+                'h-[3px] rounded-full bg-raised',
+                i < at && 'bg-foreground/40',
+                i === at && 'bg-ember shadow-[0_0_8px_var(--ember)]',
+              )}
+            />
+            <span className={cn('truncate text-[10px] text-faint', i === at && 'text-foreground', i < at && 'text-muted')}>{t.label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
 }
 
 function Token({ children }: { children: React.ReactNode }) {
@@ -43,6 +104,7 @@ export function JobSheet({ job }: { job: Job }) {
         }
       />
       <Well className="flex-1 overflow-y-auto px-2 pb-2">
+        <ProgressTrack job={job} />
         <SectionLabel>1. Intake</SectionLabel>
         <div className="divide-y divide-line rounded-lg border border-line bg-surface">
           <Row label="Job">

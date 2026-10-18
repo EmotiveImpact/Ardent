@@ -1,4 +1,7 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { useNow } from '@/hooks/use-now'
+import { time } from '@/lib/format'
 import { MoreHorizontal, Truck, Warehouse } from 'lucide-react'
 import { Panel, PanelHeader, Well } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
@@ -26,9 +29,109 @@ const slots: Record<string, { x: number; y: number }> = {
 }
 const yard = { x: 50, y: 15 }
 
-function connector(to: { x: number; y: number }) {
-  const bus = to.y < 60 ? 31 : 64
-  return `M${yard.x} ${yard.y + 7} V${bus} H${to.x} V${to.y - 9}`
+/** Orthogonal wire from the yard to a crew card, in pixels. */
+function connector(to: { x: number; y: number }, w: number, h: number) {
+  const px = (v: number) => (v / 100) * w
+  const py = (v: number) => (v / 100) * h
+  const bus = py(to.y < 60 ? 31 : 64)
+  const x0 = px(yard.x)
+  const y0 = py(yard.y)
+  const x1 = px(to.x)
+  const y1 = py(to.y)
+  const r = 8
+  const dir = x1 > x0 ? 1 : -1
+  return `M${x0} ${y0} V${bus - r} q0 ${r} ${dir * r} ${r} H${x1 - dir * r} q${dir * r} 0 ${dir * r} ${r} V${y1}`
+}
+
+function Wires() {
+  const ref = useRef<SVGSVGElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = ref.current?.parentElement
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const { w, h } = size
+  return (
+    <svg ref={ref} className="absolute inset-0 size-full" aria-hidden>
+      <defs>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {w > 0 &&
+        operators.map((eng, i) => {
+          const meta = stateMeta[eng.state]
+          const d = connector(slots[eng.id], w, h)
+          const moving = eng.state === 'en_route' || eng.state === 'delayed'
+          const live = eng.state !== 'on_call' && eng.state !== 'off_shift'
+          return (
+            <g key={eng.id}>
+              <path d={d} fill="none" stroke="#2a2a2a" strokeWidth={1.25} />
+              {live && (
+                <>
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={meta.stroke}
+                    strokeOpacity={0.55}
+                    strokeWidth={1.25}
+                    strokeDasharray={moving ? '4 6' : undefined}
+                    className={cn(moving && 'animate-dash')}
+                  />
+                  {/* light pulse running down the wire */}
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={meta.stroke}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    pathLength={100}
+                    strokeDasharray="10 90"
+                    filter="url(#glow)"
+                  >
+                    <animate attributeName="stroke-dashoffset" from="100" to="0" dur={`${moving ? 2.4 : 3.6}s`} begin={`${i * 0.4}s`} repeatCount="indefinite" />
+                  </path>
+                  {moving && (
+                    <circle r={3.5} fill={meta.stroke} filter="url(#glow)">
+                      <animateMotion
+                        dur={eng.state === 'delayed' ? '9s' : '6s'}
+                        repeatCount="indefinite"
+                        path={d}
+                        keyPoints="0;1"
+                        keyTimes="0;1"
+                        calcMode="spline"
+                        keySplines="0.4 0 0.2 1"
+                      />
+                    </circle>
+                  )}
+                </>
+              )}
+            </g>
+          )
+        })}
+    </svg>
+  )
+}
+
+function LiveClock() {
+  const now = useNow()
+  return (
+    <span className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-md border border-line bg-surface/90 px-2 py-1 text-[11px] text-muted backdrop-blur">
+      <span className="relative flex size-1.5">
+        <span className="absolute inset-0 animate-pulse-ring rounded-full bg-ember" />
+        <span className="relative size-1.5 rounded-full bg-ember" />
+      </span>
+      Live
+      <span className="font-mono text-foreground tabular">{time(new Date(now).toISOString(), true)}</span>
+    </span>
+  )
 }
 
 function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
@@ -91,35 +194,11 @@ export function LiveBoard() {
           </>
         }
       />
-      <Well className="dot-grid relative hidden h-[400px] overflow-hidden sm:block">
-        <span className="absolute top-3 left-3 rounded-md border border-line bg-surface px-2 py-1 text-[11px] text-muted">
-          Live · updated 10:03
-        </span>
+      <Well className="dot-grid relative hidden h-[400px] overflow-hidden sm:block [background-color:#0a0a0a]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_45%,#ff6a1a0d,transparent_70%)]" />
+        <LiveClock />
 
-        <svg className="absolute inset-0 size-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-          {operators.map((eng) => {
-            const meta = stateMeta[eng.state]
-            const moving = eng.state === 'en_route' || eng.state === 'delayed'
-            return (
-              <g key={eng.id}>
-                <path d={connector(slots[eng.id])} fill="none" stroke="#2c2c2c" strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
-                {eng.state !== 'on_call' && (
-                  <path
-                    d={connector(slots[eng.id])}
-                    fill="none"
-                    stroke={meta.stroke}
-                    strokeWidth={1.5}
-                    strokeDasharray={moving ? '6 6' : undefined}
-                    strokeOpacity={0.75}
-                    vectorEffect="non-scaling-stroke"
-                    className={cn(moving && 'animate-dash')}
-                    style={{ filter: `drop-shadow(0 0 3px ${meta.stroke})` }}
-                  />
-                )}
-              </g>
-            )
-          })}
-        </svg>
+        <Wires />
 
         <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${yard.x}%`, top: `${yard.y}%` }}>
           <div className="w-[228px] rounded-lg border border-line-strong bg-surface p-1 shadow-xl shadow-black/50">

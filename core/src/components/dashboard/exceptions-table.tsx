@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { exceptions } from '@/data/mock'
 import type { Exception } from '@/data/model'
 import { time } from '@/lib/format'
+import { useState } from 'react'
+import { toast } from 'sonner'
 
 const outcomeTone: Record<Exception['outcome'], 'danger' | 'warn' | 'info' | 'neutral'> = {
   blocked: 'danger',
@@ -14,6 +16,11 @@ const outcomeTone: Record<Exception['outcome'], 'danger' | 'warn' | 'info' | 'ne
 }
 
 export function ExceptionsTable() {
+  const [rows, setRows] = useState(exceptions)
+  const resolve = (id: string) => {
+    setRows((r) => r.map((x) => (x.id === id ? { ...x, outcome: 'resolved' } : x)))
+    toast('Marked resolved', { action: { label: 'Undo', onClick: () => setRows(exceptions) } })
+  }
   return (
     <Panel>
       <PanelHeader
@@ -41,10 +48,10 @@ export function ExceptionsTable() {
             </tr>
           </thead>
           <tbody>
-            {exceptions.map((ex, i) => (
+            {rows.map((ex, i) => (
               <tr
                 key={ex.id}
-                className="border-b border-line/70 last:border-0 hover:bg-white/[0.02]"
+                className="group border-b border-line/70 transition-[opacity,background-color] last:border-0 hover:bg-white/[0.025]"
                 style={{ opacity: ex.outcome === 'resolved' ? 0.5 : 1 - i * 0.04 }}
               >
                 <td className="h-11 px-3 font-mono text-[12px] whitespace-nowrap">{time(ex.at)}</td>
@@ -52,9 +59,21 @@ export function ExceptionsTable() {
                 <td className="px-3">{ex.rule}</td>
                 <td className="px-3 text-muted">{ex.detail}</td>
                 <td className="px-3 text-right">
-                  <Badge tone={outcomeTone[ex.outcome]} className="capitalize">
-                    {ex.outcome}
-                  </Badge>
+                  <span className="inline-flex items-center gap-2">
+                    {ex.outcome !== 'resolved' && (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="h-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                        onClick={() => resolve(ex.id)}
+                      >
+                        Resolve
+                      </Button>
+                    )}
+                    <Badge tone={outcomeTone[ex.outcome]} className="capitalize">
+                      {ex.outcome}
+                    </Badge>
+                  </span>
                 </td>
               </tr>
             ))}

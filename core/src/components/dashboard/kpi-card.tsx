@@ -1,32 +1,47 @@
-import type { ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { MoreHorizontal, TrendingDown, TrendingUp } from 'lucide-react'
 import { Panel, PanelHeader, Well } from '@/components/ui/panel'
 import { Button } from '@/components/ui/button'
+import { useCountUp } from '@/hooks/use-now'
 import { cn } from '@/lib/utils'
 
-function SparkBars({ values, color }: { values: number[]; color: string }) {
+function SparkBars({ values, color, labels }: { values: number[]; color: string; labels: string[] }) {
+  const [hover, setHover] = useState<number | null>(null)
   const max = Math.max(...values)
   return (
-    <div className="flex h-10 items-end gap-[3px]" aria-hidden>
+    <div className="relative hidden h-11 items-end gap-[3px] sm:flex" onMouseLeave={() => setHover(null)}>
+      {hover !== null && (
+        <span className="absolute -top-7 right-0 rounded border border-line-strong bg-raised px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-foreground shadow-lg">
+          {labels[hover]} · {values[hover]}
+        </span>
+      )}
       {values.map((v, i) => (
         <span
           key={i}
-          className="w-[5px] rounded-[1.5px]"
-          style={{
-            height: `${Math.max(14, (v / max) * 100)}%`,
-            background: color,
-            opacity: 0.45 + (i / values.length) * 0.55,
-          }}
+          onMouseEnter={() => setHover(i)}
+          className={cn('animate-grow w-[6px] rounded-[1.5px] transition-[filter]', hover === i && 'brightness-150')}
+          style={
+            {
+              '--i': i,
+              '--o': hover === null || hover === i ? 0.45 + (i / values.length) * 0.55 : 0.25,
+              height: `${Math.max(14, (v / max) * 100)}%`,
+              background: `linear-gradient(to top, color-mix(in oklab, ${color} 55%, transparent), ${color})`,
+              boxShadow: i === values.length - 1 ? `0 0 12px -2px ${color}` : undefined,
+            } as CSSProperties
+          }
         />
       ))}
     </div>
   )
 }
 
+const hourLabels = ['03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00']
+
 export function KpiCard({
   icon,
   title,
   value,
+  format,
   unit,
   prefix,
   series,
@@ -34,10 +49,12 @@ export function KpiCard({
   caption,
   delta,
   good,
+  index = 0,
 }: {
   icon: ReactNode
   title: string
-  value: string
+  value: number
+  format: (n: number) => string
   unit?: string
   prefix?: string
   series: number[]
@@ -46,10 +63,12 @@ export function KpiCard({
   delta: string
   /** Whether the movement is good news, which sets the arrow colour. */
   good: boolean
+  index?: number
 }) {
+  const shown = useCountUp(value)
   const Arrow = delta.startsWith('-') ? TrendingDown : TrendingUp
   return (
-    <Panel>
+    <Panel style={{ '--i': index } as CSSProperties}>
       <PanelHeader
         icon={icon}
         title={title}
@@ -62,17 +81,17 @@ export function KpiCard({
       <Well className="flex items-center justify-between px-3 py-3">
         <p className="flex items-baseline gap-1.5 font-mono tabular">
           {prefix && <span className="text-lg text-muted">{prefix}</span>}
-          <span className="text-[28px] leading-none tracking-tight text-foreground">{value}</span>
+          <span className="text-[22px] leading-none tracking-tight text-foreground sm:text-[28px]">{format(shown)}</span>
           {unit && <span className="text-[15px] text-muted">{unit}</span>}
         </p>
-        <SparkBars values={series} color={color} />
+        <SparkBars values={series} color={color} labels={hourLabels} />
       </Well>
       <div className="flex items-center justify-between px-2.5 pt-2.5 pb-1 text-[12px] text-muted">
-        <span className="truncate">{caption}</span>
+        <span className="hidden truncate sm:inline">{caption}</span>
         <span className="flex shrink-0 items-center gap-1.5">
           <Arrow className={cn('size-3.5', good ? 'text-ok' : 'text-danger')} />
           <span className={cn('font-mono', good ? 'text-ok' : 'text-danger')}>{delta}</span>
-          <span>vs last Sun</span>
+          <span className="hidden sm:inline">vs last Sun</span>
         </span>
       </div>
     </Panel>
