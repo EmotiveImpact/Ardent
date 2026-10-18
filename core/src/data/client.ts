@@ -1,4 +1,4 @@
-import type { Customer, Invoice, Job, JobStatus, Note, Operator, OperatorState, Photo, Quote, Site, TimeEntry } from './model'
+import type { Customer, Invoice, Job, JobStatus, LineItem, Note, Operator, OperatorState, Photo, Quote, Site, TimeEntry } from './model'
 
 /**
  * The one interface both apps code against. The mock implementation backs
@@ -11,6 +11,9 @@ export interface ArdentClient {
     get(id: string): Promise<Job | undefined>
     create(input: Omit<Job, 'id' | 'ref'>): Promise<Job>
     setStatus(id: string, status: JobStatus): Promise<Job>
+    /** Log labour or materials against a job, from the office or on site. */
+    addLine(jobId: string, line: Omit<LineItem, 'id'>): Promise<Job>
+    removeLine(jobId: string, lineId: string): Promise<Job>
   }
   customers: {
     list(): Promise<Customer[]>
