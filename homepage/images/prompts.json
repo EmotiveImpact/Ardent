@@ -1,0 +1,66 @@
+{
+  "model": "gpt-image-1",
+  "style": "Moody editorial documentary photography. Desaturated cool palette with deep blacks, muted steel greys and a single warm practical light source. Soft cinematic falloff, slight 35mm film grain, shallow haze. Photorealistic, shot on a full-frame camera. No text, no lettering, no logos, no watermarks, no brand names on clothing or vans.",
+  "images": [
+    {
+      "id": "hero",
+      "file": "hero.jpg",
+      "size": "1536x1024",
+      "prompt": "Wide interior of a trade merchant warehouse at night, tall steel racking stacked with cable drums, copper pipe bundles, boxed boilers and radiators. A single engineer in dark workwear walks away from camera down the central aisle, lit by a row of cold overhead lights fading into darkness. Strong one-point perspective, lots of negative space in the lower left for a headline."
+    },
+    {
+      "id": "aerial",
+      "file": "aerial.jpg",
+      "size": "1536x1024",
+      "prompt": "High aerial drone view looking straight down over a long curving row of British terraced houses at dusk, wet slate roofs, chimney stacks, one house wrapped in scaffolding with a white van parked outside. Muted violet and slate grey tones, street lamps just switching on. Calm, graphic composition."
+    },
+    {
+      "id": "service-jobs",
+      "file": "service-jobs.jpg",
+      "size": "1536x1024",
+      "prompt": "Inside the back of a tradesperson's van at night, neat steel shelving with labelled parts bins, coiled cable, fittings and power tools, lit only by a cool LED strip. Symmetrical framing looking in through the open rear doors, rain on the road behind."
+    },
+    {
+      "id": "service-certificates",
+      "file": "service-certificates.jpg",
+      "size": "1536x1024",
+      "prompt": "Close-up of an electrician's gloved hands testing a domestic consumer unit with a multifunction tester, probe leads clipped on, cover removed. Dim hallway, head torch light raking across the breakers, everything else falling into shadow."
+    },
+    {
+      "id": "service-quotes",
+      "file": "service-quotes.jpg",
+      "size": "1536x1024",
+      "prompt": "Aerial view at blue hour over a new-build housing site, rows of half-finished homes, timber frames and roof trusses, site floodlights casting pools of warm light on wet mud tracks. Muted teal and amber tones."
+    },
+    {
+      "id": "service-mobile",
+      "file": "service-mobile.jpg",
+      "size": "1536x1024",
+      "prompt": "A plumber kneeling in a dark basement plant room, phone in hand lighting up insulated pipework, pumps and a pressure vessel. The screen glow and a single caged bulkhead light are the only light sources. Looking down a narrow corridor of pipes."
+    },
+    {
+      "id": "trades",
+      "file": "trades.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait-orientation shot of a heating engineer standing on a flat commercial rooftop beside large air-source heat pump units and ducting, late golden hour light low on the horizon, city skyline hazy behind. Figure small in frame, industrial and calm."
+    },
+    {
+      "id": "cta",
+      "file": "cta.jpg",
+      "size": "1536x1024",
+      "prompt": "Long exposure at night of an empty motorway curving into darkness, red and amber light trails from passing vans, wet tarmac reflecting the lights, overhead gantry silhouetted. Very dark overall with a soft warm glow on the horizon. Plenty of empty space in the centre for a headline."
+    },
+    {
+      "id": "news-regs",
+      "file": "news-regs.jpg",
+      "size": "1536x1024",
+      "prompt": "Close-up of new copper pipework and brass valves freshly soldered on a plain plastered wall, soft side light, cool grey tones, very clean and minimal."
+    },
+    {
+      "id": "news-guide",
+      "file": "news-guide.jpg",
+      "size": "1536x1024",
+      "prompt": "A scaffold-wrapped Victorian building in morning fog, debris netting softly lit, muted grey and sand tones, minimal and atmospheric."
+    }
+  ]
+}
