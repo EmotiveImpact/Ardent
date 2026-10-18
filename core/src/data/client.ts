@@ -1,4 +1,4 @@
-import type { Customer, Invoice, Job, JobStatus, LineItem, Note, Operator, OperatorState, Photo, Quote, Site, TimeEntry } from './model'
+import type { ComplianceCheck, Customer, Invoice, Job, JobStatus, LineItem, Note, PaymentMethod, Signature, Operator, OperatorState, Photo, Quote, Site, TimeEntry } from './model'
 
 /**
  * The one interface both apps code against. The mock implementation backs
@@ -14,6 +14,8 @@ export interface ArdentClient {
     /** Log labour or materials against a job, from the office or on site. */
     addLine(jobId: string, line: Omit<LineItem, 'id'>): Promise<Job>
     removeLine(jobId: string, lineId: string): Promise<Job>
+    /** Pass, fail or reset a compliance gate; adds the check if the job lacks it. */
+    setCheck(jobId: string, key: ComplianceCheck['key'], state: ComplianceCheck['state'], detail?: string): Promise<Job>
   }
   customers: {
     list(): Promise<Customer[]>
@@ -35,5 +37,14 @@ export interface ArdentClient {
   photos: { add(photo: Omit<Photo, 'id'>): Promise<Photo>; forJob(jobId: string): Promise<Photo[]> }
   notes: { add(note: Omit<Note, 'id'>): Promise<Note>; forJob(jobId: string): Promise<Note[]> }
   quotes: { forJob(jobId: string): Promise<Quote[]> }
-  invoices: { forJob(jobId: string): Promise<Invoice[]> }
+  signatures: { add(sig: Omit<Signature, 'id'>): Promise<Signature>; forJob(jobId: string): Promise<Signature[]> }
+  invoices: {
+    forJob(jobId: string): Promise<Invoice[]>
+    /** Draft invoice copying the job's lines. vatRate in basis points, default 2000. */
+    create(jobId: string, opts?: { vatRate?: number }): Promise<Invoice>
+    /** Marks it sent, stamps issuedAt, sets dueAt 14 days on. */
+    send(id: string, via: 'email' | 'sms'): Promise<Invoice>
+    /** Adds to paidAmount, sets part_paid or paid, and moves the job to invoiced or paid. Amount in pence. */
+    recordPayment(id: string, amount: number, method: PaymentMethod): Promise<Invoice>
+  }
 }
