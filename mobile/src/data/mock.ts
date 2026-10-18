@@ -2,8 +2,7 @@
 // Stands in until the Supabase client lands; screens never import this.
 import type { ArdentClient } from './core/client';
 import * as seed from './core/mock';
-import type { ComplianceCheck, Invoice, Job, Note, Operator, Photo, TimeEntry } from './core/model';
-import type { PendingClient, Signature } from './pending';
+import type { ComplianceCheck, Invoice, Job, Note, Operator, Photo, Signature, TimeEntry } from './core/model';
 
 /** The operator signed in on this phone. */
 const ME = 'opr_01';
@@ -50,6 +49,13 @@ export const mockClient: ArdentClient = {
     addLine: (jobId, line) => {
       const job = must(seed.byId(jobs, jobId), 'Job');
       job.lines = [...job.lines, { ...line, id: nextId('li') }];
+      return later({ ...job });
+    },
+    setCheck: (jobId, key, state, detail) => {
+      const job = must(seed.byId(jobs, jobId), 'Job');
+      const rest = job.checks.filter((c) => c.key !== key);
+      const label = job.checks.find((c) => c.key === key)?.label ?? CHECK_LABEL[key];
+      job.checks = [...rest, { key, label, state, detail }];
       return later({ ...job });
     },
     removeLine: (jobId, lineId) => {
@@ -103,29 +109,6 @@ export const mockClient: ArdentClient = {
     forJob: (jobId) => later(notes.filter((n) => n.jobId === jobId)),
   },
   quotes: { forJob: () => later([]) },
-  invoices: { forJob: (jobId) => later(invoices.filter((i) => i.jobId === jobId).map((i) => ({ ...i }))) },
-};
-
-const CHECK_LABEL: Record<ComplianceCheck['key'], string> = {
-  rams: 'RAMS',
-  permit: 'Permit',
-  registration: 'Registration',
-  gas_tightness: 'Tightness test',
-  eicr: 'Electrical cert',
-  photos: 'Photos',
-  signature: 'Customer sign-off',
-};
-
-const DAY = 24 * 60 * 60 * 1000;
-
-export const mockPending: PendingClient = {
-  setCheck: (jobId, key, state, detail) => {
-    const job = must(seed.byId(jobs, jobId), 'Job');
-    const rest = job.checks.filter((c) => c.key !== key);
-    const label = job.checks.find((c) => c.key === key)?.label ?? CHECK_LABEL[key];
-    job.checks = [...rest, { key, label, state, detail }];
-    return later({ ...job });
-  },
   signatures: {
     add: (sig) => {
       const s: Signature = { ...sig, id: nextId('sig') };
@@ -135,6 +118,7 @@ export const mockPending: PendingClient = {
     forJob: (jobId) => later(signatures.filter((s) => s.jobId === jobId)),
   },
   invoices: {
+    forJob: (jobId) => later(invoices.filter((i) => i.jobId === jobId).map((i) => ({ ...i }))),
     create: (jobId, opts = {}) => {
       const job = must(seed.byId(jobs, jobId), 'Job');
       const inv: Invoice = {
@@ -172,6 +156,18 @@ export const mockPending: PendingClient = {
     },
   },
 };
+
+const CHECK_LABEL: Record<ComplianceCheck['key'], string> = {
+  rams: 'RAMS',
+  permit: 'Permit',
+  registration: 'Registration',
+  gas_tightness: 'Tightness test',
+  eicr: 'Electrical cert',
+  photos: 'Photos',
+  signature: 'Customer sign-off',
+};
+
+const DAY = 24 * 60 * 60 * 1000;
 
 /** Net, VAT and gross in pence. VAT is rounded once on the net, as on a UK invoice. */
 export function invoiceTotals(inv: Pick<Invoice, 'lines' | 'vatRate'>) {

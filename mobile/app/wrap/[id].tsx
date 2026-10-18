@@ -9,10 +9,9 @@ import { Action } from '@/components/Action';
 import { Atmosphere } from '@/components/Atmosphere';
 import { HoldToEnter } from '@/components/HoldToEnter';
 import { SignaturePad } from '@/components/SignaturePad';
-import { ardent, field, invoiceTotals } from '@/data/client';
+import { ardent, invoiceTotals } from '@/data/client';
 import { elapsed, hms } from '@/data/jobs';
-import type { PaymentMethod } from '@/data/pending';
-import type { Customer, Invoice, Job, Photo, Site, TimeEntry } from '@/data/types';
+import type { Customer, Invoice, Job, PaymentMethod, Photo, Site, TimeEntry } from '@/data/types';
 import { pounds } from '@/format';
 import { useOperator } from '@/state/operator';
 import { color, font, radius, space, tracking } from '@/theme/tokens';
@@ -112,10 +111,10 @@ export default function WrapUp() {
 
   const sign = () =>
     run(async () => {
-      await field.signatures.add({ jobId: job.id, operatorId: me.id, signedBy: signedBy.trim(), svg, at: new Date().toISOString() });
-      await field.setCheck(job.id, 'signature', 'pass', signedBy.trim());
-      if (photos.length > 0) await field.setCheck(job.id, 'photos', 'pass', `${photos.length} taken`);
-      const inv = invoice ?? (await field.invoices.create(job.id));
+      await ardent.signatures.add({ jobId: job.id, operatorId: me.id, signedBy: signedBy.trim(), svg, at: new Date().toISOString() });
+      await ardent.jobs.setCheck(job.id, 'signature', 'pass', signedBy.trim());
+      if (photos.length > 0) await ardent.jobs.setCheck(job.id, 'photos', 'pass', `${photos.length} taken`);
+      const inv = invoice ?? (await ardent.invoices.create(job.id));
       setInvoice(inv);
       buzz(Haptics.NotificationFeedbackType.Success);
       setStep('invoice');
@@ -124,7 +123,7 @@ export default function WrapUp() {
   const send = (via: 'email' | 'sms') =>
     run(async () => {
       if (!invoice) return;
-      setInvoice(await field.invoices.send(invoice.id, via));
+      setInvoice(await ardent.invoices.send(invoice.id, via));
       setDoneVia(via === 'sms' ? `Sent by text to ${customer?.phone}` : `Emailed to ${customer?.email ?? customer?.name}`);
       buzz(Haptics.NotificationFeedbackType.Success);
       refresh();
@@ -134,7 +133,7 @@ export default function WrapUp() {
   const pay = (method: PaymentMethod) =>
     run(async () => {
       if (!invoice) return;
-      setInvoice(await field.invoices.recordPayment(invoice.id, totals.total - invoice.paidAmount, method));
+      setInvoice(await ardent.invoices.recordPayment(invoice.id, totals.total - invoice.paidAmount, method));
       setDoneVia(`Paid by ${METHODS.find((m) => m.id === method)?.label.toLowerCase()}`);
       buzz(Haptics.NotificationFeedbackType.Success);
       refresh();

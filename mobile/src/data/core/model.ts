@@ -173,3 +173,17 @@ export interface Invoice {
   dueAt?: string
   paidAmount: number
 }
+
+/** Customer sign-off captured on the phone. */
+export interface Signature {
+  id: string
+  jobId: string
+  operatorId: string
+  /** Name the customer typed or the operator entered. */
+  signedBy: string
+  /** SVG path data of the strokes. */
+  svg: string
+  at: string
+}
+
+export type PaymentMethod = 'card' | 'bank_transfer' | 'cash'

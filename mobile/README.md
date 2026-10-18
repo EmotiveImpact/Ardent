@@ -24,6 +24,5 @@ Core owns the shared contract. `scripts/sync-core.sh` copies it in (reads `../co
 - `src/data/core/` holds Core's data model, `ArdentClient` interface and mock records.
 - `src/theme/core/tokens.ts` holds Core's framework-neutral design tokens; `src/theme/tokens.ts` re-exports them and maps fonts to the loaded React Native family names (Michroma display, Geist, Geist Mono for every number).
 - `src/data/mock.ts` implements Core's `ArdentClient` in memory over the mock records, signed in as operator `opr_01` (Dan Mercer). `src/data/client.ts` exports the one `ardent` client the app uses plus field queries (today's jobs, day summary); swapping in Core's Supabase client is a one-line change there.
-- `src/data/pending.ts` holds the calls the wrap-up needs (check updates, signatures, invoice create, send and payment). They are proposed to Core and implemented in the mock until Core's client has them; then the file goes.
 - `src/data/types.ts` re-exports Core's model and adds the few mobile-only shapes.
 - Picking a mode on the opening screen writes the operator's state through `operators.setState`.
