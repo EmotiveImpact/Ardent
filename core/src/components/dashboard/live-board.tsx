@@ -11,9 +11,9 @@ import { byId, operators, jobs, sites } from '@/data/mock'
 import type { Operator, OperatorState } from '@/data/model'
 import { cn } from '@/lib/utils'
 
-const stateMeta: Record<OperatorState, { label: string; tone: 'ok' | 'ember' | 'warn' | 'neutral'; stroke: string }> = {
+const stateMeta: Record<OperatorState, { label: string; tone: 'ok' | 'info' | 'warn' | 'neutral'; stroke: string }> = {
   on_site: { label: 'On site', tone: 'ok', stroke: 'var(--ok)' },
-  en_route: { label: 'En route', tone: 'ember', stroke: 'var(--ember)' },
+  en_route: { label: 'En route', tone: 'info', stroke: 'var(--info)' },
   delayed: { label: 'Delayed', tone: 'warn', stroke: 'var(--warn)' },
   on_call: { label: 'On call', tone: 'neutral', stroke: '#4a4a4a' },
   workshop: { label: 'Workshop', tone: 'neutral', stroke: '#6b6b6b' },
@@ -125,10 +125,10 @@ function LiveClock() {
   return (
     <span className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-md bg-surface/90 px-2 py-1 text-[11px] text-muted backdrop-blur">
       <span className="relative flex size-1.5">
-        <span className="absolute inset-0 animate-pulse-ring rounded-full bg-ember" />
-        <span className="relative size-1.5 rounded-full bg-ember" />
+        <span className="absolute inset-0 animate-pulse-ring rounded-full bg-ok" />
+        <span className="relative size-1.5 rounded-full bg-ok" />
       </span>
-      Live
+      <span className="caps text-faint">Live</span>
       <span className="font-mono text-foreground tabular">{time(new Date(now).toISOString(), true)}</span>
     </span>
   )
@@ -151,7 +151,7 @@ function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
         <div className="flex items-center justify-between px-2 py-1.5">
           <span className="text-muted">Job</span>
           {job ? (
-            <Link to={`/jobs/${job.id}`} className="font-mono text-foreground hover:text-ember">
+            <Link to={`/jobs/${job.id}`} className="font-mono text-foreground hover:text-white">
               {job.ref}
             </Link>
           ) : (
@@ -195,7 +195,7 @@ export function LiveBoard() {
         }
       />
       <Well className="dot-grid relative hidden h-[400px] overflow-hidden sm:block [background-color:#0a0a0a]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_45%,#ff6a1a0d,transparent_70%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_45%,#ffffff08,transparent_70%)]" />
         <LiveClock />
 
         <Wires />

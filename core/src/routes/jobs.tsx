@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Search, Wrench } from 'lucide-react'
-import { Panel, PanelHeader, Well } from '@/components/ui/panel'
+import { Panel, PanelHeader, Well, PageHeader } from '@/components/ui/panel'
 import { Badge, Chip } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { byId, customers, operators, jobTotal, jobs, sites } from '@/data/mock'
 import type { JobStatus } from '@/data/model'
 import { priorityMeta, shortDate, statusMeta, time } from '@/lib/format'
-import { formatGBP } from '@/lib/utils'
+import { cn, formatGBP } from '@/lib/utils'
 
 const groups: Record<string, JobStatus[]> = {
   all: [],
@@ -33,6 +33,7 @@ export function Jobs() {
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
+      <PageHeader eyebrow="Every job, enquiry to paid" title="JOBS" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={group} onValueChange={setGroup}>
           <TabsList>
@@ -71,9 +72,9 @@ export function Jobs() {
                 const c = byId(customers, j.customerId)
                 const s = byId(sites, j.siteId)
                 return (
-                  <tr key={j.id} className="group border-b last:border-0 hover:bg-white/[0.02]">
+                  <tr key={j.id} className={cn('group border-b transition-opacity last:border-0 hover:bg-white/[0.02] hover:opacity-100', ['complete', 'invoiced', 'paid'].includes(j.status) && 'opacity-55')}>
                     <td className="h-12 px-3">
-                      <Link to={`/jobs/${j.id}`} className="font-mono text-[12px] text-foreground group-hover:text-ember">
+                      <Link to={`/jobs/${j.id}`} className="font-mono text-[12px] text-foreground group-hover:text-white">
                         {j.ref}
                       </Link>
                     </td>

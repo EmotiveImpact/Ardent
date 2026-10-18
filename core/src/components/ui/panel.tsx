@@ -28,7 +28,7 @@ function PanelHeader({
   return (
     <header className={cn('flex h-10 items-center gap-2.5 px-2.5', className)}>
       {icon && <span className="text-muted [&_svg]:size-4">{icon}</span>}
-      <h2 className="truncate text-[13px] font-medium text-foreground">{title}</h2>
+      <h2 className="caps truncate text-muted">{title}</h2>
       {actions && <div className="ml-auto flex items-center gap-1.5">{actions}</div>}
     </header>
   )
@@ -50,7 +50,20 @@ function Row({ label, children, className }: { label: React.ReactNode; children:
 }
 
 function SectionLabel({ className, ...props }: React.ComponentProps<'p'>) {
-  return <p className={cn('px-1 pt-3 pb-2 text-[12px] uppercase tracking-[0.06em] text-muted', className)} {...props} />
+  return <p className={cn('caps px-1 pt-4 pb-2.5 text-faint', className)} {...props} />
 }
 
-export { Panel, PanelHeader, Well, Row, SectionLabel }
+export { Panel, PanelHeader, PageHeader, Well, Row, SectionLabel }
+
+/** Screen title in the Michroma voice, with a quiet line above and an optional chip or action. */
+function PageHeader({ eyebrow, title, aside }: { eyebrow?: React.ReactNode; title: string; aside?: React.ReactNode }) {
+  return (
+    <div className="animate-rise flex flex-wrap items-end justify-between gap-3 pt-1 pb-1">
+      <div className="min-w-0">
+        {eyebrow && <p className="mb-2 text-[13px] text-muted">{eyebrow}</p>}
+        <h1 className="display-title text-[26px] text-foreground sm:text-[34px]">{title}</h1>
+      </div>
+      {aside && <div className="flex items-center gap-2">{aside}</div>}
+    </div>
+  )
+}

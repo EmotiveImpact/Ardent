@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
+import { toast } from 'sonner'
 import { CheckCircle2, CircleDashed, ClipboardList, MoreHorizontal, PenLine, ShieldCheck, XCircle } from 'lucide-react'
 import { Panel, PanelHeader, Row, SectionLabel, Well } from '@/components/ui/panel'
 import { Badge, Chip } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { HoldButton } from '@/components/ui/hold-button'
 import { byId, customers, operators, jobTotal, sites } from '@/data/mock'
 import type { ComplianceCheck, Job } from '@/data/model'
 import { duration, priorityMeta, statusMeta, time } from '@/lib/format'
@@ -38,10 +41,13 @@ function ProgressTrack({ job }: { job: Job }) {
     <div className="mt-2 rounded-lg bg-surface p-3">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] tracking-[0.08em] text-faint uppercase">{live ? statusMeta[job.status].label + ' for' : 'Status'}</p>
+          <p className="caps text-faint">{job.status === 'on_site' ? 'On the tools for' : live ? statusMeta[job.status].label + ' for' : 'Status'}</p>
           <p className="mt-1 font-mono text-[26px] leading-none tracking-tight tabular">
             {live ? duration(elapsed) : statusMeta[job.status].label}
           </p>
+          {job.status === 'complete' && (
+            <span className="animate-spring caps mt-2 inline-flex h-6 items-center rounded-[5px] bg-ok/15 px-2 text-ok">Job done</span>
+          )}
         </div>
         {live && (
           <div className="text-right font-mono text-[12px] text-muted">
@@ -80,7 +86,16 @@ function Token({ children }: { children: React.ReactNode }) {
   return <Chip className="h-7 bg-raised px-2.5 font-sans text-[12px]">{children}</Chip>
 }
 
-export function JobSheet({ job }: { job: Job }) {
+export function JobSheet({ job: initial }: { job: Job }) {
+  const [status, setStatus] = useState(initial.status)
+  const job = { ...initial, status }
+  const finish = () => {
+    setStatus('complete')
+    toast.success(`${job.ref} marked done`, {
+      description: 'Sign-off photos saved. Invoice is ready to send.',
+      action: { label: 'Undo', onClick: () => setStatus(initial.status) },
+    })
+  }
   const customer = byId(customers, job.customerId)
   const site = byId(sites, job.siteId)
   const crew = job.operatorIds.map((id) => byId(operators, id)?.name).join(', ')
@@ -105,6 +120,7 @@ export function JobSheet({ job }: { job: Job }) {
       />
       <Well className="flex-1 overflow-y-auto px-2 pb-2">
         <ProgressTrack job={job} />
+        {job.status === 'on_site' && <HoldButton label="Hold to finish job" onCommit={finish} className="mt-1.5" />}
         <SectionLabel>1. Intake</SectionLabel>
         <div className="divide-y divide-line rounded-lg bg-surface">
           <Row label="Job">

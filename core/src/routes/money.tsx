@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react'
 import { toast } from 'sonner'
 import { Banknote, FileText, Hourglass, PoundSterling, Send, TrendingUp } from 'lucide-react'
-import { Panel, PanelHeader, Well } from '@/components/ui/panel'
+import { Panel, PanelHeader, Well, PageHeader } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -114,6 +114,7 @@ export function Money() {
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
+      <PageHeader eyebrow="Invoices, payments and cash in" title="MONEY" />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat index={0} icon={<Hourglass />} title="Outstanding" pence={outstanding} note={`${rows.filter((i) => ['sent', 'part_paid', 'overdue'].includes(i.status)).length} invoices waiting`} />
         <Stat index={1} icon={<PoundSterling />} title="Overdue" pence={overdue} tone="text-danger" note="Northgate Lettings, 12 days late" />

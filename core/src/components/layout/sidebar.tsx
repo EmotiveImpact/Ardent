@@ -36,7 +36,7 @@ function RailLink({ to, label, icon: Icon, end }: { to: string; label: string; i
         className={({ isActive }) =>
           cn(
             'relative flex size-9 items-center justify-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-foreground',
-            isActive && 'bg-raised text-foreground shadow-[0_1px_0_#ffffff0f_inset] before:absolute before:-left-[11px] before:h-4 before:w-[3px] before:rounded-r before:bg-ember',
+            isActive && 'bg-raised text-foreground shadow-[0_1px_0_#ffffff0f_inset] before:absolute before:-left-[11px] before:h-4 before:w-[3px] before:rounded-r before:bg-foreground',
           )
         }
       >

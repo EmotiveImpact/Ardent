@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Flame, Hammer, Plug, Droplets } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { HoldButton } from '@/components/ui/hold-button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -93,9 +94,13 @@ export function NewJobDialog({ children }: { children: ReactNode }) {
           <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button size="sm" variant={emergency ? 'ember' : 'default'} onClick={create}>
-            {emergency ? 'Dispatch now' : 'Create job'}
-          </Button>
+          {emergency ? (
+            <HoldButton label="Hold to dispatch" onCommit={create} className="h-8 w-44 rounded-md" ms={900} />
+          ) : (
+            <Button size="sm" onClick={create}>
+              Create job
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

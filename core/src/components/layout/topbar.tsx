@@ -41,7 +41,7 @@ export function Topbar({ trail }: { trail: string[] }) {
         </Button>
         <Button variant="outline" size="icon-sm" aria-label="Notifications" className="relative">
           <Bell />
-          <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-ember" />
+          <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" />
         </Button>
         <NewJobDialog>
           <Button size="sm" className="gap-1.5">

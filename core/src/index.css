@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/geist-mono';
+@import '@fontsource/michroma/latin-400.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -168,7 +169,7 @@
   to { background-position: 200% 0; }
 }
 @utility animate-rise {
-  animation: rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: rise 400ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   animation-delay: calc(var(--i, 0) * 60ms);
 }
 @utility animate-grow {
@@ -186,4 +187,30 @@
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }
+}
+
+/* Michroma voice: names and moments. Small tracked caps for labels, large for screen titles. */
+@utility caps {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 400;
+}
+@utility display-title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+@keyframes spring-in {
+  0% { transform: scale(0.9); opacity: 0; }
+  60% { transform: scale(1.06); opacity: 1; }
+  80% { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+@utility animate-spring {
+  animation: spring-in 520ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
 }

@@ -23,7 +23,7 @@ export const statusMeta: Record<JobStatus, { label: string; tone: Tone }> = {
   enquiry: { label: 'Enquiry', tone: 'neutral' },
   quoted: { label: 'Quoted', tone: 'violet' },
   booked: { label: 'Booked', tone: 'info' },
-  en_route: { label: 'En route', tone: 'ember' },
+  en_route: { label: 'En route', tone: 'info' },
   on_site: { label: 'On site', tone: 'ok' },
   paused: { label: 'Paused', tone: 'warn' },
   complete: { label: 'Complete', tone: 'ok' },

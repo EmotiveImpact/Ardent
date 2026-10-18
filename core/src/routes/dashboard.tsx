@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/ui/panel'
 import { useState } from 'react'
 import { CalendarRange, ChevronDown, Clock, LayoutGrid, PoundSterling, ShieldAlert, TrendingUp, Wrench } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -22,6 +23,7 @@ export function Dashboard() {
   const live = jobs.find((j) => j.id === 'job_1042')!
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
+      <PageHeader eyebrow="Morning, Edem. Sunday 18 October" title="TODAY" aside={<span className="caps flex h-8 items-center gap-2 rounded-md bg-surface px-3 text-muted"><span className="size-1.5 rounded-full bg-ok" />3 vans out</span>} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs defaultValue="overview">
           <TabsList>
@@ -63,7 +65,7 @@ export function Dashboard() {
           unit="of 31"
           index={0}
           series={kpiSeries.jobs}
-          color="var(--info)"
+          color="var(--fg)"
           caption="Completion up by"
           delta="+18%"
           good
@@ -76,7 +78,7 @@ export function Dashboard() {
           unit="m"
           index={1}
           series={kpiSeries.response}
-          color="var(--violet)"
+          color="var(--fg)"
           caption="Response time up by"
           delta="+12m"
           good={false}
@@ -89,7 +91,7 @@ export function Dashboard() {
           format={(n) => (Math.round(n) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           index={2}
           series={kpiSeries.invoiced}
-          color="var(--ember)"
+          color="var(--fg)"
           caption="Takings up by"
           delta="+£1,180"
           good

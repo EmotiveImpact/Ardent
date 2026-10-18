@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { CalendarRange, ChevronLeft, ChevronRight, Inbox, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
-import { Panel, PanelHeader, Well } from '@/components/ui/panel'
+import { Panel, PanelHeader, Well, PageHeader } from '@/components/ui/panel'
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { byId, customers, operators, jobs, sites } from '@/data/mock'
@@ -38,6 +38,7 @@ export function Schedule() {
   const todays = jobs.filter((j) => j.start.startsWith(today))
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
+      <PageHeader eyebrow="Who is where, and what is waiting" title="DISPATCH" />
       <div className="flex items-center gap-2">
         <Button variant="outline" size="icon-sm" aria-label="Previous day">
           <ChevronLeft />
