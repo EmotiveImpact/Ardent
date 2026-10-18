@@ -231,7 +231,7 @@ export default function JobScreen() {
           <View style={styles.stages}>
             {STAGES.map((st) => (
               <Pressable key={st} onPress={() => setStage(st)} style={[styles.stage, stage === st && styles.stageOn]} accessibilityRole="button">
-                <Text style={[styles.stageText, stage === st && { color: color.fg }]}>{st.toUpperCase()}</Text>
+                <Text style={[styles.stageText, stage === st && { color: color.ember }]}>{st.toUpperCase()}</Text>
               </Pressable>
             ))}
           </View>
@@ -357,14 +357,14 @@ const styles = StyleSheet.create({
   addr: { color: color.fgMuted, fontFamily: font.sans, fontSize: 13, marginTop: space[2], lineHeight: 18 },
   mono: { color: color.fgMuted, fontFamily: font.mono, fontSize: 12 },
   row: { flexDirection: 'row', gap: space[2], marginTop: space[4] },
-  access: { marginTop: space[4], padding: space[3], borderRadius: radius.lg, backgroundColor: 'rgba(17,17,17,0.72)', borderLeftWidth: 2, borderLeftColor: color.ember },
+  access: { marginTop: space[4], padding: space[3], borderRadius: radius.lg, backgroundColor: 'rgba(17,17,17,0.72)' },
   body: { color: color.fg, fontFamily: font.sans, fontSize: 13, lineHeight: 18, marginTop: 2 },
   label: { color: color.fgFaint, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label * 1.5, marginTop: space[8], marginBottom: space[3] },
   clocks: { flexDirection: 'row', marginTop: space[6], paddingVertical: space[4], borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: color.line },
   clock: { flex: 1 },
   clockValue: { color: color.fg, fontFamily: font.monoMedium, fontSize: 24 },
   clockLabel: { color: color.fgFaint, fontFamily: font.sansMedium, fontSize: 11, marginTop: 4 },
-  panel: { borderRadius: radius.xl, backgroundColor: 'rgba(17,17,17,0.72)', borderWidth: StyleSheet.hairlineWidth, borderColor: color.line, paddingHorizontal: space[4] },
+  panel: { borderRadius: radius.xl, backgroundColor: 'rgba(17,17,17,0.72)', paddingHorizontal: space[4] },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.line },
   checkLabel: { flex: 1, color: color.fg, fontFamily: font.sansMedium, fontSize: 13 },
@@ -374,11 +374,11 @@ const styles = StyleSheet.create({
   matForm: { flexDirection: 'row', gap: space[2] },
   monoInput: { fontFamily: font.mono, textAlign: 'center' },
   stages: { flexDirection: 'row', gap: space[2], marginBottom: space[3] },
-  stage: { paddingHorizontal: space[3], paddingVertical: 6, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, borderColor: color.lineStrong },
-  stageOn: { borderColor: color.ember, backgroundColor: color.emberSoft },
+  stage: { paddingHorizontal: space[3], paddingVertical: 6, borderRadius: radius.pill, backgroundColor: color.raised },
+  stageOn: { backgroundColor: color.emberSoft },
   stageText: { color: color.fgMuted, fontFamily: font.display, fontSize: 8, letterSpacing: tracking.label },
   photos: { gap: space[2] },
-  snap: { width: 88, height: 88, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: color.lineStrong, alignItems: 'center', justifyContent: 'center' },
+  snap: { width: 88, height: 88, borderRadius: radius.lg, backgroundColor: color.raised, alignItems: 'center', justifyContent: 'center' },
   snapPlus: { color: color.fg, fontFamily: font.sans, fontSize: 24 },
   snapText: { color: color.fgFaint, fontFamily: font.sans, fontSize: 11 },
   photo: { width: 88, height: 88, borderRadius: radius.lg, backgroundColor: color.raised },
@@ -393,9 +393,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[3],
     paddingVertical: space[3],
     borderRadius: radius.lg,
-    backgroundColor: color.inset,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.lineStrong,
+    backgroundColor: color.raised,
   },
   note: { marginTop: space[3], flexDirection: 'row', gap: space[3] },
   noteAt: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, marginTop: 3, width: 40 },

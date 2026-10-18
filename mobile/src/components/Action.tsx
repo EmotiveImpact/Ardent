@@ -50,12 +50,10 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     borderRadius: radius.lg,
     backgroundColor: color.raised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.lineStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ember: { backgroundColor: color.ember, borderColor: color.ember },
+  ember: { backgroundColor: color.ember },
   ghost: { backgroundColor: 'transparent' },
   text: { color: color.fg, fontFamily: font.sansSemi, fontSize: 14 },
 });

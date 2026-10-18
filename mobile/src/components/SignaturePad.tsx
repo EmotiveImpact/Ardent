@@ -80,9 +80,7 @@ const styles = StyleSheet.create({
   pad: {
     aspectRatio: W / H,
     borderRadius: radius.xl,
-    backgroundColor: color.inset,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.lineStrong,
+    backgroundColor: color.surface,
     overflow: 'hidden',
   },
   hint: { position: 'absolute', alignSelf: 'center', top: '40%', color: color.fgFaint, fontFamily: font.sans, fontSize: 14 },
