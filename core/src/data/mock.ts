@@ -39,7 +39,7 @@ export const operators: Operator[] = [
   },
   {
     id: 'opr_04', name: 'Tom Byrne', role: 'subcontractor', initials: 'TB', trades: ['general', 'carpentry'], van: 'VA68 RRT',
-    state: 'available',
+    state: 'on_call',
     registrations: [],
   },
 ]

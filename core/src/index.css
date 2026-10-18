@@ -34,6 +34,7 @@
 @theme inline {
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --font-display: 'Michroma', 'Geist Variable', sans-serif;
 
   --color-background: var(--bg);
   --color-surface: var(--surface);

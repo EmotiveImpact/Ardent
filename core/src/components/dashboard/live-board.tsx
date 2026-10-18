@@ -12,7 +12,7 @@ const stateMeta: Record<OperatorState, { label: string; tone: 'ok' | 'ember' | '
   on_site: { label: 'On site', tone: 'ok', stroke: 'var(--ok)' },
   en_route: { label: 'En route', tone: 'ember', stroke: 'var(--ember)' },
   delayed: { label: 'Delayed', tone: 'warn', stroke: 'var(--warn)' },
-  available: { label: 'Free', tone: 'neutral', stroke: '#4a4a4a' },
+  on_call: { label: 'On call', tone: 'neutral', stroke: '#4a4a4a' },
   workshop: { label: 'Workshop', tone: 'neutral', stroke: '#6b6b6b' },
   off_shift: { label: 'Off shift', tone: 'neutral', stroke: '#333' },
 }
@@ -74,7 +74,7 @@ function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
 }
 
 export function LiveBoard() {
-  const out = operators.filter((e) => e.state !== 'available' && e.state !== 'off_shift').length
+  const out = operators.filter((e) => e.state !== 'on_call' && e.state !== 'off_shift').length
   return (
     <Panel>
       <PanelHeader
@@ -103,7 +103,7 @@ export function LiveBoard() {
             return (
               <g key={eng.id}>
                 <path d={connector(slots[eng.id])} fill="none" stroke="#2c2c2c" strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
-                {eng.state !== 'available' && (
+                {eng.state !== 'on_call' && (
                   <path
                     d={connector(slots[eng.id])}
                     fill="none"

@@ -56,7 +56,7 @@ export const space = {
 
 export const font = {
   /** Wordmark, hero lines and big screen titles. Wide, uppercase, tracked out. */
-  display: 'Unbounded',
+  display: 'Michroma',
   /** Everything else. */
   body: 'Geist',
   /** Every number, money value, job ref, postcode and registration. */

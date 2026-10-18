@@ -47,7 +47,7 @@ export interface Site {
 }
 
 /** What an operator is doing right now. The mobile app sets this; Core reads it. */
-export type OperatorState = 'available' | 'en_route' | 'on_site' | 'workshop' | 'delayed' | 'off_shift'
+export type OperatorState = 'on_call' | 'en_route' | 'on_site' | 'workshop' | 'delayed' | 'off_shift'
 
 /** A tradesperson using Ardent, whether owner, employee or subbie. */
 export interface Operator {
@@ -135,7 +135,8 @@ export interface Photo {
   jobId: string
   operatorId: string
   stage: 'before' | 'during' | 'after'
-  url: string
+  /** Storage URI; a local file URI on the phone until uploaded. */
+  uri: string
   takenAt: string
   caption?: string
 }
