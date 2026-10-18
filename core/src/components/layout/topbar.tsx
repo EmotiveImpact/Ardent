@@ -8,7 +8,7 @@ import { ArdentMark } from './logo'
 export function Topbar({ trail }: { trail: string[] }) {
   const navigate = useNavigate()
   return (
-    <div className="flex h-14 shrink-0 items-center gap-2 px-3 md:px-4">
+    <div className="flex h-14 shrink-0 items-center gap-2 px-4">
       <ArdentMark className="md:hidden" />
       <div className="hidden items-center gap-0.5 sm:flex">
         <Button variant="outline" size="icon-sm" aria-label="Back" onClick={() => navigate(-1)}>

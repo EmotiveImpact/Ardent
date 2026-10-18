@@ -10,6 +10,7 @@
   to inset wells (inset) to controls (raised).
 */
 :root {
+  color-scheme: dark;
   --bg: #070707;
   --surface: #111111;
   --inset: #0c0c0c;
