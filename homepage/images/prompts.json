@@ -39,10 +39,52 @@
       "prompt": "A plumber kneeling in a dark basement plant room, phone in hand lighting up insulated pipework, pumps and a pressure vessel. The screen glow and a single caged bulkhead light are the only light sources. Looking down a narrow corridor of pipes."
     },
     {
-      "id": "trades",
-      "file": "trades.jpg",
+      "id": "trade-electricians",
+      "file": "trade-electricians.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of an electrician in dark workwear on a stepladder in an unfinished commercial ceiling void, pulling cable through cable tray, head torch beam cutting through dust, everything else in deep shadow. Figure small to medium in frame."
+    },
+    {
+      "id": "trade-gas",
+      "file": "trade-gas.jpg",
       "size": "1024x1536",
       "prompt": "Portrait-orientation shot of a heating engineer standing on a flat commercial rooftop beside large air-source heat pump units and ducting, late golden hour light low on the horizon, city skyline hazy behind. Figure small in frame, industrial and calm."
+    },
+    {
+      "id": "trade-plumbers",
+      "file": "trade-plumbers.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a plumber under a kitchen sink in a dim terraced house at night, torch clamped on the cabinet lighting chrome pipework and an isolation valve, hands with grips, wet floor reflecting the light."
+    },
+    {
+      "id": "trade-fire",
+      "file": "trade-fire.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a fire and security engineer testing a ceiling smoke detector with a test pole in a dark empty office corridor at night, a red fire alarm panel glowing softly on the wall, green exit sign light."
+    },
+    {
+      "id": "trade-hvac",
+      "file": "trade-hvac.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a refrigeration engineer connecting manifold gauges to a condensing unit in a dim commercial plant room, frost on copper lines, blue-white light from a single fluorescent tube, steam faintly visible."
+    },
+    {
+      "id": "trade-lifts",
+      "file": "trade-lifts.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot looking up a lift shaft from the pit, a lift engineer standing on top of the lift car far above with a work lamp, steel guide rails and cables converging into darkness."
+    },
+    {
+      "id": "trade-roofers",
+      "file": "trade-roofers.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a roofer kneeling on a pitched slate roof at dusk, laying new slates, chimney stacks and a row of rooftops fading into mist behind, last light low on the horizon. Figure small in frame."
+    },
+    {
+      "id": "trade-multi",
+      "file": "trade-multi.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a small crew of three tradespeople in dark workwear walking from a row of parked white vans towards a commercial building entrance at early morning, wet car park, sodium street light, mist. Figures seen from behind."
     },
     {
       "id": "cta",

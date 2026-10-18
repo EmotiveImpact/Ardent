@@ -11,24 +11,42 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="mnav" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+    <div class="mnav__top">
+      <a class="logo" href="index.html">ARDENT<sup>&reg;</sup></a>
+      <button class="mnav__close" type="button" aria-label="Close menu"><span></span><span></span></button>
+    </div>
+    <ul class="mnav__links">
+      <li><a href="index.html" aria-current="page"><span class="mnav__num mono">01</span>Home</a></li>
+      <li><a href="index.html#services"><span class="mnav__num mono">02</span>Product</a></li>
+      <li><a href="index.html#trades"><span class="mnav__num mono">03</span>Trades</a></li>
+      <li><a href="engineers.html"><span class="mnav__num mono">04</span>Engineer app</a></li>
+      <li><a href="news.html"><span class="mnav__num mono">05</span>News</a></li>
+      <li><a href="index.html#contact"><span class="mnav__num mono">06</span>Contact</a></li>
+    </ul>
+    <div class="mnav__foot">
+      <a class="btn btn--light" href="index.html#contact">Book a demo</a>
+      <p class="mono">hello@ardent.example</p>
+    </div>
+  </div>
+
 
   <!-- 1. Hero -->
   <header class="hero">
     <figure class="shot hero__bg" data-img="hero">
       <img src="images/hero.jpg" alt="An engineer walking down a dimly lit trade merchant warehouse aisle">
     </figure>
-    <nav class="nav wrap">
+    <nav class="nav wrap" aria-label="Main">
       <a class="logo" href="index.html">ARDENT<sup>&reg;</sup></a>
-      <button class="nav__menu" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button>
-      <a class="nav__cta mono" href="#contact">Book a demo</a>
-      <div class="nav__panel" hidden>
-        <a href="index.html">Home</a>
-        <a href="index.html#services">Product</a>
-        <a href="index.html#trades">Trades</a>
-        <a href="engineers.html">Engineer app</a>
-        <a href="news.html">News</a>
-        <a href="index.html#contact">Contact</a>
-      </div>
+      <ul class="nav__links">
+        <li><a href="index.html#services">Product</a></li>
+        <li><a href="index.html#trades">Trades</a></li>
+        <li><a href="engineers.html">Engineer app</a></li>
+        <li><a href="news.html">News</a></li>
+        <li><a href="index.html#contact">Contact</a></li>
+      </ul>
+      <a class="nav__cta" href="index.html#contact">Book a demo</a>
+      <button class="nav__toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu"><span></span><span></span></button>
     </nav>
     <div class="hero__foot wrap">
       <p class="eyebrow mono">+ Built for the trades</p>
@@ -99,20 +117,44 @@
 
     <!-- 5. Trades we cover -->
     <section id="trades" class="trades wrap">
-      <figure class="shot trades__img" data-img="trades">
-        <img src="images/trades.jpg" alt="A heating engineer on a rooftop beside heat pump units at sunset" loading="lazy">
-      </figure>
+      <div class="trades__img">
+          <figure class="shot trades__shot is-active" data-img="trade-electricians" data-trade="electricians">
+            <img src="images/trade-electricians.jpg" alt="An electrician pulling cable through a ceiling void by head torch">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-gas" data-trade="gas">
+            <img src="images/trade-gas.jpg" alt="A heating engineer on a rooftop beside heat pump units at sunset" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-plumbers" data-trade="plumbers">
+            <img src="images/trade-plumbers.jpg" alt="A plumber working under a kitchen sink by torchlight" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-fire" data-trade="fire">
+            <img src="images/trade-fire.jpg" alt="An engineer testing a smoke detector in a dark corridor" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-hvac" data-trade="hvac">
+            <img src="images/trade-hvac.jpg" alt="A refrigeration engineer connecting gauges in a plant room" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-lifts" data-trade="lifts">
+            <img src="images/trade-lifts.jpg" alt="Looking up a lift shaft towards an engineer on the car roof" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-roofers" data-trade="roofers">
+            <img src="images/trade-roofers.jpg" alt="A roofer laying slates at dusk" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-multi" data-trade="multi">
+            <img src="images/trade-multi.jpg" alt="A crew of tradespeople walking from their vans at dawn" loading="lazy">
+          </figure>
+        <p class="trades__caption mono"><span class="trades__count">01</span> / 08</p>
+      </div>
       <div class="trades__list">
         <p class="eyebrow">Trades we work with</p>
         <ul>
-          <li>Electricians</li>
-          <li>Gas &amp; heating engineers</li>
-          <li>Plumbers</li>
-          <li>Fire &amp; security</li>
-          <li>HVAC &amp; refrigeration</li>
-          <li>Lift engineers</li>
-          <li>Roofers</li>
-          <li>Multi-trade contractors</li>
+          <li><button type="button" class="trades__item is-active" data-trade="electricians" aria-pressed="true">Electricians</button></li>
+          <li><button type="button" class="trades__item" data-trade="gas" aria-pressed="false">Gas &amp; heating engineers</button></li>
+          <li><button type="button" class="trades__item" data-trade="plumbers" aria-pressed="false">Plumbers</button></li>
+          <li><button type="button" class="trades__item" data-trade="fire" aria-pressed="false">Fire &amp; security</button></li>
+          <li><button type="button" class="trades__item" data-trade="hvac" aria-pressed="false">HVAC &amp; refrigeration</button></li>
+          <li><button type="button" class="trades__item" data-trade="lifts" aria-pressed="false">Lift engineers</button></li>
+          <li><button type="button" class="trades__item" data-trade="roofers" aria-pressed="false">Roofers</button></li>
+          <li><button type="button" class="trades__item" data-trade="multi" aria-pressed="false">Multi-trade contractors</button></li>
         </ul>
       </div>
     </section>
