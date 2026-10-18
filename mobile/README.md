@@ -13,7 +13,7 @@ npx expo start        # scan the QR with Expo Go (SDK 58), or press i / a / w
 ## What's here
 
 - **Opening screen** (`app/index.tsx`): pick your working mode (On Site, En Route, On Call, Workshop, Off Shift). Tap a mode or swipe up and down to cycle; the light behind the screen moves with it. Hold the bar at the bottom to go in.
-- **Job** (`app/job/[id].tsx`): the job in the field. Call or navigate to site, access notes, travel and on-the-tools clocks, compliance checks, before/during/after photos, materials and notes. The bottom button walks the job through Set off, Arrived, then Pause or hold to finish; each step moves the job, the operator's state and the clock together (`src/data/jobs.ts`).
+- **Job** (`app/job/[id].tsx`): the job in the field. Call or navigate to site, access notes, travel and on-the-tools clocks, compliance checks, before/during/after photos, materials (logged and removed on site) and notes. The bottom button walks the job through Set off, Arrived, then Pause or hold to finish; each step moves the job, the operator's state and the clock together (`src/data/jobs.ts`).
 - **Today** (`app/today.tsx`): the day's run sheet (tap a job to open it), headline numbers (jobs, quotes out, money owed) and the current mode chip, which takes you back to the mode picker.
 
 ## How it connects to Ardent Core

@@ -44,6 +44,16 @@ export const mockClient: ArdentClient = {
       job.status = status;
       return later({ ...job });
     },
+    addLine: (jobId, line) => {
+      const job = must(seed.byId(jobs, jobId), 'Job');
+      job.lines = [...job.lines, { ...line, id: nextId('li') }];
+      return later({ ...job });
+    },
+    removeLine: (jobId, lineId) => {
+      const job = must(seed.byId(jobs, jobId), 'Job');
+      job.lines = job.lines.filter((l) => l.id !== lineId);
+      return later({ ...job });
+    },
   },
   customers: {
     list: () => later(seed.customers),

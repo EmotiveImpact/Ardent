@@ -61,6 +61,7 @@ export default function JobScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [stage, setStage] = useState<Photo['stage']>('before');
   const [draft, setDraft] = useState('');
+  const [mat, setMat] = useState({ description: '', qty: '1', price: '' });
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
 
@@ -128,6 +129,18 @@ export default function JobScreen() {
     if (!uri) return;
     run(async () => {
       await ardent.photos.add({ jobId: job.id, operatorId: me.id, stage, uri, takenAt: new Date().toISOString() });
+    });
+  };
+
+  const addMaterial = () => {
+    const description = mat.description.trim();
+    const quantity = Math.max(1, parseInt(mat.qty, 10) || 1);
+    // Price typed in pounds; the model stores pence.
+    const unitPrice = Math.round((parseFloat(mat.price.replace(/[£,]/g, '')) || 0) * 100);
+    if (!description) return;
+    setMat({ description: '', qty: '1', price: '' });
+    run(async () => {
+      await ardent.jobs.addLine(job.id, { kind: 'material', description, quantity, unitPrice });
     });
   };
 
@@ -251,20 +264,54 @@ export default function JobScreen() {
             ))}
           </ScrollView>
 
+          <Label>MATERIALS</Label>
           {materials.length > 0 && (
-            <>
-              <Label>MATERIALS</Label>
-              <View style={styles.panel}>
-                {materials.map((l, i) => (
-                  <View key={l.id} style={[styles.checkRow, i > 0 && styles.divider]}>
-                    <Text style={[styles.mono, styles.qty]}>{l.quantity}×</Text>
-                    <Text style={styles.checkLabel}>{l.description}</Text>
-                    <Text style={styles.mono}>{pounds(l.unitPrice * l.quantity)}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
+            <View style={[styles.panel, { marginBottom: space[3] }]}>
+              {materials.map((l, i) => (
+                <View key={l.id} style={[styles.checkRow, i > 0 && styles.divider]}>
+                  <Text style={[styles.mono, styles.qty]}>{l.quantity}×</Text>
+                  <Text style={styles.checkLabel}>{l.description}</Text>
+                  <Text style={styles.mono}>{pounds(l.unitPrice * l.quantity)}</Text>
+                  <Pressable
+                    onPress={() => run(async () => void (await ardent.jobs.removeLine(job.id, l.id)))}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${l.description}`}
+                  >
+                    <Text style={styles.remove}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
           )}
+          <View style={styles.matForm}>
+            <TextInput
+              value={mat.description}
+              onChangeText={(description) => setMat({ ...mat, description })}
+              placeholder="Part or material"
+              placeholderTextColor={color.fgFaint}
+              style={[styles.input, { flex: 1, minWidth: 0 }]}
+            />
+            <TextInput
+              value={mat.qty}
+              onChangeText={(qty) => setMat({ ...mat, qty })}
+              placeholder="Qty"
+              keyboardType="number-pad"
+              placeholderTextColor={color.fgFaint}
+              style={[styles.input, styles.monoInput, { flex: 0, width: 52, paddingHorizontal: space[1] }]}
+            />
+            <TextInput
+              value={mat.price}
+              onChangeText={(price) => setMat({ ...mat, price })}
+              placeholder="£ each"
+              keyboardType="decimal-pad"
+              placeholderTextColor={color.fgFaint}
+              style={[styles.input, styles.monoInput, { flex: 0, width: 76, paddingHorizontal: space[1] }]}
+            />
+          </View>
+          <View style={{ marginTop: space[2] }}>
+            <Action title="Log material" onPress={addMaterial} />
+          </View>
 
           <Label>NOTES</Label>
           <View style={styles.noteBox}>
@@ -345,6 +392,9 @@ const styles = StyleSheet.create({
   checkLabel: { flex: 1, color: color.fg, fontFamily: font.sansMedium, fontSize: 13 },
   checkDetail: { color: color.fgMuted, fontFamily: font.mono, fontSize: 11 },
   qty: { width: 28 },
+  remove: { color: color.fgFaint, fontFamily: font.sans, fontSize: 18, paddingLeft: space[1] },
+  matForm: { flexDirection: 'row', gap: space[2] },
+  monoInput: { fontFamily: font.mono, textAlign: 'center' },
   stages: { flexDirection: 'row', gap: space[2], marginBottom: space[3] },
   stage: { paddingHorizontal: space[3], paddingVertical: 6, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, borderColor: color.lineStrong },
   stageOn: { borderColor: color.ember, backgroundColor: color.emberSoft },
