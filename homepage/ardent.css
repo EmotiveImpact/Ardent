@@ -88,7 +88,8 @@ html.ardent .svc__row .shot { border-radius: 10px; }
 
 /* Trades become operator select */
 html.ardent .trades__img { border-radius: 14px; }
-html.ardent .trades__item { font-family: var(--sans); }
+html.ardent .trades__item { font-family: var(--sans); opacity: 0.58; }
+html.ardent .trades__item:hover, html.ardent .trades__item.is-active { opacity: 1; }
 html.ardent .trades__item.is-active::before {
   content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 14px; vertical-align: middle;
   background: var(--ember); border-radius: 2px;
