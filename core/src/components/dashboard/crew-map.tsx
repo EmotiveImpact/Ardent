@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { Crosshair, Minus, Plus } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { Crosshair, Maximize2, Minimize2, Minus, Plus } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import { byId, jobs, operators } from '@/data/mock'
 import type { Operator, OperatorState } from '@/data/model'
@@ -123,6 +124,7 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const drag = useRef<{ x: number; y: number } | null>(null)
+  const [full, setFull] = useState(false)
 
   useLayoutEffect(() => {
     const el = box.current
@@ -130,7 +132,8 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
     const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }))
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
+    // The map remounts when it moves in and out of full screen, so watch the new element.
+  }, [full])
 
   const base = Math.min(size.w / (focus.x1 - focus.x0), size.h / (focus.y1 - focus.y0))
   const s = base * zoom
@@ -144,6 +147,27 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
     const [x, y] = px(p)
     return { x: (x - vx) * s, y: (y - vy) * s }
   }
+  // Fill the screen: browser fullscreen where allowed, and a fixed overlay either way (embedded pages often block the API).
+  const toggleFull = () => {
+    if (full) {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+      setFull(false)
+    } else {
+      setFull(true)
+      document.documentElement.requestFullscreen?.().catch(() => {})
+    }
+  }
+  useEffect(() => {
+    if (!full) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFull(false)
+    const onExit = () => !document.fullscreenElement && setFull(false)
+    window.addEventListener('keydown', onKey)
+    document.addEventListener('fullscreenchange', onExit)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('fullscreenchange', onExit)
+    }
+  }, [full])
   const zoomBy = (f: number) => setZoom((z) => Math.min(4, Math.max(0.8, z * f)))
 
   const onDown = (e: RPointerEvent) => {
@@ -162,10 +186,10 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
   const yard = toScreen(places.yard)
   const label = view === 'routes' ? '#2c2c2c' : '#3a3a3a'
 
-  return (
+  const map = (
     <div
       ref={box}
-      className={cn('relative h-full w-full cursor-grab touch-none overflow-hidden bg-black select-none active:cursor-grabbing', className)}
+      className={cn('h-full w-full cursor-grab touch-none overflow-hidden bg-black select-none active:cursor-grabbing', full ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative', className)}
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
@@ -289,6 +313,13 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
         return <Marker key={op.id} op={op} x={p.x} y={p.y} onSelect={onSelect} />
       })}
 
+      {full && (
+        <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-3 rounded-md bg-[#0d0d0d]/90 px-3 py-2 backdrop-blur">
+          <span className="caps text-foreground">Crew on the road</span>
+          <span className="font-mono text-[11px] text-faint">Esc to close</span>
+        </div>
+      )}
+
       {/* View types */}
       <div className="absolute top-3 right-3 flex gap-1 rounded-lg bg-[#0d0d0d]/90 p-1 backdrop-blur" onPointerDown={(e) => e.stopPropagation()}>
         {views.map((v) => (
@@ -309,6 +340,13 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
         </button>
         <button aria-label="Zoom out" onClick={() => zoomBy(1 / 1.3)} className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground">
           <Minus className="size-4" />
+        </button>
+        <button
+          aria-label={full ? 'Exit full screen' : 'Full screen'}
+          onClick={toggleFull}
+          className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground"
+        >
+          {full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
         </button>
         <button
           aria-label="Fit everyone"
@@ -347,4 +385,6 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
       </div>
     </div>
   )
+  // Panels use transforms, which trap fixed elements, so the full-screen map moves to the body.
+  return full ? createPortal(map, document.body) : map
 }
