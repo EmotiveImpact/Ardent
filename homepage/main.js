@@ -240,3 +240,10 @@ document.querySelectorAll('form.brief').forEach((form) => {
     msg.hidden = false
   })
 })
+
+// Header video: never play for people who ask for reduced motion
+const heroVideo = document.querySelector('.hero__video')
+if (heroVideo && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  heroVideo.pause()
+  heroVideo.removeAttribute('autoplay')
+}
