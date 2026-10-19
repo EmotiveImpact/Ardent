@@ -23,7 +23,7 @@ export function Dashboard() {
   const live = jobs.find((j) => j.id === 'job_1042')!
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader eyebrow="Morning, Edem. Sunday 18 October" title="TODAY" aside={<span className="caps flex h-8 items-center gap-2 rounded-md bg-surface px-3 text-muted"><span className="size-1.5 rounded-full bg-ok" />3 vans out</span>} />
+      <PageHeader eyebrow="Morning, Edem. Sunday 18 October" title="Today" aside={<span className="caps flex h-8 items-center gap-2 rounded-md bg-surface px-3 text-muted"><span className="size-1.5 rounded-full bg-ok" />3 vans out</span>} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs defaultValue="overview">
           <TabsList>

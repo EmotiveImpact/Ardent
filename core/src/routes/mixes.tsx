@@ -40,7 +40,7 @@ export function MixOne() {
   const [tab, setTab] = useState('overview')
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader eyebrow="Morning, Edem. Sunday 18 October" title="TODAY" aside={<VansChip />} />
+      <PageHeader eyebrow="Morning, Edem. Sunday 18 October" title="Today" aside={<VansChip />} />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="overview">
@@ -82,7 +82,7 @@ export function MixTwo() {
   const s = useSelected()
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader eyebrow="Morning, Edem. Sunday 18 October" title="TODAY" aside={<VansChip />} />
+      <PageHeader eyebrow="Morning, Edem. Sunday 18 October" title="Today" aside={<VansChip />} />
       <KpiRow />
       <Panel style={{ '--i': 4 } as CSSProperties}>
         <PanelHeader icon={<ListChecks />} title="Jobs today" actions={<span className="text-[12px] text-faint">Drag to move. Tap an unassigned job to send someone.</span>} />

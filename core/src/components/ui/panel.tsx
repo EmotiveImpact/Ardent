@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 function Panel({ className, ...props }: React.ComponentProps<'section'>) {
   return (
     <section
+      data-slot="panel"
       className={cn(
         'animate-rise flex min-w-0 flex-col rounded-xl bg-surface/90 p-1.5 shadow-[0_24px_48px_-24px_#000000cc] backdrop-blur-sm transition-colors',
         className,
@@ -26,8 +27,8 @@ function PanelHeader({
   className?: string
 }) {
   return (
-    <header className={cn('flex h-10 items-center gap-2.5 px-2.5', className)}>
-      {icon && <span className="text-muted [&_svg]:size-4">{icon}</span>}
+    <header data-slot="panel-header" className={cn('flex h-10 items-center gap-2.5 px-2.5', className)}>
+      {icon && <span data-slot="panel-icon" className="text-muted [&_svg]:size-4">{icon}</span>}
       <h2 className="caps truncate text-muted">{title}</h2>
       {actions && <div className="ml-auto flex items-center gap-1.5">{actions}</div>}
     </header>
@@ -36,7 +37,7 @@ function PanelHeader({
 
 /** Recessed content well inside a panel. */
 function Well({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('rounded-lg bg-inset', className)} {...props} />
+  return <div data-slot="well" className={cn('rounded-lg bg-inset', className)} {...props} />
 }
 
 /** Label / value row used in detail lists. */
@@ -61,7 +62,7 @@ function PageHeader({ eyebrow, title, aside }: { eyebrow?: React.ReactNode; titl
     <div className="animate-rise flex flex-wrap items-end justify-between gap-3 pt-1 pb-1">
       <div className="min-w-0">
         {eyebrow && <p className="mb-2 text-[13px] text-muted">{eyebrow}</p>}
-        <h1 className="display-title text-[26px] text-foreground sm:text-[34px]">{title}</h1>
+        <h1 data-slot="page-title" className="display-title text-[26px] text-foreground sm:text-[34px]">{title}</h1>
       </div>
       {aside && <div className="flex items-center gap-2">{aside}</div>}
     </div>

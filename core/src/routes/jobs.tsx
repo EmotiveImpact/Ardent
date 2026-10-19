@@ -33,7 +33,7 @@ export function Jobs() {
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader eyebrow="Every job, enquiry to paid" title="JOBS" />
+      <PageHeader eyebrow="Every job, enquiry to paid" title="Jobs" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={group} onValueChange={setGroup}>
           <TabsList>

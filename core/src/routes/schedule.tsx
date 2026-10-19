@@ -38,7 +38,7 @@ export function Schedule() {
   const todays = jobs.filter((j) => j.start.startsWith(today))
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader eyebrow="Who is where, and what is waiting" title="DISPATCH" />
+      <PageHeader eyebrow="Who is where, and what is waiting" title="Dispatch" />
       <div className="flex items-center gap-2">
         <Button variant="outline" size="icon-sm" aria-label="Previous day">
           <ChevronLeft />

@@ -131,7 +131,7 @@ function OperatorBoard() {
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
       <PageHeader
         eyebrow="Morning, Edem. Sunday 18 October"
-        title="TODAY"
+        title="Today"
         aside={
           <>
             <span className="caps flex h-8 items-center gap-2 rounded-md bg-surface px-3 text-muted">
@@ -325,11 +325,12 @@ const looks = [
   { key: '1', name: '1', label: 'A with a board' },
   { key: '2', name: '2', label: 'Board first' },
   { key: '3', name: '3', label: 'Calm A' },
+  { key: '4', name: '4', label: 'A, calm' },
 ] as const
 
 export function Looks() {
   const [params, setParams] = useSearchParams()
-  const look = (params.get('look') ?? '1') as (typeof looks)[number]['key']
+  const look = (params.get('look') ?? '4') as (typeof looks)[number]['key']
   return (
     <div className="flex flex-col gap-4">
       <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-3 bg-background/85 px-1 pb-3 backdrop-blur">
@@ -350,7 +351,7 @@ export function Looks() {
           ))}
         </div>
       </div>
-      <div key={look}>{{ a: <Dashboard />, b: <OperatorBoard />, c: <CalmToday />, '1': <MixOne />, '2': <MixTwo />, '3': <MixThree /> }[look]}</div>
+      <div key={look}>{{ a: <Dashboard />, b: <OperatorBoard />, c: <CalmToday />, '1': <MixOne />, '2': <MixTwo />, '3': <MixThree />, '4': <div className="calm"><Dashboard /></div> }[look]}</div>
     </div>
   )
 }

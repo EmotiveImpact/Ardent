@@ -76,7 +76,7 @@ export function Certificates() {
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader eyebrow="Renewals your customers rely on" title="CERTIFICATES" aside={<span className="caps flex h-8 items-center gap-2 rounded-md bg-surface px-3 text-muted"><span className="size-1.5 rounded-full bg-danger" />7 overdue</span>} />
+      <PageHeader eyebrow="Renewals your customers rely on" title="Certificates" aside={<span className="caps flex h-8 items-center gap-2 rounded-md bg-surface px-3 text-muted"><span className="size-1.5 rounded-full bg-danger" />7 overdue</span>} />
       <Panel style={{ '--i': 0 } as CSSProperties}>
         <PanelHeader icon={<ShieldCheck />} title="Compliance position" />
         <Well className="flex flex-col gap-5 p-4 sm:flex-row sm:items-center">

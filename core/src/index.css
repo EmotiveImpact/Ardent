@@ -214,3 +214,25 @@
 @utility animate-spring {
   animation: spring-in 520ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
 }
+
+/*
+ * Calm style. Same components, behaviour and Michroma headers, quieter surfaces:
+ * flat panels, no icons in headers, no texture. Turn on with class "calm".
+ */
+.calm [data-slot='panel'] {
+  background: #0d0d0d;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.calm [data-slot='panel-icon'] {
+  display: none;
+}
+.calm [data-slot='panel-header'] h2 {
+  color: var(--fg-faint);
+}
+.calm [data-slot='well'] {
+  background: transparent;
+}
+.calm .dot-grid {
+  background-image: none;
+}

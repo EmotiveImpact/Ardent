@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router'
+import { NavLink, useLocation } from 'react-router'
 import {
   Boxes,
   CalendarRange,
@@ -27,18 +27,19 @@ export const nav = [
 ] as const
 
 function RailLink({ to, label, icon: Icon, end }: { to: string; label: string; icon: typeof Wrench; end?: boolean }) {
+  // Work out the active state here: the tooltip trigger merges classes, so NavLink's className function can't be used.
+  const { pathname } = useLocation()
+  const isActive = end ? pathname === to : pathname === to || pathname.startsWith(to + '/')
   return (
     <Tooltip content={label}>
       <NavLink
         to={to}
         end={end}
         aria-label={label}
-        className={({ isActive }) =>
-          cn(
-            'relative flex size-9 items-center justify-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-foreground',
-            isActive && 'bg-raised text-foreground shadow-[0_1px_0_#ffffff0f_inset] before:absolute before:-left-[11px] before:h-4 before:w-[3px] before:rounded-r before:bg-foreground',
-          )
-        }
+        className={cn(
+          'relative flex size-9 items-center justify-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-foreground',
+          isActive && 'bg-raised text-foreground before:absolute before:-left-[11px] before:h-4 before:w-[3px] before:rounded-r before:bg-foreground',
+        )}
       >
         <Icon className="size-[18px]" strokeWidth={1.75} />
       </NavLink>
