@@ -115,6 +115,30 @@
       "file": "news-product.jpg",
       "size": "1536x1024",
       "prompt": "Over-the-shoulder close-up of a gas engineer in a dim kitchen holding a phone out to a customer for a signature, the screen glow lighting their hands, a wall-hung boiler softly lit behind. Faces out of frame."
+    },
+    {
+      "id": "news-show",
+      "file": "news-show.jpg",
+      "size": "1536x1024",
+      "prompt": "An empty dark exhibition stand at a British trade show the evening before opening, a blank wall screen glowing softly, two people setting up a demo table with a rugged tablet and a boiler display unit, industrial hall ceiling fading into darkness."
+    },
+    {
+      "id": "news-subbies",
+      "file": "news-subbies.jpg",
+      "size": "1536x1024",
+      "prompt": "Over the shoulder of a subcontractor on a building site at dusk, signing on a smartphone whose glow lights his gloved hand and hi-vis cuff, blurred scaffolding and floodlights behind."
+    },
+    {
+      "id": "news-callout",
+      "file": "news-callout.jpg",
+      "size": "1536x1024",
+      "prompt": "A plain white van on a wet terraced street at 2am, an engineer with a head torch and tool bag walking to a front door with the porch light on, rain in the street lamp light."
+    },
+    {
+      "id": "news-fgas",
+      "file": "news-fgas.jpg",
+      "size": "1536x1024",
+      "prompt": "A heat pump installer kneeling beside a new air-source heat pump at the side of a brick house on a frosty winter morning, connecting refrigerant gauges."
     }
   ]
 }

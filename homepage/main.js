@@ -177,3 +177,66 @@ if (demoForm) {
     if (e.target.checkValidity()) e.target.closest('.field2')?.classList.remove('is-invalid')
   })
 }
+
+// News: filter the stories by topic. The hash (news.html#Guides) picks a topic on load.
+const newsFilters = [...document.querySelectorAll('.news__chipbtn')]
+
+function filterNews(cat) {
+  let shown = 0
+  newsFilters.forEach((b) => {
+    const on = b.dataset.filter === cat
+    b.classList.toggle('is-active', on)
+    b.setAttribute('aria-pressed', String(on))
+  })
+  document.querySelectorAll('.news [data-cat]').forEach((el) => {
+    const show = cat === 'All' || el.dataset.cat === cat
+    el.hidden = !show
+    if (show) shown++
+  })
+  const empty = document.querySelector('.news__empty')
+  if (empty) empty.hidden = shown > 0
+}
+
+if (newsFilters.length) {
+  newsFilters.forEach((b) => b.addEventListener('click', () => {
+    filterNews(b.dataset.filter)
+    history.replaceState(null, '', b.dataset.filter === 'All' ? location.pathname : `#${b.dataset.filter}`)
+  }))
+  const fromHash = decodeURIComponent(location.hash.slice(1))
+  if (newsFilters.some((b) => b.dataset.filter === fromHash)) filterNews(fromHash)
+}
+
+// The Ardent Brief sign-up: posts to data-endpoint when set, otherwise opens an email
+document.querySelectorAll('form.brief').forEach((form) => {
+  const msg = form.querySelector('.brief__msg')
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const input = form.elements.email
+    if (!input.checkValidity()) {
+      form.classList.add('is-invalid')
+      msg.textContent = 'Please enter a valid email address.'
+      msg.hidden = false
+      input.focus()
+      return
+    }
+    form.classList.remove('is-invalid')
+    try {
+      if (form.dataset.endpoint) {
+        const res = await fetch(form.dataset.endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ email: input.value }),
+        })
+        if (!res.ok) throw new Error(res.status)
+        msg.textContent = 'You are on the list. First Brief lands next month.'
+      } else {
+        location.href = `mailto:${form.dataset.email}?subject=${encodeURIComponent('Subscribe me to the Ardent Brief')}&body=${encodeURIComponent(input.value)}`
+        msg.textContent = 'Your email app should open. Press send to subscribe.'
+      }
+      form.classList.add('is-done')
+    } catch {
+      msg.textContent = `That didn't send. Please try again or email ${form.dataset.email}.`
+    }
+    msg.hidden = false
+  })
+})

@@ -23,7 +23,9 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 **`engineers.html`, the engineer app page**, follows the dark developer-tool reference: certificate and sign-off log cards, hatched dividers, two feature blurbs and a teal call to action.
 
-**`news.html`, News & Updates**, follows the News & Events reference: an orange gradient page with a grid of regulation, guide, product and event cards.
+**`news.html`, News & Updates**, follows the News & Events reference: an orange gradient page with a lead story, topic filters (also by link, such as `news.html#Guides`), a grid of stories and a sign-up for the monthly Ardent Brief. Each story opens its own article page (`news-<slug>.html`).
+
+Stories live in `scripts/news-data.mjs`. Edit them there and run `node scripts/build-news.mjs`, which rewrites the grid in `news.html` between the `news:start` and `news:end` markers and rebuilds every article page. The sign-up forms post to `data-endpoint` when one is set and otherwise open an email, like the demo form.
 
 **`pricing.html`, Pricing and demo**: three plans, common questions and a demo request form. The form posts JSON to the URL in its `data-endpoint` attribute; while that is empty it opens an email to `data-email` with the details filled in.
 
