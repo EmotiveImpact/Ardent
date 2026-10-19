@@ -108,6 +108,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 17,
   },
-  queue: { gap: space[1], paddingLeft: space[6] },
+  queue: { gap: space[1] },
   queueLabel: { color: color.fg, fontFamily: font.display, fontSize: 19, letterSpacing: tracking.display, paddingVertical: 2 },
 });
