@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { JobBoard } from '@/components/dashboard/job-board'
 import { Link } from 'react-router'
 import { useNow } from '@/hooks/use-now'
 import { time } from '@/lib/format'
@@ -176,15 +177,30 @@ function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
   )
 }
 
-export function LiveBoard() {
+/** Crew map, with an optional switch to today's job board in the same panel. */
+export function LiveBoard({ withBoard, onSelect, selectedRef }: { withBoard?: boolean; onSelect?: (ref: string) => void; selectedRef?: string } = {}) {
   const out = operators.filter((e) => e.state !== 'on_call' && e.state !== 'off_shift').length
+  const [view, setView] = useState<'map' | 'board'>('map')
   return (
     <Panel>
       <PanelHeader
         icon={<Truck />}
-        title="Crew on the road"
+        title={view === 'map' ? 'Crew on the road' : 'Jobs today'}
         actions={
           <>
+            {withBoard && (
+              <div className="mr-1 flex gap-1">
+                {(['map', 'board'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setView(v)}
+                    className={cn('h-7 rounded-md px-2.5 text-xs transition-colors', view === v ? 'bg-white text-black' : 'bg-raised text-foreground hover:bg-[#222]')}
+                  >
+                    {v === 'map' ? 'Map' : 'Board'}
+                  </button>
+                ))}
+              </div>
+            )}
             <Button variant="outline" size="xs" asChild>
               <Link to="/schedule">Open schedule</Link>
             </Button>
@@ -194,6 +210,12 @@ export function LiveBoard() {
           </>
         }
       />
+      {view === 'board' ? (
+        <Well className="min-h-[400px] p-1">
+          <JobBoard layout="lanes" onSelect={onSelect} selectedRef={selectedRef} />
+        </Well>
+      ) : (
+      <>
       <Well className="dot-grid relative hidden h-[400px] overflow-hidden sm:block [background-color:#0a0a0a]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_45%,#ffffff08,transparent_70%)]" />
         <LiveClock />
@@ -236,6 +258,8 @@ export function LiveBoard() {
           <CrewCard key={eng.id} eng={eng} className="w-full" />
         ))}
       </div>
+      </>
+      )}
     </Panel>
   )
 }

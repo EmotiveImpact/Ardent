@@ -56,59 +56,7 @@ export function Dashboard() {
         </DropdownMenu>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-        <KpiCard
-          icon={<Wrench />}
-          title="Jobs completed"
-          value={24}
-          format={(n) => String(Math.round(n))}
-          unit="of 31"
-          index={0}
-          series={kpiSeries.jobs}
-          color="var(--fg)"
-          caption="Completion up by"
-          delta="+18%"
-          good
-        />
-        <KpiCard
-          icon={<Clock />}
-          title="Avg. response"
-          value={102}
-          format={(n) => `${Math.floor(n / 60)}h ${String(Math.round(n % 60)).padStart(2, '0')}`}
-          unit="m"
-          index={1}
-          series={kpiSeries.response}
-          color="var(--fg)"
-          caption="Response time up by"
-          delta="+12m"
-          good={false}
-        />
-        <KpiCard
-          icon={<PoundSterling />}
-          title="Invoiced"
-          prefix="£"
-          value={842050}
-          format={(n) => (Math.round(n) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          index={2}
-          series={kpiSeries.invoiced}
-          color="var(--fg)"
-          caption="Takings up by"
-          delta="+£1,180"
-          good
-        />
-        <KpiCard
-          icon={<ShieldAlert />}
-          title="Overdue certificates"
-          value={7}
-          format={(n) => String(Math.round(n))}
-          index={3}
-          series={kpiSeries.exceptions}
-          color="var(--danger)"
-          caption="Overdue up by"
-          delta="+2"
-          good={false}
-        />
-      </div>
+      <KpiRow />
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-3">
@@ -119,6 +67,65 @@ export function Dashboard() {
           <JobSheet job={live} />
         </div>
       </div>
+    </div>
+  )
+}
+
+/** The four headline numbers for the day. */
+export function KpiRow() {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
+      <KpiCard
+        icon={<Wrench />}
+        title="Jobs completed"
+        value={24}
+        format={(n) => String(Math.round(n))}
+        unit="of 31"
+        index={0}
+        series={kpiSeries.jobs}
+        color="var(--fg)"
+        caption="Completion up by"
+        delta="+18%"
+        good
+      />
+      <KpiCard
+        icon={<Clock />}
+        title="Avg. response"
+        value={102}
+        format={(n) => `${Math.floor(n / 60)}h ${String(Math.round(n % 60)).padStart(2, '0')}`}
+        unit="m"
+        index={1}
+        series={kpiSeries.response}
+        color="var(--fg)"
+        caption="Response time up by"
+        delta="+12m"
+        good={false}
+      />
+      <KpiCard
+        icon={<PoundSterling />}
+        title="Invoiced"
+        prefix="£"
+        value={842050}
+        format={(n) => (Math.round(n) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        index={2}
+        series={kpiSeries.invoiced}
+        color="var(--fg)"
+        caption="Takings up by"
+        delta="+£1,180"
+        good
+      />
+      <KpiCard
+        icon={<ShieldAlert />}
+        title="Overdue certificates"
+        value={7}
+        format={(n) => String(Math.round(n))}
+        index={3}
+        series={kpiSeries.exceptions}
+        color="var(--danger)"
+        caption="Overdue up by"
+        delta="+2"
+        good={false}
+      />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Dashboard } from '@/routes/dashboard'
+import { MixOne, MixTwo, MixThree } from '@/routes/mixes'
 import { LiveBoard } from '@/components/dashboard/live-board'
 import { PageHeader } from '@/components/ui/panel'
 import { Avatar } from '@/components/ui/avatar'
@@ -321,16 +322,19 @@ const looks = [
   { key: 'a', name: 'A', label: 'Current Core' },
   { key: 'b', name: 'B', label: 'Board, operator' },
   { key: 'c', name: 'C', label: 'Calm' },
+  { key: '1', name: '1', label: 'A with a board' },
+  { key: '2', name: '2', label: 'Board first' },
+  { key: '3', name: '3', label: 'Calm A' },
 ] as const
 
 export function Looks() {
   const [params, setParams] = useSearchParams()
-  const look = (params.get('look') ?? 'a') as 'a' | 'b' | 'c'
+  const look = (params.get('look') ?? '1') as (typeof looks)[number]['key']
   return (
     <div className="flex flex-col gap-4">
       <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-3 bg-background/85 px-1 pb-3 backdrop-blur">
         <p className="caps text-faint">Compare looks</p>
-        <div className="flex gap-1 rounded-lg bg-surface p-1">
+        <div className="flex flex-wrap gap-1 rounded-lg bg-surface p-1">
           {looks.map((l) => (
             <button
               key={l.key}
@@ -346,7 +350,7 @@ export function Looks() {
           ))}
         </div>
       </div>
-      <div key={look}>{look === 'a' ? <Dashboard /> : look === 'b' ? <OperatorBoard /> : <CalmToday />}</div>
+      <div key={look}>{{ a: <Dashboard />, b: <OperatorBoard />, c: <CalmToday />, '1': <MixOne />, '2': <MixTwo />, '3': <MixThree /> }[look]}</div>
     </div>
   )
 }
