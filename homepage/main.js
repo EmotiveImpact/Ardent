@@ -271,3 +271,29 @@ roleCards.forEach((card) => {
   if (canHover) card.addEventListener('mouseenter', () => openRole(card))
   card.addEventListener('focusin', () => openRole(card))
 })
+
+// Every page opens at the top unless the link points at a section
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+if (!location.hash) {
+  document.documentElement.style.scrollBehavior = 'auto'
+  scrollTo(0, 0)
+  requestAnimationFrame(() => { document.documentElement.style.scrollBehavior = '' })
+}
+
+// Sticky top menu: a spacer holds its place, the bar darkens once you scroll
+const topNav = document.querySelector('.nav')
+if (topNav) {
+  const spacer = document.createElement('div')
+  spacer.className = 'nav-spacer'
+  spacer.setAttribute('aria-hidden', 'true')
+  topNav.before(spacer)
+  // Lift the bar out of the hero so no section can paint over it
+  document.body.prepend(topNav)
+  const fit = () => { spacer.style.height = topNav.offsetHeight + 'px' }
+  fit()
+  addEventListener('resize', fit)
+  topNav.classList.add('is-fixed')
+  const shade = () => topNav.classList.toggle('is-scrolled', scrollY > 8)
+  shade()
+  addEventListener('scroll', shade, { passive: true })
+}
