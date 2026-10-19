@@ -213,3 +213,15 @@ html.ardent .bleed__labels { font-size: 11.5px; }
   html.ardent .bleed__labels { font-size: 9.5px; }
   html.ardent .bleed .hud-tag { top: 12px; bottom: auto; left: 12px; }
 }
+
+/* Desktop footer: contact icons tuck under "Book a demo" so the links,
+   icons, legal line and wordmark read as one block */
+@media (min-width: 821px) {
+  html.ardent .footer { display: grid; padding-top: 56px; }
+  html.ardent .footer > * { grid-column: 1; }
+  html.ardent .footer__top { grid-row: 1; }
+  html.ardent .footer__social { grid-row: 1; align-self: end; padding-block: 0; pointer-events: none; }
+  html.ardent .footer__social a { pointer-events: auto; }
+  html.ardent .footer__legal { grid-row: 2; padding-block: 32px 4px; }
+  html.ardent .footer__word { grid-row: 3; }
+}
