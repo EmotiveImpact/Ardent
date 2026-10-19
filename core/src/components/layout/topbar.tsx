@@ -1,9 +1,38 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowLeft, ArrowRight, Bell, ChevronRight, Plus, Search } from 'lucide-react'
+import { toast } from 'sonner'
+import { ArrowLeft, ArrowRight, Bell, ChevronRight, Maximize, Minimize, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NewJobDialog } from '@/components/new-job-dialog'
 import { openCommandMenu } from '@/components/command-menu'
 import { ArdentMark } from './logo'
+
+/** Whole-app full screen, so the browser bars disappear on a wall screen or a laptop. */
+function FullScreenButton() {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    const sync = () => setOn(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', sync)
+    return () => document.removeEventListener('fullscreenchange', sync)
+  }, [])
+  const toggle = () => {
+    if (document.fullscreenElement) return void document.exitFullscreen().catch(() => {})
+    const req = document.documentElement.requestFullscreen?.()
+    if (!req) return blocked()
+    req.catch(blocked)
+  }
+  return (
+    <Button variant="outline" size="icon-sm" aria-label={on ? 'Exit full screen' : 'Full screen'} title={on ? 'Exit full screen' : 'Full screen'} onClick={toggle}>
+      {on ? <Minimize /> : <Maximize />}
+    </Button>
+  )
+}
+
+function blocked() {
+  toast('Full screen is blocked on this page', {
+    description: 'Open Ardent in its own tab, then press F11 on Windows or Ctrl Cmd F on a Mac.',
+  })
+}
 
 export function Topbar({ trail }: { trail: string[] }) {
   const navigate = useNavigate()
@@ -39,6 +68,7 @@ export function Topbar({ trail }: { trail: string[] }) {
         <Button variant="outline" size="icon-sm" aria-label="Search" className="lg:hidden" onClick={openCommandMenu}>
           <Search />
         </Button>
+        <FullScreenButton />
         <Button variant="outline" size="icon-sm" aria-label="Notifications" className="relative">
           <Bell />
           <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" />
