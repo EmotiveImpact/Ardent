@@ -247,3 +247,27 @@ if (heroVideo && matchMedia('(prefers-reduced-motion: reduce)').matches) {
   heroVideo.pause()
   heroVideo.removeAttribute('autoplay')
 }
+
+// Live shift clock in the hero readout
+const shiftClock = document.querySelector('.js-clock')
+if (shiftClock) {
+  const tick = () => { shiftClock.textContent = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) }
+  tick()
+  setInterval(tick, 30000)
+}
+
+// Role select: hovering, focusing or tapping a card opens it out
+const roleCards = [...document.querySelectorAll('.role')]
+function openRole(card) {
+  roleCards.forEach((c) => {
+    const on = c === card
+    c.classList.toggle('is-active', on)
+    c.querySelector('.role__hit').setAttribute('aria-expanded', String(on))
+  })
+}
+const canHover = matchMedia('(hover: hover)').matches
+roleCards.forEach((card) => {
+  card.querySelector('.role__hit').addEventListener('click', () => openRole(card))
+  if (canHover) card.addEventListener('mouseenter', () => openRole(card))
+  card.addEventListener('focusin', () => openRole(card))
+})

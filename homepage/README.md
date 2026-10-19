@@ -21,9 +21,9 @@ python3 -m http.server 8000   # then open http://localhost:8000
 6. Closing call to action over a night motorway photograph
 7. Footer with oversized wordmark
 
-**`engineers.html`, the engineer app page**, follows the dark developer-tool reference: certificate and sign-off log cards, hatched dividers, two feature blurbs and a teal call to action.
+**`engineers.html`, the engineer app page**, follows the dark developer-tool reference: certificate and sign-off log cards, hatched dividers, two feature blurbs and a closing call to action.
 
-**`news.html`, News & Updates**, follows the News & Events reference: an orange gradient page with a lead story, topic filters (also by link, such as `news.html#Guides`), a grid of stories and a sign-up for the monthly Ardent Brief. Each story opens its own article page (`news-<slug>.html`).
+**`news.html`, News & Updates**, follows the News & Events reference: a lead story, topic filters (also by link, such as `news.html#Guides`), a grid of stories and a sign-up for the monthly Ardent Brief. Each story opens its own article page (`news-<slug>.html`).
 
 Stories live in `scripts/news-data.mjs`. Edit them there and run `node scripts/build-news.mjs`, which rewrites the grid in `news.html` between the `news:start` and `news:end` markers and rebuilds every article page. The sign-up forms post to `data-endpoint` when one is set and otherwise open an email, like the demo form.
 
@@ -34,6 +34,12 @@ Stories live in `scripts/news-data.mjs`. Edit them there and run `node scripts/b
 **`for-<trade>.html`, one page per trade** (electricians, gas, plumbers, fire, hvac, lifts, roofers, multi), linked from the homepage trades list. They are generated: edit the copy in `scripts/build-trades.mjs` and run `node scripts/build-trades.mjs`. The menu and footer are taken from `product.html`, so rebuild after changing those.
 
 Every page shares `styles.css`, `main.js`, the menu and the footer.
+
+## The Ardent look
+
+`ardent.css` sits on top of `styles.css` and gives every page the Ardent look: a near-black page with fine film grain, Michroma for headlines and labels, Geist for reading and Geist Mono for numbers, and ember orange (`#ff6a1a`) kept for the main buttons. Its rules only apply when `<html>` has the `ardent` class, which every page carries. It follows the shared design rules in `/mnt/project-files/design/ardent-design-philosophy.md`: no borders on cards, buttons or inputs, and no app-style sidebars.
+
+On the homepage this also adds the live readout above the hero headline (its clock is real, the counts are sample figures), small HUD tags on the photographs, and a "Choose your role" section where the Owner, Office and Engineer cards open out on hover or tap.
 
 ## Images (GPT Image)
 
