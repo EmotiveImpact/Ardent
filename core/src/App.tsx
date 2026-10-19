@@ -10,12 +10,14 @@ import { Schedule } from '@/routes/schedule'
 import { Placeholder } from '@/routes/placeholder'
 import { Money } from '@/routes/money'
 import { Certificates } from '@/routes/certificates'
+import { Looks } from '@/routes/looks'
 
 const router = createHashRouter([
   {
     element: <AppShell />,
     children: [
       { index: true, element: <Dashboard /> },
+      { path: 'looks', element: <Looks /> },
       { path: 'jobs', element: <Jobs /> },
       { path: 'jobs/:id', element: <JobDetail /> },
       { path: 'schedule', element: <Schedule /> },
