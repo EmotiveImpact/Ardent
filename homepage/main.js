@@ -272,13 +272,39 @@ roleCards.forEach((card) => {
   card.addEventListener('focusin', () => openRole(card))
 })
 
-// Every page opens at the top unless the link points at a section
+// Every page opens at the top unless the link points at a section.
+// Some hosts (the preview included) restore the old scroll after load,
+// so keep pinning to the top until the visitor scrolls themselves.
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
-if (!location.hash) {
-  document.documentElement.style.scrollBehavior = 'auto'
+const root = document.documentElement
+function toTop() {
+  if (location.hash) return
+  root.style.scrollBehavior = 'auto'
   scrollTo(0, 0)
-  requestAnimationFrame(() => { document.documentElement.style.scrollBehavior = '' })
+  root.scrollTop = 0
+  document.body.scrollTop = 0
+  // Also scrolls an embedding frame's page, where the browser allows it
+  try { (document.body || root).scrollIntoView({ block: 'start' }) } catch (e) {}
+  requestAnimationFrame(() => { root.style.scrollBehavior = '' })
 }
+let userScrolled = false
+const stopPinning = () => { userScrolled = true }
+;['wheel', 'touchstart', 'keydown', 'mousedown'].forEach((e) => addEventListener(e, stopPinning, { once: true, passive: true }))
+toTop()
+const pin = () => { if (!userScrolled) toTop() }
+addEventListener('DOMContentLoaded', pin)
+addEventListener('load', () => { pin(); [60, 200, 500, 1000].forEach((t) => setTimeout(pin, t)) })
+addEventListener('pageshow', pin)
+// Leaving for another page: go to the top first, so a host that swaps
+// pages in place never carries the old position across
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href]')
+  if (!a || a.target === '_blank' || e.metaKey || e.ctrlKey) return
+  const url = new URL(a.href, location.href)
+  if (url.pathname === location.pathname) return
+  root.style.scrollBehavior = 'auto'
+  scrollTo(0, 0)
+})
 
 // Sticky top menu: a spacer holds its place, the bar darkens once you scroll
 const topNav = document.querySelector('.nav')
