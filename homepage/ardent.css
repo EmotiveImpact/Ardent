@@ -52,7 +52,11 @@ html.ardent .trades__caption { color: rgba(242,242,242,0.7); }
 /* No lines: drop the hero rules and footer divider */
 html.ardent .hero__foot .eyebrow { border-bottom: 0; padding-bottom: 0; }
 html.ardent .hero__aside { border-left: 0; padding-left: 0; color: rgba(242,242,242,0.72); }
-html.ardent .footer__top { border-bottom: 0; }
+html.ardent .footer__top { border-bottom: 0; padding-bottom: 0; }
+/* Pull the footer into one block: links, contact icons, legal and wordmark sit close */
+html.ardent .footer__social { padding-block: 36px 0; }
+html.ardent .footer__legal { padding-block: 28px 12px; }
+html.ardent .footer__word { margin-top: 0; }
 
 /* One accent: the primary action */
 html.ardent .nav__cta, html.ardent .cta .btn, html.ardent .roles__go { background: var(--ember); color: #070707; backdrop-filter: none; }
