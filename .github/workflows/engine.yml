@@ -1,0 +1,25 @@
+name: Engine
+
+on:
+  pull_request:
+    paths: ['engine/**', 'core/src/data/mock.ts', '.github/workflows/engine.yml']
+  push:
+    branches: [main]
+    paths: ['engine/**', 'core/src/data/mock.ts', '.github/workflows/engine.yml']
+
+jobs:
+  database:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Seed matches Core's demo data
+        working-directory: engine
+        run: |
+          node --experimental-strip-types scripts/build-seed.ts
+          git diff --exit-code supabase/seed.sql
+      - name: Migrations, seed and security tests
+        working-directory: engine
+        run: tests/run.sh
