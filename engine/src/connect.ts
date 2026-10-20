@@ -13,7 +13,7 @@
 import type { ArdentClient } from '../../core/src/data/client.ts'
 import type { Photo } from '../../core/src/data/model.ts'
 import { createEngine, EngineError } from './engine.ts'
-import { adminCall, callEngine, createHttpClient, photoLink, type SignedIn, signIn as httpSignIn, signOut as httpSignOut, uploadPhoto } from './http-client.ts'
+import { adminCall, callEngine, createHttpClient, isRead, photoLink, type SignedIn, signIn as httpSignIn, signOut as httpSignOut, uploadPhoto } from './http-client.ts'
 import type { Platform } from './platform.ts'
 import { DEMO_PASSWORD, demoData, demoUsers, shiftDemo } from './seed.ts'
 import type { Data, Role, Store } from './store.ts'
@@ -211,12 +211,20 @@ export async function connectDemo(storage: KeyValue, opts: { today?: string } = 
       if (!fn) throw new EngineError(session ? 'invalid' : 'unauthenticated', session ? `unknown admin call ${name}` : 'sign in first')
       return (await fn(...args)) as T
     },
-    async call(method, args) {
+    async call(method, args, requestId) {
       const [area, name] = method.split('.')
-      if (area === 'admin') return connection.admin(name, ...args)
-      const fn = (connection.client as never as Record<string, Record<string, (...a: unknown[]) => Promise<unknown>>>)[area]?.[name]
+      // A change sent twice with the same request id lands once, as on a running engine.
+      const key = requestId && session && !isRead(method) ? `${session.me.user.id}:${requestId}` : undefined
+      const before = key ? engine.recall(key) : undefined
+      if (before) return before.result
+      const fn =
+        area === 'admin'
+          ? (...a: unknown[]) => connection.admin(name, ...a)
+          : (connection.client as never as Record<string, Record<string, (...a: unknown[]) => Promise<unknown>>>)[area]?.[name]
       if (!fn) throw new EngineError('invalid', `unknown method ${method}`)
-      return fn(...args)
+      const result = (await fn(...args)) ?? null
+      if (key) engine.remember(key, result)
+      return result
     },
     // The demo has no file store: the image stays where the device saved it.
     uploadPhoto: async () => undefined,

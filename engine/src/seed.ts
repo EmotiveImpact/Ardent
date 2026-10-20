@@ -38,9 +38,15 @@ export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {
     quotes: own(mock.quotes),
     invoices: own(mock.invoices),
     certificates: own(mock.certificates),
+    // The day so far: Dan drove over and has been on the tools since eight.
+    time: own([
+      { id: 'tim_01', operatorId: 'opr_01', jobId: 'job_1042', kind: 'travel' as const, start: '2026-10-18T06:35:00Z', end: '2026-10-18T07:00:00Z' },
+      { id: 'tim_02', operatorId: 'opr_01', jobId: 'job_1042', kind: 'labour' as const, start: '2026-10-18T07:00:00Z' },
+    ]),
     counters: {
       [`${orgId}:job`]: maxRef(mock.jobs.map((j) => j.ref)),
       [`${orgId}:invoice`]: maxRef(mock.invoices.map((i) => i.ref)),
+      [`${orgId}:quote`]: maxRef(mock.quotes.map((q) => q.ref)),
     },
   }
 }

@@ -8,7 +8,7 @@
  * separate from ids.
  */
 
-export type Trade = 'gas' | 'electrical' | 'plumbing' | 'heating' | 'roofing' | 'carpentry' | 'general'
+export type Trade = 'gas' | 'electrical' | 'plumbing' | 'heating' | 'roofing' | 'carpentry' | 'fire' | 'lifts' | 'hvac' | 'general'
 
 export type JobStatus =
   | 'enquiry' // came in, not yet priced
@@ -41,7 +41,7 @@ export interface Site {
   town: string
   postcode: string
   accessNotes?: string
-  /** Position on the live board, 0 to 100 on each axis. Replaced by lat/lng once maps land. */
+  /** Where the site is (WGS84), for the crew map and routing. */
   lat: number
   lng: number
 }

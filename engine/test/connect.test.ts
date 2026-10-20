@@ -50,6 +50,10 @@ test('demo: field sign-in only sees their own work', async () => {
   await demo.signIn('kofi@demo.ardent.local', 'ardent-demo')
   assert.deepEqual((await demo.client.jobs.list()).map((j) => j.id).sort(), ['job_0998', 'job_1022', 'job_1036', 'job_1040', 'job_1045'])
   assert.equal(((await demo.call('jobs.setStatus', ['job_1045', 'en_route'], 'r1')) as { status: string }).status, 'en_route')
+  const note = { jobId: 'job_1045', operatorId: 'opr_02', body: 'Parking round the back', at: '2026-10-18T09:50:00Z' }
+  const first = await demo.call('notes.add', [note], 'r2')
+  assert.deepEqual(await demo.call('notes.add', [note], 'r2'), first, 'a replayed change lands once')
+  assert.equal((await demo.client.notes.forJob('job_1045')).length, 1)
   await assert.rejects(demo.admin('addOperator', { name: 'New Starter', role: 'engineer', initials: 'NS', trades: [], registrations: [] }), { code: 'forbidden' })
 })
 

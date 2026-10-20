@@ -14,12 +14,12 @@ export const customers: Customer[] = [
 ]
 
 export const sites: Site[] = [
-  { id: 'sit_01', customerId: 'cus_01', line1: '14 Alder Road', town: 'Didsbury', postcode: 'M20 6BT', lat: 22, lng: 70 },
-  { id: 'sit_02', customerId: 'cus_02', line1: 'Flat 3, 88 Wilmslow Rd', town: 'Rusholme', postcode: 'M14 5AL', lat: 76, lng: 30, accessNotes: 'Keys at agent, code 4471' },
-  { id: 'sit_03', customerId: 'cus_03', line1: '2 Quay Street', town: 'Castlefield', postcode: 'M3 4LP', lat: 50, lng: 82 },
-  { id: 'sit_04', customerId: 'cus_04', line1: '61 Mauldeth Rd', town: 'Levenshulme', postcode: 'M19 2RF', lat: 84, lng: 74 },
-  { id: 'sit_05', customerId: 'cus_05', line1: '7 Heaton Close', town: 'Stockport', postcode: 'SK4 3QJ', lat: 30, lng: 24 },
-  { id: 'sit_06', customerId: 'cus_06', line1: '19 Brindle Street', town: 'Ancoats', postcode: 'M4 6DE', lat: 60, lng: 50 },
+  { id: 'sit_01', customerId: 'cus_01', line1: '14 Alder Road', town: 'Didsbury', postcode: 'M20 6BT', lat: 53.4172, lng: -2.2318 },
+  { id: 'sit_02', customerId: 'cus_02', line1: 'Flat 3, 88 Wilmslow Rd', town: 'Rusholme', postcode: 'M14 5AL', lat: 53.4532, lng: -2.2248, accessNotes: 'Keys at agent, code 4471' },
+  { id: 'sit_03', customerId: 'cus_03', line1: '2 Quay Street', town: 'Castlefield', postcode: 'M3 4LP', lat: 53.4778, lng: -2.2528 },
+  { id: 'sit_04', customerId: 'cus_04', line1: '61 Mauldeth Rd', town: 'Levenshulme', postcode: 'M19 2RF', lat: 53.4418, lng: -2.1968 },
+  { id: 'sit_05', customerId: 'cus_05', line1: '7 Heaton Close', town: 'Stockport', postcode: 'SK4 3QJ', lat: 53.4232, lng: -2.1802 },
+  { id: 'sit_06', customerId: 'cus_06', line1: '19 Brindle Street', town: 'Ancoats', postcode: 'M4 6DE', lat: 53.4848, lng: -2.2262 },
 ]
 
 export const operators: Operator[] = [
@@ -124,6 +124,36 @@ export const jobs: Job[] = [
     id: 'job_1030', ref: 'J-1030', title: 'Cellar pump service', trade: 'plumbing', status: 'paid', priority: 'normal',
     customerId: 'cus_03', siteId: 'sit_03', operatorIds: ['opr_03'], start: '2026-10-12T06:00:00Z', end: '2026-10-12T08:00:00Z',
     lines: [{ id: 'li_13', kind: 'labour', description: 'Service and descale', quantity: 1, unitPrice: 16500 }],
+    checks: [],
+  },
+  {
+    id: 'job_1040', ref: 'J-1040', title: 'Rewire, 3 bed semi', trade: 'electrical', status: 'booked', priority: 'normal',
+    customerId: 'cus_04', siteId: 'sit_04', operatorIds: ['opr_02'], start: '2026-10-26T08:00:00Z', end: '2026-10-26T16:00:00Z',
+    lines: [{ id: 'li_14', kind: 'other', description: 'Rewire, 3 bed semi', quantity: 1, unitPrice: 520000 }],
+    checks: [{ key: 'rams', label: 'RAMS', state: 'pending' }, { key: 'registration', label: 'NICEIC', state: 'pending' }, { key: 'eicr', label: 'Electrical cert', state: 'pending' }],
+  },
+  {
+    id: 'job_1022', ref: 'J-1022', title: 'Emergency lighting test', trade: 'electrical', status: 'paid', priority: 'normal',
+    customerId: 'cus_06', siteId: 'sit_06', operatorIds: ['opr_02'], start: '2026-10-13T07:00:00Z', end: '2026-10-13T11:00:00Z',
+    lines: [{ id: 'li_15', kind: 'labour', description: 'Emergency lighting test, 14 fittings', quantity: 1, unitPrice: 42000 }],
+    checks: [],
+  },
+  {
+    id: 'job_1019', ref: 'J-1019', title: 'Air con service, 4 units', trade: 'hvac', status: 'cancelled', priority: 'low',
+    customerId: 'cus_06', siteId: 'sit_06', operatorIds: [], start: '2026-10-07T08:00:00Z', end: '2026-10-07T12:00:00Z',
+    lines: [{ id: 'li_16', kind: 'labour', description: 'Air con service, 4 units', quantity: 1, unitPrice: 64000 }],
+    checks: [],
+  },
+  {
+    id: 'job_1011', ref: 'J-1011', title: 'Glass washer drain', trade: 'plumbing', status: 'invoiced', priority: 'high',
+    customerId: 'cus_03', siteId: 'sit_03', operatorIds: ['opr_03'], start: '2026-10-01T09:00:00Z', end: '2026-10-01T11:00:00Z',
+    lines: [{ id: 'li_17', kind: 'labour', description: 'Glass washer drain, new trap', quantity: 1, unitPrice: 35417 }],
+    checks: [],
+  },
+  {
+    id: 'job_0998', ref: 'J-0998', title: 'Void property checks', trade: 'gas', status: 'invoiced', priority: 'normal',
+    customerId: 'cus_02', siteId: 'sit_02', operatorIds: ['opr_01', 'opr_02'], start: '2026-09-21T08:00:00Z', end: '2026-09-21T13:00:00Z',
+    lines: [{ id: 'li_18', kind: 'labour', description: 'Void property gas and electric checks', quantity: 1, unitPrice: 153333 }],
     checks: [],
   },
 ]

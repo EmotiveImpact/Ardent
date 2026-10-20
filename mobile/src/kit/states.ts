@@ -48,7 +48,7 @@ export const priority: Record<Priority, Meta> = {
 }
 
 export const operatorState: Record<OperatorState, Meta> = {
-  on_call: { label: 'On call', tone: 'neutral' },
+  on_call: { label: 'On shift', tone: 'neutral' },
   en_route: { label: 'En route', tone: 'info' },
   on_site: { label: 'On site', tone: 'ok' },
   workshop: { label: 'Workshop', tone: 'neutral' },

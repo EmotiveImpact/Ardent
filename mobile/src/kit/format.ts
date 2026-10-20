@@ -60,3 +60,15 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join('')
+
+/** The UTC moment of a UK wall-clock time: ("2026-10-20", "09:30") -> "2026-10-20T08:30:00.000Z" in summer. */
+export function ukToIso(day: string, hhmm: string) {
+  const [h, m] = hhmm.split(':').map(Number)
+  const wall = Date.parse(`${day}T00:00:00Z`) + (h * 60 + m) * 60_000
+  let at = wall
+  for (let i = 0; i < 2; i++) {
+    const shown = new Date(at).toLocaleString('sv-SE', { timeZone: ZONE }).replace(' ', 'T') + 'Z'
+    at = wall - (Date.parse(shown) - at)
+  }
+  return new Date(at).toISOString()
+}
