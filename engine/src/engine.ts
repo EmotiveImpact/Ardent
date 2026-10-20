@@ -462,6 +462,11 @@ export function createEngine(store: Store, platform: Platform) {
             for (const j of db.jobs.filter((x) => x.orgId === orgId && x.status === 'booked' && x.start < iso && x.end > iso)) {
               items.push({ id: `att_job_${j.id}`, at: j.start, who: j.ref, rule: 'Not started', detail: `${j.title}, booked for ${j.start.slice(11, 16)}`, outcome: 'chasing' })
             }
+            for (const j of db.jobs.filter((x) => x.orgId === orgId && x.status === 'paused')) {
+              const note = db.notes.filter((n) => n.jobId === j.id).sort((a, b) => b.at.localeCompare(a.at))[0]
+              const who = db.operators.find((o) => o.id === (note?.operatorId ?? j.operatorIds[0]))?.name ?? j.ref
+              items.push({ id: `att_pause_${j.id}`, at: note?.at ?? j.start, who, rule: `${j.ref} paused`, detail: note?.body ?? `${j.title}, waiting`, outcome: 'chasing' })
+            }
             return items.sort((a, b) => b.at.localeCompare(a.at))
           }),
       },

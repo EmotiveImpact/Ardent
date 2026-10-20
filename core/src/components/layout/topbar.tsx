@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button'
 import { NewJobDialog } from '@/components/new-job-dialog'
 import { openCommandMenu } from '@/components/command-menu'
 import { ArdentMark } from './logo'
+import { UserMenu } from './user-menu'
+import { useQuery } from '@/data/ardent'
+import { clock } from '@kit'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 /** Whole-app full screen, so the browser bars disappear on a wall screen or a laptop. */
 function FullScreenButton() {
@@ -69,17 +73,45 @@ export function Topbar({ trail }: { trail: string[] }) {
           <Search />
         </Button>
         <FullScreenButton />
-        <Button variant="outline" size="icon-sm" aria-label="Notifications" className="relative">
-          <Bell />
-          <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" />
-        </Button>
+        <AttentionBell />
         <NewJobDialog>
           <Button size="sm" className="gap-1.5">
             <Plus /> <span className="hidden sm:inline">New job</span>
             <kbd className="ml-1 hidden rounded px-1 font-mono text-[10px] text-black/50 sm:inline">N</kbd>
           </Button>
         </NewJobDialog>
+        <UserMenu side="bottom" className="md:hidden" />
       </div>
     </div>
+  )
+}
+
+/** What needs the office now, worked out by the engine from the records. */
+function AttentionBell() {
+  const { data = [] } = useQuery((c) => c.attention.list())
+  const navigate = useNavigate()
+  const open = data.filter((x) => x.outcome !== 'resolved')
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon-sm" aria-label={`Needs attention, ${open.length}`} className="relative">
+          <Bell />
+          {open.length > 0 && <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 font-mono text-[9px] text-black">{open.length}</span>}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[340px]">
+        <DropdownMenuLabel>Needs attention</DropdownMenuLabel>
+        {open.length === 0 && <p className="px-2 pb-2 text-[13px] text-muted">Nothing needs you right now.</p>}
+        {open.slice(0, 7).map((x) => (
+          <DropdownMenuItem key={x.id} onSelect={() => navigate('/')} className="items-start">
+            <span className="mt-0.5 w-10 shrink-0 font-mono text-[11px] text-faint">{clock(x.at)}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-foreground">{x.rule}</span>
+              <span className="block truncate text-[12px] text-muted">{x.who}, {x.detail}</span>
+            </span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

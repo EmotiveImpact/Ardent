@@ -8,13 +8,15 @@ function trailFor(pathname: string) {
   const match = nav.find((n) => n && n.to !== '/' && pathname.startsWith(n.to))
   if (pathname === '/') return ['Operations', 'Today']
   if (pathname.startsWith('/settings')) return ['Settings']
+  if (pathname.startsWith('/jobs/')) return ['Jobs', 'Job sheet']
+  if (pathname.startsWith('/customers/')) return ['Customers', 'Customer']
   return match ? [match.label] : ['Ardent Core']
 }
 
 export function AppShell() {
   const { pathname } = useLocation()
   return (
-    <div className="app-atmosphere grain flex h-full">
+    <div className="calm app-atmosphere grain flex h-full">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar trail={trailFor(pathname)} />

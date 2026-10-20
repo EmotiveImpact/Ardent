@@ -3,24 +3,16 @@ import { JobBoard } from '@/components/dashboard/job-board'
 import { CrewMap } from '@/components/dashboard/crew-map'
 import { Link } from 'react-router'
 import { useNow } from '@/hooks/use-now'
-import { time } from '@/lib/format'
-import { MoreHorizontal, Truck } from 'lucide-react'
+import { clock, operatorState } from '@kit'
+import { Truck } from 'lucide-react'
 import { Panel, PanelHeader, Well } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
-import { byId, operators, jobs, sites } from '@/data/mock'
-import type { Operator, OperatorState } from '@/data/model'
+import type { Book } from '@/data/ardent'
+import type { Operator } from '@/data/model'
+import { find } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
-
-const stateMeta: Record<OperatorState, { label: string; tone: 'ok' | 'info' | 'warn' | 'neutral'; stroke: string }> = {
-  on_site: { label: 'On site', tone: 'ok', stroke: 'var(--ok)' },
-  en_route: { label: 'En route', tone: 'info', stroke: 'var(--info)' },
-  delayed: { label: 'Delayed', tone: 'warn', stroke: 'var(--warn)' },
-  on_call: { label: 'On call', tone: 'neutral', stroke: '#4a4a4a' },
-  workshop: { label: 'Workshop', tone: 'neutral', stroke: '#6b6b6b' },
-  off_shift: { label: 'Off shift', tone: 'neutral', stroke: '#333' },
-}
 
 function LiveClock() {
   const now = useNow()
@@ -31,15 +23,15 @@ function LiveClock() {
         <span className="relative size-1.5 rounded-full bg-ok" />
       </span>
       <span className="caps text-faint">Live</span>
-      <span className="font-mono text-foreground tabular">{time(new Date(now).toISOString(), true)}</span>
+      <span className="font-mono text-foreground tabular">{clock(new Date(now).toISOString(), true)}</span>
     </span>
   )
 }
 
-function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
-  const job = byId(jobs, eng.currentJobId)
-  const site = byId(sites, job?.siteId)
-  const meta = stateMeta[eng.state]
+function CrewCard({ eng, book, className }: { eng: Operator; book: Book; className?: string }) {
+  const job = find(book.jobs, eng.currentJobId)
+  const site = find(book.sites, job?.siteId)
+  const meta = operatorState[eng.state]
   return (
     <div className={cn('w-[208px] rounded-lg bg-surface/95 p-1 shadow-xl shadow-black/50 backdrop-blur', className)}>
       <div className="flex items-center gap-2 px-2 py-1.5">
@@ -79,7 +71,7 @@ function CrewCard({ eng, className }: { eng: Operator; className?: string }) {
 }
 
 /** Crew map, with an optional switch to today's job board in the same panel. */
-export function LiveBoard({ withBoard, onSelect, selectedRef }: { withBoard?: boolean; onSelect?: (ref: string) => void; selectedRef?: string } = {}) {
+export function LiveBoard({ book, withBoard, onSelect, selectedId }: { book: Book; withBoard?: boolean; onSelect?: (id: string) => void; selectedId?: string }) {
   const [view, setView] = useState<'map' | 'board'>('map')
   return (
     <Panel>
@@ -104,26 +96,23 @@ export function LiveBoard({ withBoard, onSelect, selectedRef }: { withBoard?: bo
             <Button variant="outline" size="xs" asChild>
               <Link to="/schedule">Open schedule</Link>
             </Button>
-            <Button variant="outline" size="icon-sm" className="size-7" aria-label="Board options">
-              <MoreHorizontal />
-            </Button>
           </>
         }
       />
       {view === 'board' ? (
         <Well className="min-h-[400px] p-1">
-          <JobBoard layout="lanes" onSelect={onSelect} selectedRef={selectedRef} />
+          <JobBoard book={book} layout="lanes" onSelect={onSelect} selectedId={selectedId} />
         </Well>
       ) : (
       <>
       <Well className="relative hidden h-[480px] overflow-hidden sm:block">
         <LiveClock />
-        <CrewMap onSelect={onSelect} />
+        <CrewMap operators={book.operators} jobs={book.jobs} sites={book.sites} onSelect={onSelect} />
       </Well>
 
       <div className="grid gap-1.5 sm:hidden">
-        {operators.map((eng) => (
-          <CrewCard key={eng.id} eng={eng} className="w-full" />
+        {book.operators.map((eng) => (
+          <CrewCard key={eng.id} eng={eng} book={book} className="w-full" />
         ))}
       </div>
       </>

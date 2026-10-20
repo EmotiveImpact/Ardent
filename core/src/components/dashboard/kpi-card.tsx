@@ -1,13 +1,11 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { MoreHorizontal, TrendingDown, TrendingUp } from 'lucide-react'
 import { Panel, PanelHeader, Well } from '@/components/ui/panel'
-import { Button } from '@/components/ui/button'
 import { useCountUp } from '@/hooks/use-now'
 import { cn } from '@/lib/utils'
 
 function SparkBars({ values, color, labels }: { values: number[]; color: string; labels: string[] }) {
   const [hover, setHover] = useState<number | null>(null)
-  const max = Math.max(...values)
+  const max = Math.max(1, ...values)
   return (
     <div className="relative hidden h-11 items-end gap-[3px] sm:flex" onMouseLeave={() => setHover(null)}>
       {hover !== null && (
@@ -35,8 +33,6 @@ function SparkBars({ values, color, labels }: { values: number[]; color: string;
   )
 }
 
-const hourLabels = ['03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00']
-
 export function KpiCard({
   icon,
   title,
@@ -45,10 +41,9 @@ export function KpiCard({
   unit,
   prefix,
   series,
+  labels,
   color,
-  caption,
-  delta,
-  good,
+  note,
   index = 0,
 }: {
   icon: ReactNode
@@ -57,43 +52,27 @@ export function KpiCard({
   format: (n: number) => string
   unit?: string
   prefix?: string
+  /** Oldest first, worked out from the records. */
   series: number[]
+  labels: string[]
   color: string
-  caption: string
-  delta: string
-  /** Whether the movement is good news, which sets the arrow colour. */
-  good: boolean
+  /** One line of context under the number. */
+  note: ReactNode
   index?: number
 }) {
   const shown = useCountUp(value)
-  const Arrow = delta.startsWith('-') ? TrendingDown : TrendingUp
   return (
     <Panel style={{ '--i': index } as CSSProperties}>
-      <PanelHeader
-        icon={icon}
-        title={title}
-        actions={
-          <Button variant="ghost" size="icon-sm" className="size-7" aria-label={`${title} options`}>
-            <MoreHorizontal />
-          </Button>
-        }
-      />
+      <PanelHeader icon={icon} title={title} />
       <Well className="flex items-center justify-between px-3 py-3">
         <p className="flex items-baseline gap-1.5 font-mono tabular">
           {prefix && <span className="text-lg text-muted">{prefix}</span>}
           <span className="text-[22px] leading-none tracking-tight text-foreground sm:text-[28px]">{format(shown)}</span>
           {unit && <span className="text-[15px] text-muted">{unit}</span>}
         </p>
-        <SparkBars values={series} color={color} labels={hourLabels} />
+        <SparkBars values={series} color={color} labels={labels} />
       </Well>
-      <div className="flex items-center justify-between px-2.5 pt-2.5 pb-1 text-[12px] text-muted">
-        <span className="hidden truncate sm:inline">{caption}</span>
-        <span className="flex shrink-0 items-center gap-1.5">
-          <Arrow className={cn('size-3.5', good ? 'text-ok' : 'text-danger')} />
-          <span className={cn('font-mono', good ? 'text-ok' : 'text-danger')}>{delta}</span>
-          <span className="hidden sm:inline">vs last Sun</span>
-        </span>
-      </div>
+      <div className="truncate px-2.5 pt-2.5 pb-1 text-[12px] text-muted">{note}</div>
     </Panel>
   )
 }

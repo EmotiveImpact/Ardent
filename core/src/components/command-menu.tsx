@@ -5,8 +5,9 @@ import { Dialog as D } from 'radix-ui'
 import { CornerDownLeft, MapPin, Search, User, Wrench } from 'lucide-react'
 import { nav } from '@/components/layout/sidebar'
 import { Badge } from '@/components/ui/badge'
-import { byId, customers, jobs, sites } from '@/data/mock'
-import { statusMeta } from '@/lib/format'
+import { jobStatus } from '@kit'
+import { useBook } from '@/data/ardent'
+import { find } from '@/lib/jobs'
 
 let opener: () => void = () => {}
 export const openCommandMenu = () => opener()
@@ -20,6 +21,10 @@ const groupClass =
 export function CommandMenu() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const { data: book } = useBook()
+  const jobs = [...(book?.jobs ?? [])].sort((a, b) => b.start.localeCompare(a.start))
+  const customers = book?.customers ?? []
+  const sites = book?.sites ?? []
   opener = () => setOpen(true)
 
   useEffect(() => {
@@ -49,7 +54,7 @@ export function CommandMenu() {
             loop
             className="overflow-hidden rounded-xl bg-surface shadow-[0_40px_80px_-20px_#000]"
           >
-            <div className="flex items-center gap-2.5 border-b px-3.5">
+            <div className="flex items-center gap-2.5 bg-inset px-3.5">
               <Search className="size-4 text-faint" />
               <Command.Input
                 autoFocus
@@ -63,8 +68,8 @@ export function CommandMenu() {
 
               <Command.Group heading="Jobs" className={groupClass}>
                 {jobs.map((j) => {
-                  const site = byId(sites, j.siteId)
-                  const c = byId(customers, j.customerId)
+                  const site = find(sites, j.siteId)
+                  const c = find(customers, j.customerId)
                   return (
                     <Command.Item
                       key={j.id}
@@ -77,7 +82,7 @@ export function CommandMenu() {
                       <span className="truncate text-foreground">{j.title}</span>
                       <span className="ml-auto flex items-center gap-2">
                         <span className="font-mono text-[11px] text-faint">{site?.postcode}</span>
-                        <Badge tone={statusMeta[j.status].tone}>{statusMeta[j.status].label}</Badge>
+                        <Badge tone={jobStatus[j.status].tone}>{jobStatus[j.status].label}</Badge>
                       </span>
                     </Command.Item>
                   )
@@ -88,7 +93,7 @@ export function CommandMenu() {
                 {customers.map((c) => {
                   const site = sites.find((s) => s.customerId === c.id)
                   return (
-                    <Command.Item key={c.id} value={`${c.name} ${c.phone} ${site?.postcode}`} onSelect={() => go('/customers')} className={itemClass}>
+                    <Command.Item key={c.id} value={`${c.name} ${c.phone} ${site?.postcode}`} onSelect={() => go(`/customers/${c.id}`)} className={itemClass}>
                       <User />
                       <span className="text-foreground">{c.name}</span>
                       <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-faint">
@@ -112,7 +117,7 @@ export function CommandMenu() {
                 })}
               </Command.Group>
             </Command.List>
-            <div className="flex items-center gap-4 border-t px-3.5 py-2 text-[11px] text-faint">
+            <div className="flex items-center gap-4 bg-inset px-3.5 py-2 text-[11px] text-faint">
               <span className="flex items-center gap-1.5">
                 <CornerDownLeft className="size-3" /> open
               </span>

@@ -10,6 +10,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
       '@kit': path.resolve(import.meta.dirname, '../engine/kit'),
+      '@engine': path.resolve(import.meta.dirname, '../engine/src'),
     },
   },
   // The design kit and the engine live beside the app in the monorepo.

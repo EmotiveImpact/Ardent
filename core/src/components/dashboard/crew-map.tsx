@@ -2,18 +2,18 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPoi
 import { createPortal } from 'react-dom'
 import { Crosshair, Maximize2, Minimize2, Minus, Plus } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
-import { byId, jobs, operators } from '@/data/mock'
-import type { Operator, OperatorState } from '@/data/model'
-import { districts, lines, mapBounds, places, vanAt, type LatLng, type Line } from '@/data/manchester'
+import type { Job, Operator, OperatorState, Site } from '@/data/model'
+import { districts, lines, mapBounds, places, type LatLng, type Line } from '@/data/manchester'
+import { find, onDay, today } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
+import { clock } from '@kit'
 
 /* A black map of south Manchester with every van placed and wired back to the yard. */
 
-export type MapView = 'streets' | 'traffic' | 'heat' | 'routes'
+export type MapView = 'streets' | 'heat' | 'routes'
 
 const views: { key: MapView; label: string }[] = [
   { key: 'streets', label: 'Streets' },
-  { key: 'traffic', label: 'Traffic' },
   { key: 'heat', label: 'Work' },
   { key: 'routes', label: 'Routes' },
 ]
@@ -40,15 +40,6 @@ const K = 10000
 const COS = Math.cos((53.45 * Math.PI) / 180)
 const px = ([lat, lng]: LatLng) => [(lng - mapBounds.west) * COS * K, (mapBounds.north - lat) * K] as const
 
-/** The area the map opens on: the yard, every van and every site, with a margin. */
-const focus = (() => {
-  const pts = [places.yard, ...Object.values(vanAt), ...Object.values(places)].map(px)
-  const xs = pts.map((p) => p[0])
-  const ys = pts.map((p) => p[1])
-  const pad = 70
-  return { x0: Math.min(...xs) - pad, x1: Math.max(...xs) + pad * 1.6, y0: Math.min(...ys) - pad * 1.8, y1: Math.max(...ys) + pad }
-})()
-
 const path = (pts: LatLng[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${px(p)[0].toFixed(1)} ${px(p)[1].toFixed(1)}`).join('')
 
 /** A gentle arc between two points, bowed to one side. */
@@ -62,40 +53,22 @@ function arc(a: LatLng, b: LatLng, bow = 0.18) {
   return `M${x0} ${y0}Q${mx - dy * bow} ${my + dx * bow} ${x1} ${y1}`
 }
 
-// Mock live traffic: index of the line in `lines`, and how busy it is.
-const traffic: Record<number, 'clear' | 'slow' | 'jam'> = { 0: 'clear', 1: 'slow', 2: 'jam', 5: 'jam', 6: 'slow', 7: 'slow', 8: 'slow', 9: 'clear', 13: 'slow' }
-const trafficColour = { clear: '#2f7d4f', slow: '#c98a1c', jam: '#d2452f' }
-
-// Jobs done in the last 90 days, by area, for the Work view.
-const workload: { at: LatLng; jobs: number }[] = [
-  { at: places.sit_01, jobs: 34 },
-  { at: places.sit_02, jobs: 52 },
-  { at: places.sit_03, jobs: 21 },
-  { at: places.sit_04, jobs: 29 },
-  { at: places.sit_05, jobs: 16 },
-  { at: places.sit_06, jobs: 18 },
-  { at: [53.4405, -2.2795], jobs: 24 },
-  { at: [53.4325, -2.243], jobs: 31 },
-]
-
-function roadStyle(l: Line, i: number, view: MapView) {
+function roadStyle(l: Line, view: MapView) {
   if (l.kind === 'river') return { stroke: '#0c1419', width: 4 }
   if (l.kind === 'canal') return { stroke: '#0c1419', width: 1.6 }
-  if (view === 'traffic' && traffic[i]) return { stroke: trafficColour[traffic[i]], width: l.kind === 'motorway' ? 2.4 : 1.8, opacity: 0.7 }
   const dim = view === 'heat' ? 0.55 : 1
   if (l.kind === 'motorway') return { stroke: '#343434', width: 2.4, opacity: dim }
   if (l.kind === 'primary') return { stroke: '#242424', width: 1.6, opacity: dim }
   return { stroke: '#181818', width: 1, opacity: dim }
 }
 
-function Marker({ op, x, y, onSelect }: { op: Operator; x: number; y: number; onSelect?: (ref: string) => void }) {
-  const job = byId(jobs, op.currentJobId)
+function Marker({ op, job, x, y, onSelect }: { op: Operator; job?: Job; x: number; y: number; onSelect?: (id: string) => void }) {
   const colour = stateColour[op.state]
   const atYard = op.state === 'on_call'
   return (
     <button
       onPointerDown={(e) => e.stopPropagation()}
-      onClick={() => job && onSelect?.(job.ref)}
+      onClick={() => job && onSelect?.(job.id)}
       className="group absolute flex -translate-x-1/2 -translate-y-1/2 items-center"
       style={{ left: x, top: atYard ? y - 36 : y, '--c': colour } as React.CSSProperties}
     >
@@ -117,7 +90,34 @@ function Marker({ op, x, y, onSelect }: { op: Operator; x: number; y: number; on
   )
 }
 
-export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => void; className?: string }) {
+/** Where a site sits: its own coordinates, else the yard. */
+const siteAt = (site: Site | undefined): LatLng => (site && Number.isFinite(site.lat) && Math.abs(site.lat) > 1 ? [site.lat, site.lng] : places.yard)
+
+/** Where a van is: at the job when on site, part way there when travelling, else the yard. */
+function vanFor(op: Operator, site: Site | undefined): LatLng {
+  const to = siteAt(site)
+  if (op.state === 'on_site') return to
+  if (op.state === 'en_route' || op.state === 'delayed') {
+    const t = op.state === 'delayed' ? 0.45 : 0.6
+    return [places.yard[0] + (to[0] - places.yard[0]) * t, places.yard[1] + (to[1] - places.yard[1]) * t]
+  }
+  return places.yard
+}
+
+export function CrewMap({ operators, jobs, sites, onSelect, className }: { operators: Operator[]; jobs: Job[]; sites: Site[]; onSelect?: (id: string) => void; className?: string }) {
+  const day = today()
+  const jobOf = (op: Operator) => find(jobs, op.currentJobId)
+  const vanAt = Object.fromEntries(operators.map((op) => [op.id, vanFor(op, find(sites, jobOf(op)?.siteId))])) as Record<string, LatLng>
+  const booked = jobs.filter((j) => j.status === 'booked' && onDay(j.start, day))
+  // Jobs done at each site, for the Work view.
+  const workload = sites.map((s) => ({ at: siteAt(s), jobs: jobs.filter((j) => j.siteId === s.id).length * 9 }))
+  const focus = (() => {
+    const pts = [places.yard, ...Object.values(vanAt), ...sites.map(siteAt)].map(px)
+    const xs = pts.map((p) => p[0])
+    const ys = pts.map((p) => p[1])
+    const pad = 70
+    return { x0: Math.min(...xs) - pad, x1: Math.max(...xs) + pad * 1.6, y0: Math.min(...ys) - pad * 1.8, y1: Math.max(...ys) + pad }
+  })()
   const box = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 800, h: 480 })
   const [view, setView] = useState<MapView>('streets')
@@ -214,7 +214,7 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
 
         {view !== 'routes' &&
           lines.map((l, i) => {
-            const st = roadStyle(l, i, view)
+            const st = roadStyle(l, view)
             return (
               <path
                 key={i}
@@ -241,8 +241,8 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
           if (op.state === 'on_call' || op.state === 'off_shift') return null
           const d = arc(places.yard, vanAt[op.id], i % 2 ? -0.16 : 0.16)
           const colour = stateColour[op.state]
-          const job = byId(jobs, op.currentJobId)
-          const dest = job && (places as Record<string, LatLng>)[job.siteId]
+          const job = jobOf(op)
+          const dest = job && siteAt(find(sites, job.siteId))
           const moving = op.state === 'en_route' || op.state === 'delayed'
           return (
             <g key={op.id}>
@@ -269,12 +269,8 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
         })}
 
         {/* Booked sites still to visit today */}
-        {jobs
-          .filter((j) => j.status === 'booked' && j.start.startsWith('2026-10-18'))
-          .map((j) => {
-            const at = (places as Record<string, LatLng>)[j.siteId]
-            if (!at) return null
-            const [x, y] = px(at)
+        {booked.map((j) => {
+            const [x, y] = px(siteAt(find(sites, j.siteId)))
             return <circle key={j.id} cx={x} cy={y} r={4 / s} fill="#000" stroke="#777" strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
           })}
       </svg>
@@ -289,15 +285,11 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
         )
       })}
 
-      {jobs
-        .filter((j) => j.status === 'booked' && j.start.startsWith('2026-10-18'))
-        .map((j) => {
-          const at = (places as Record<string, LatLng>)[j.siteId]
-          if (!at) return null
-          const p = toScreen(at)
+      {booked.map((j) => {
+          const p = toScreen(siteAt(find(sites, j.siteId)))
           return (
             <span key={j.id} className="pointer-events-none absolute font-mono text-[10px] text-muted" style={{ left: p.x + 8, top: p.y - 7 }}>
-              {j.ref} · {j.start.slice(11, 16)}
+              {j.ref} · {clock(j.start)}
             </span>
           )
         })}
@@ -310,7 +302,7 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
 
       {operators.map((op) => {
         const p = toScreen(vanAt[op.id])
-        return <Marker key={op.id} op={op} x={p.x} y={p.y} onSelect={onSelect} />
+        return <Marker key={op.id} op={op} job={jobOf(op)} x={p.x} y={p.y} onSelect={onSelect} />
       })}
 
       {full && (
@@ -362,17 +354,10 @@ export function CrewMap({ onSelect, className }: { onSelect?: (ref: string) => v
 
       {/* Legend */}
       <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 rounded-md bg-[#0d0d0d]/90 px-2.5 py-1.5 text-[11px] text-muted backdrop-blur">
-        {view === 'traffic' ? (
-          (['clear', 'slow', 'jam'] as const).map((t) => (
-            <span key={t} className="flex items-center gap-1.5">
-              <span className="h-[3px] w-3 rounded-full" style={{ background: trafficColour[t] }} />
-              {t === 'clear' ? 'Clear' : t === 'slow' ? 'Slow' : 'Queuing'}
-            </span>
-          ))
-        ) : view === 'heat' ? (
+        {view === 'heat' ? (
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-[radial-gradient(var(--ember),transparent_70%)]" />
-            Jobs in the last 90 days
+            Jobs by site
           </span>
         ) : (
           (['on_site', 'en_route', 'delayed'] as const).map((st) => (

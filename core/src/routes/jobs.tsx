@@ -5,10 +5,13 @@ import { Panel, PanelHeader, Well, PageHeader } from '@/components/ui/panel'
 import { Badge, Chip } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { byId, customers, operators, jobTotal, jobs, sites } from '@/data/mock'
+import { clock, jobStatus, pounds, priority as priorityMeta, shortDate } from '@kit'
+import { useBook } from '@/data/ardent'
 import type { JobStatus } from '@/data/model'
-import { priorityMeta, shortDate, statusMeta, time } from '@/lib/format'
-import { cn, formatGBP } from '@/lib/utils'
+import { find, isDone, jobNet } from '@/lib/jobs'
+import { cn } from '@/lib/utils'
+import { NewJobDialog } from '@/components/new-job-dialog'
+import { Button } from '@/components/ui/button'
 
 const groups: Record<string, JobStatus[]> = {
   all: [],
@@ -20,20 +23,31 @@ const groups: Record<string, JobStatus[]> = {
 export function Jobs() {
   const [group, setGroup] = useState('all')
   const [q, setQ] = useState('')
+  const { data: book } = useBook()
   const rows = useMemo(() => {
+    if (!book) return []
+    const { customers, sites } = book
     const term = q.trim().toLowerCase()
-    return jobs.filter((j) => {
+    return [...book.jobs].sort((a, b) => b.start.localeCompare(a.start)).filter((j) => {
       if (groups[group].length && !groups[group].includes(j.status)) return false
       if (!term) return true
-      const c = byId(customers, j.customerId)
-      const s = byId(sites, j.siteId)
-      return [j.ref, j.title, c?.name, s?.postcode].some((v) => v?.toLowerCase().includes(term))
+      const c = find(customers, j.customerId)
+      const s = find(sites, j.siteId)
+      return [j.ref, j.title, c?.name, s?.postcode, s?.line1].some((v) => v?.toLowerCase().includes(term))
     })
-  }, [group, q])
+  }, [group, q, book])
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader eyebrow="Every job, enquiry to paid" title="Jobs" />
+      <PageHeader
+        eyebrow="Every job, enquiry to paid"
+        title="Jobs"
+        aside={
+          <NewJobDialog>
+            <Button variant="ember" size="sm">New job</Button>
+          </NewJobDialog>
+        }
+      />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={group} onValueChange={setGroup}>
           <TabsList>
@@ -69,10 +83,10 @@ export function Jobs() {
             </thead>
             <tbody>
               {rows.map((j) => {
-                const c = byId(customers, j.customerId)
-                const s = byId(sites, j.siteId)
+                const c = find(book?.customers, j.customerId)
+                const s = find(book?.sites, j.siteId)
                 return (
-                  <tr key={j.id} className={cn('group border-b transition-opacity last:border-0 hover:bg-white/[0.02] hover:opacity-100', ['complete', 'invoiced', 'paid'].includes(j.status) && 'opacity-55')}>
+                  <tr key={j.id} className={cn('group border-b transition-opacity last:border-0 hover:bg-white/[0.02] hover:opacity-100', isDone(j) && 'opacity-55')}>
                     <td className="h-12 px-3">
                       <Link to={`/jobs/${j.id}`} className="font-mono text-[12px] text-foreground group-hover:text-white">
                         {j.ref}
@@ -81,17 +95,17 @@ export function Jobs() {
                     <td className="px-3">
                       <Link to={`/jobs/${j.id}`}>{j.title}</Link>
                     </td>
-                    <td className="px-3 text-muted">{c?.name}</td>
+                    <td className="px-3 text-muted">{c && <Link to={`/customers/${c.id}`} className="hover:text-foreground">{c.name}</Link>}</td>
                     <td className="px-3">
                       <Chip>{s?.postcode}</Chip>
                     </td>
                     <td className="px-3 font-mono text-[12px] whitespace-nowrap text-muted">
-                      {shortDate(j.start)} · {time(j.start)}
+                      {shortDate(j.start)} · {clock(j.start)}
                     </td>
                     <td className="px-3">
                       <div className="flex -space-x-1.5">
                         {j.operatorIds.length ? (
-                          j.operatorIds.map((id) => <Avatar key={id} initials={byId(operators, id)?.initials ?? '?'} />)
+                          j.operatorIds.map((id) => <Avatar key={id} initials={find(book?.operators, id)?.initials ?? '?'} />)
                         ) : (
                           <span className="text-faint">None</span>
                         )}
@@ -100,10 +114,10 @@ export function Jobs() {
                     <td className="px-3">
                       <Badge tone={priorityMeta[j.priority].tone}>{priorityMeta[j.priority].label}</Badge>
                     </td>
-                    <td className="px-3 text-right font-mono tabular">{jobTotal(j) ? formatGBP(jobTotal(j)) : '·'}</td>
+                    <td className="px-3 text-right font-mono tabular">{jobNet(j) ? pounds(jobNet(j)) : '·'}</td>
                     <td className="px-3 text-right">
-                      <Badge tone={statusMeta[j.status].tone} dot>
-                        {statusMeta[j.status].label}
+                      <Badge tone={jobStatus[j.status].tone} dot>
+                        {jobStatus[j.status].label}
                       </Badge>
                     </td>
                   </tr>

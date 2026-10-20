@@ -48,7 +48,7 @@ test('demo: sign in, change things, keep them across a reload, reset', async () 
 test('demo: field sign-in only sees their own work', async () => {
   const demo = await connectDemo(memory())
   await demo.signIn('kofi@demo.ardent.local', 'ardent-demo')
-  assert.deepEqual((await demo.client.jobs.list()).map((j) => j.id).sort(), ['job_1036', 'job_1045'])
+  assert.deepEqual((await demo.client.jobs.list()).map((j) => j.id).sort(), ['job_0998', 'job_1022', 'job_1036', 'job_1040', 'job_1045'])
   assert.equal(((await demo.call('jobs.setStatus', ['job_1045', 'en_route'], 'r1')) as { status: string }).status, 'en_route')
   await assert.rejects(demo.admin('addOperator', { name: 'New Starter', role: 'engineer', initials: 'NS', trades: [], registrations: [] }), { code: 'forbidden' })
 })

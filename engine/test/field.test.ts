@@ -6,8 +6,8 @@ import { demo, ids } from './helpers.ts'
 
 test('Kofi sees only his jobs, and only their customers and sites', async () => {
   const kofi = demo().as('kofi').client
-  assert.deepEqual(ids(await kofi.jobs.list()), ['job_1036', 'job_1045'])
-  assert.deepEqual(ids(await kofi.customers.list()), ['cus_04', 'cus_05'])
+  assert.deepEqual(ids(await kofi.jobs.list()), ['job_0998', 'job_1022', 'job_1036', 'job_1040', 'job_1045'])
+  assert.deepEqual(ids(await kofi.customers.list()), ['cus_02', 'cus_04', 'cus_05', 'cus_06'])
   assert.ok(await kofi.sites.get('sit_04'))
   assert.equal(await kofi.sites.get('sit_01'), undefined)
   assert.equal(await kofi.jobs.get('job_1042'), undefined)

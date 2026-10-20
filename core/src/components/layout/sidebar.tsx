@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from 'react-router'
 import {
-  Boxes,
   CalendarRange,
   FileBadge2,
   LayoutGrid,
@@ -13,6 +12,7 @@ import {
 import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { ArdentMark } from './logo'
+import { UserMenu } from './user-menu'
 
 export const nav = [
   { to: '/', label: 'Operations', icon: LayoutGrid, end: true },
@@ -23,7 +23,6 @@ export const nav = [
   null,
   { to: '/certificates', label: 'Certificates', icon: FileBadge2 },
   { to: '/crew', label: 'Crew and vans', icon: HardHat },
-  { to: '/stock', label: 'Stock', icon: Boxes },
 ] as const
 
 function RailLink({ to, label, icon: Icon, end }: { to: string; label: string; icon: typeof Wrench; end?: boolean }) {
@@ -58,11 +57,7 @@ export function Sidebar() {
       </nav>
       <div className="mt-auto flex flex-col items-center gap-2">
         <RailLink to="/settings" label="Settings" icon={Settings} />
-        <Tooltip content="Edem, owner">
-          <button className="mt-1 flex size-8 items-center justify-center rounded-full bg-raised font-mono text-[10px]">
-            ED
-          </button>
-        </Tooltip>
+        <UserMenu className="mt-1" />
       </div>
     </aside>
   )

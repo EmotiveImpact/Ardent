@@ -35,7 +35,7 @@ test("field can't add customers, quote, or rebook", async () => {
   await assert.rejects(kofi.quotes.list(), { code: 'forbidden' })
   await assert.rejects(kofi.invoices.list(), { code: 'forbidden' })
   await assert.rejects(kofi.jobs.update('job_1045', { start: '2026-10-19T09:00:00Z' }), { code: 'forbidden' })
-  assert.ok((await kofi.certificates.list()).every((c) => ['sit_04', 'sit_05'].includes(c.siteId)))
+  assert.ok((await kofi.certificates.list()).every((c) => ['sit_02', 'sit_04', 'sit_05', 'sit_06'].includes(c.siteId)))
 })
 
 test("a customer's balance is what they owe on sent invoices", async () => {
@@ -68,4 +68,13 @@ test('the attention list is worked out from the records', async () => {
   assert.ok(rules.has('EICR overdue'))
   assert.ok(rules.has('Invoice overdue'))
   await assert.rejects(as('kofi').client.attention.list(), { code: 'forbidden' })
+
+  // Couldn't get in: the engineer pauses the job with a note, and the office sees it.
+  const kofi = as('kofi').client
+  await kofi.jobs.setStatus('job_1045', 'en_route')
+  await kofi.notes.add({ jobId: 'job_1045', operatorId: 'opr_02', body: "Couldn't get in: no answer, card left", at: new Date().toISOString() })
+  await kofi.jobs.setStatus('job_1045', 'paused')
+  const paused = (await as('jo').client.attention.list()).find((i) => i.id === 'att_pause_job_1045')
+  assert.equal(paused?.who, 'Kofi Asante')
+  assert.match(paused?.detail ?? '', /no answer/)
 })

@@ -33,7 +33,7 @@ test('sign in, work, sign out', async (t) => {
 
   const kofiConn = await connect('kofi@demo.ardent.local')
   const kofi = createHttpClient(kofiConn)
-  assert.deepEqual((await kofi.jobs.list()).map((j) => j.id).sort(), ['job_1036', 'job_1045'])
+  assert.deepEqual((await kofi.jobs.list()).map((j) => j.id).sort(), ['job_0998', 'job_1022', 'job_1036', 'job_1040', 'job_1045'])
   assert.equal(await kofi.jobs.get('job_1042'), undefined)
   assert.equal((await kofi.jobs.setStatus('job_1045', 'on_site')).status, 'on_site')
   await assert.rejects(kofi.jobs.setStatus('job_1045', 'paid'), { code: 'forbidden' })

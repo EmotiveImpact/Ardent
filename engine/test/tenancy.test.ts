@@ -73,6 +73,6 @@ test('slugs are unique and tidy', () => {
 
 test('the demo firm sees all of its own jobs', async () => {
   const { as } = demo()
-  assert.equal((await as('dan').client.jobs.list()).length, 10)
+  assert.equal((await as('dan').client.jobs.list()).length, 15)
   assert.deepEqual(ids(await as('jo').client.customers.list()), ['cus_01', 'cus_02', 'cus_03', 'cus_04', 'cus_05', 'cus_06'])
 })
