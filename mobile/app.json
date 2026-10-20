@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0C0D",
+    "backgroundColor": "#070707",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.ardent.mobile"
@@ -26,7 +26,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0B0C0D",
+          "backgroundColor": "#070707",
           "image": "./assets/icon.png",
           "imageWidth": 1
         }
