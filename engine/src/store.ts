@@ -1,14 +1,12 @@
 /**
  * Where the engine keeps its records. Today that is memory, optionally saved
- * to a JSON file so a local server keeps its data between restarts. A
- * Postgres store (Neon) replaces it later behind the same shape.
+ * to a JSON file (store-file.ts) so a local server keeps its data between
+ * restarts. A Postgres store (Neon) replaces it later behind the same shape.
  *
  * Every business row carries the firm it belongs to (orgId). The engine
  * strips orgId and userId before anything leaves it, so callers only ever see
  * the shapes in core/src/data/model.ts.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
 import type { Certificate, Customer, Invoice, Job, Note, Operator, Photo, Quote, Signature, Site, TimeEntry } from '../../core/src/data/model.ts'
 
 /** A person who can sign in. */
@@ -16,6 +14,27 @@ export interface User {
   id: string
   email: string
   name: string
+  /** scrypt hash; see auth.ts. Never leaves the engine. */
+  passwordHash?: string
+}
+
+/** A signed-in device. Only the token's hash is kept. */
+export interface SessionRow {
+  tokenHash: string
+  userId: string
+  createdAt: string
+  expiresAt: string
+}
+
+/**
+ * A change the engine has already applied, keyed by the request id the app
+ * sent with it. When a phone retries after losing signal, the engine hands
+ * back the first answer instead of applying the change twice.
+ */
+export interface DoneRequest {
+  key: string
+  at: string
+  result: unknown
 }
 
 /** A firm on Ardent. The engine is set up per industry; trades is the first. */
@@ -63,6 +82,10 @@ export interface Data {
   certificates: Owned<Certificate>[]
   /** Last number used per firm and kind, e.g. "org_demo:job" -> 1052. */
   counters: Record<string, number>
+  sessions: SessionRow[]
+  requests: DoneRequest[]
+  /** Signs photo links. Made on first start. */
+  secret?: string
 }
 
 export interface Store {
@@ -88,23 +111,10 @@ export const emptyData = (): Data => ({
   invoices: [],
   certificates: [],
   counters: {},
+  sessions: [],
+  requests: [],
 })
 
 export function memoryStore(data: Data = emptyData()): Store {
   return { data, commit() {} }
-}
-
-/** Memory, written through to a JSON file after every change. */
-export function fileStore(path: string, fallback: () => Data = emptyData): Store {
-  const data: Data = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : fallback()
-  const store: Store = {
-    data,
-    commit() {
-      mkdirSync(dirname(path), { recursive: true })
-      writeFileSync(`${path}.tmp`, JSON.stringify(data))
-      renameSync(`${path}.tmp`, path)
-    },
-  }
-  if (!existsSync(path)) store.commit()
-  return store
 }

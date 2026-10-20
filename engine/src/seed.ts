@@ -6,7 +6,11 @@
  * tools; Jo runs the office; Kofi, Ryan and Tom are in the field.
  */
 import * as mock from '../../core/src/data/mock.ts'
+import type { Platform } from './platform.ts'
 import { type Data, emptyData, type Role } from './store.ts'
+
+/** Local development only. */
+export const DEMO_PASSWORD = 'ardent-demo'
 
 export const DEMO_ORG = 'org_demo'
 
@@ -18,13 +22,13 @@ export const demoUsers: { id: string; email: string; name: string; role: Role; o
   { id: 'usr_tom', email: 'tom@demo.ardent.local', name: 'Tom Byrne', role: 'field', operatorId: 'opr_04' },
 ]
 
-export function demoData(): Data {
+export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {
   const orgId = DEMO_ORG
   const own = <T extends object>(rows: T[]) => structuredClone(rows).map((r) => ({ ...r, orgId }))
   const maxRef = (refs: string[]) => Math.max(...refs.map((r) => Number(r.replace(/\D/g, ''))))
   return {
     ...emptyData(),
-    users: demoUsers.map(({ id, email, name }) => ({ id, email, name })),
+    users: demoUsers.map(({ id, email, name }) => ({ id, email, name, passwordHash: platform.hashPassword(DEMO_PASSWORD) })),
     orgs: [{ id: orgId, name: 'Mercer Heating & Electrical', slug: 'mercer-heating', industry: 'trades', createdAt: '2026-10-01T00:00:00Z' }],
     memberships: demoUsers.map((u) => ({ orgId, userId: u.id, role: u.role })),
     operators: own(mock.operators).map((o) => ({ ...o, userId: demoUsers.find((u) => u.operatorId === o.id)?.id })),

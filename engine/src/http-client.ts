@@ -1,50 +1,121 @@
 /**
- * ArdentClient over HTTP: what Ardent Core and Ardent Field swap in for the
- * mock to talk to a running engine. Errors come back as EngineError with the
- * engine's code (forbidden, not_found ...).
+ * ArdentClient over HTTP: what Ardent Core and Ardent Field use to talk to a
+ * running engine. Errors come back as EngineError with the engine's code
+ * (unauthenticated, forbidden, not_found, invalid).
+ *
+ * Every change carries a request id. If the app sends the same change again
+ * (a retry after losing signal, or the offline queue replaying it), the
+ * engine returns the first answer instead of applying it twice.
  */
 import type { ArdentClient } from '../../core/src/data/client.ts'
 import { EngineError, type ErrorCode } from './engine.ts'
 
-export interface HttpClientOptions {
+export interface Connection {
   /** e.g. http://127.0.0.1:8787 */
   baseUrl: string
-  /** Who is signed in. Replaced by a sign-in token once sign-in lands. */
-  email: string
+  /** The session token from signIn(). A function so a fresh one is read on every call. */
+  token: string | (() => string | undefined)
   /** Which firm; defaults to the person's first. */
   orgId?: string
   fetch?: typeof fetch
 }
 
-const METHODS = {
-  jobs: ['list', 'get', 'create', 'setStatus', 'addLine', 'removeLine', 'setCheck'],
-  customers: ['list', 'get'],
-  sites: ['get'],
+export const METHODS = {
+  jobs: ['list', 'get', 'create', 'update', 'setStatus', 'addLine', 'removeLine', 'setCheck'],
+  customers: ['list', 'get', 'create', 'update'],
+  sites: ['list', 'get', 'create'],
   operators: ['list', 'me', 'setState'],
   time: ['start', 'stop', 'forJob'],
   photos: ['add', 'forJob'],
   notes: ['add', 'forJob'],
-  quotes: ['forJob'],
+  quotes: ['list', 'forJob', 'create', 'send', 'respond'],
+  certificates: ['list'],
+  attention: ['list'],
   signatures: ['add', 'forJob'],
-  invoices: ['forJob', 'create', 'send', 'recordPayment'],
+  invoices: ['list', 'forJob', 'create', 'send', 'recordPayment'],
 } as const satisfies { [K in keyof ArdentClient]: readonly (keyof ArdentClient[K])[] }
 
-export function createHttpClient(opts: HttpClientOptions): ArdentClient {
-  const doFetch = opts.fetch ?? fetch
-  const headers: Record<string, string> = { 'content-type': 'application/json', 'x-ardent-user': opts.email }
-  if (opts.orgId) headers['x-ardent-org'] = opts.orgId
+// Fails to compile if the client gains a method this list doesn't carry.
+type Missing = { [K in keyof ArdentClient]: Exclude<keyof ArdentClient[K], (typeof METHODS)[K][number]> }[keyof ArdentClient]
+const _complete: [Missing] extends [never] ? true : Missing = true
+void _complete
 
-  async function call(method: string, args: unknown[]) {
-    const res = await doFetch(`${opts.baseUrl}/api/rpc`, { method: 'POST', headers, body: JSON.stringify({ method, args }) })
-    const body = (await res.json()) as { result?: unknown; error?: { code: ErrorCode; message: string } }
-    if (!res.ok || body.error) throw new EngineError(body.error?.code ?? 'invalid', body.error?.message ?? `HTTP ${res.status}`)
-    return body.result ?? undefined
-  }
+/** Reads change nothing, so they never need a request id. */
+export const isRead = (method: string) => /\.(list|get|forJob|me)$/.test(method)
 
+const newRequestId = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).replace(/-/g, '')
+
+async function parse(res: Response) {
+  const body = (await res.json().catch(() => ({}))) as { result?: unknown; error?: { code: ErrorCode; message: string } }
+  if (!res.ok || body.error) throw new EngineError(body.error?.code ?? 'invalid', body.error?.message ?? `HTTP ${res.status}`)
+  return body
+}
+
+function headers(conn: Connection, json = true) {
+  const token = typeof conn.token === 'function' ? conn.token() : conn.token
+  const h: Record<string, string> = {}
+  if (json) h['content-type'] = 'application/json'
+  if (token) h.authorization = `Bearer ${token}`
+  if (conn.orgId) h['x-ardent-org'] = conn.orgId
+  return h
+}
+
+/** One call to the engine. Pass requestId to make a replay safe; changes get one automatically. */
+export async function callEngine(conn: Connection, method: string, args: unknown[], requestId?: string) {
+  const id = requestId ?? (isRead(method) ? undefined : newRequestId())
+  const res = await (conn.fetch ?? fetch)(`${conn.baseUrl}/api/rpc`, {
+    method: 'POST',
+    headers: headers(conn),
+    body: JSON.stringify({ method, args, requestId: id }),
+  })
+  return (await parse(res)).result ?? undefined
+}
+
+export function createHttpClient(conn: Connection): ArdentClient {
   return Object.fromEntries(
     Object.entries(METHODS).map(([area, names]) => [
       area,
-      Object.fromEntries(names.map((name) => [name, (...args: unknown[]) => call(`${area}.${name}`, args)])),
+      Object.fromEntries(names.map((name) => [name, (...args: unknown[]) => callEngine(conn, `${area}.${name}`, args)])),
     ]),
   ) as unknown as ArdentClient
+}
+
+export interface SignedIn {
+  token: string
+  user: { id: string; email: string; name: string }
+  organisations: { id: string; name: string; slug: string; industry: string; role: 'owner' | 'office' | 'field' }[]
+}
+
+export async function signIn(baseUrl: string, email: string, password: string, doFetch: typeof fetch = fetch): Promise<SignedIn> {
+  const res = await doFetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  return (await parse(res)) as unknown as SignedIn
+}
+
+export async function signOut(conn: Connection) {
+  await (conn.fetch ?? fetch)(`${conn.baseUrl}/api/auth/logout`, { method: 'POST', headers: headers(conn) })
+}
+
+/** Firm admin calls (members, invites, crew), owner and office only. */
+export function adminCall<T = unknown>(conn: Connection, name: string, ...args: unknown[]) {
+  return callEngine(conn, `admin.${name}`, args) as Promise<T>
+}
+
+/** Upload the image for a photo record made with photos.add. */
+export async function uploadPhoto(conn: Connection, photoId: string, body: Blob | ArrayBuffer | Uint8Array, contentType: string) {
+  const res = await (conn.fetch ?? fetch)(`${conn.baseUrl}/api/photos/${encodeURIComponent(photoId)}/file`, {
+    method: 'PUT',
+    headers: { ...headers(conn, false), 'content-type': contentType },
+    body: body as RequestInit['body'],
+  })
+  return (await parse(res)).result as { uri: string }
+}
+
+/** A link that shows a photo for the next hour, usable in an <img>. */
+export async function photoLink(conn: Connection, photoId: string) {
+  const path = (await adminCall<string>(conn, 'photoLink', photoId)) ?? ''
+  return `${conn.baseUrl}${path}`
 }

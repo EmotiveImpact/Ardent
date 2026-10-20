@@ -21,9 +21,9 @@
  * Adapted from Haumea's tenancy model (an organisation on every record, the
  * rules checked in one place) and its customer, site and job records.
  */
-import { randomUUID } from 'node:crypto'
 import type { ArdentClient } from '../../core/src/data/client.ts'
-import type { ComplianceCheck, Invoice, Job, JobStatus, LineItem, Operator } from '../../core/src/data/model.ts'
+import type { ComplianceCheck, Customer, Exception, Invoice, Job, JobStatus, LineItem, Operator, Quote } from '../../core/src/data/model.ts'
+import type { Platform } from './platform.ts'
 import type { Data, Membership, Organisation, Owned, Role, Store, User } from './store.ts'
 
 export type ErrorCode = 'unauthenticated' | 'forbidden' | 'not_found' | 'invalid'
@@ -47,7 +47,12 @@ export interface Session {
   orgId: string
 }
 
-export const newId = (prefix: string) => `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 20)}`
+export const newId = (prefix: string) => `${prefix}_${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`
+
+function checkPassword(password: string) {
+  if (password.length < 10) return 'use at least 10 characters'
+  return undefined
+}
 
 /** Statuses an engineer may move their own job to. */
 const FIELD_STATUSES: JobStatus[] = ['booked', 'en_route', 'on_site', 'paused', 'complete']
@@ -65,6 +70,18 @@ const CHECK_LABEL: Record<ComplianceCheck['key'], string> = {
 }
 
 const DAY = 24 * 60 * 60 * 1000
+const CUSTOMER_KINDS: Customer['kind'][] = ['homeowner', 'landlord', 'letting_agent', 'business']
+const OWING: Invoice['status'][] = ['sent', 'part_paid', 'overdue']
+/** Certificates due within this many days show as due soon. */
+const DUE_SOON_DAYS = 30
+
+/** Worked out from the dates when read, so it never goes stale. */
+export function certificateState(c: { issued?: string; expires: string }, today = new Date().toISOString().slice(0, 10)) {
+  if (!c.issued) return 'draft' as const
+  if (c.expires < today) return 'overdue' as const
+  const soon = new Date(Date.parse(today) + DUE_SOON_DAYS * DAY).toISOString().slice(0, 10)
+  return c.expires <= soon ? ('due_soon' as const) : ('valid' as const)
+}
 
 /** Net, VAT and gross in pence. VAT is rounded once on the net, as on a UK invoice. */
 export function invoiceTotals(inv: Pick<Invoice, 'lines' | 'vatRate'>) {
@@ -79,7 +96,8 @@ function out<T extends object>(row: T): Omit<T, 'orgId' | 'userId'> {
   return rest
 }
 
-export function createEngine(store: Store) {
+export function createEngine(store: Store, platform: Platform) {
+  const { hashPassword, verifyPassword, newToken, hashToken } = platform
   const db: Data = store.data
 
   /** Next human number for a firm: J-1001, INV-1001. New firms start at 1001. */
@@ -89,14 +107,103 @@ export function createEngine(store: Store) {
     return db.counters[key]
   }
 
-  function addUser(input: { email: string; name: string; id?: string }): User {
+  const publicUser = ({ passwordHash: _p, ...u }: User) => ({ ...u })
+
+  function addUser(input: { email: string; name: string; password?: string; id?: string }) {
     const email = input.email.trim().toLowerCase()
-    if (!email.includes('@')) throw invalid('a valid email is needed')
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw invalid('a valid email is needed')
+    if (!input.name?.trim()) throw invalid('a name is needed')
     if (db.users.some((u) => u.email === email)) throw invalid('that email is already in use')
-    const user: User = { id: input.id ?? newId('usr'), email, name: input.name }
+    if (input.password !== undefined) {
+      const weak = checkPassword(input.password)
+      if (weak) throw invalid(weak)
+    }
+    const user: User = {
+      id: input.id ?? newId('usr'),
+      email,
+      name: input.name.trim(),
+      passwordHash: input.password === undefined ? undefined : hashPassword(input.password),
+    }
     db.users.push(user)
     store.commit()
-    return { ...user }
+    return publicUser(user)
+  }
+
+  // ---------- sign-in ----------
+
+  const SESSION_DAYS = 30
+  const failures = new Map<string, number[]>()
+
+  /** Email and password in, session token out. Ten wrong passwords in 15 minutes locks the email for a while. */
+  function login(emailIn: string, password: string) {
+    const email = String(emailIn ?? '').trim().toLowerCase()
+    const now = Date.now()
+    const recent = (failures.get(email) ?? []).filter((t) => now - t < 15 * 60 * 1000)
+    if (recent.length >= 10) throw new EngineError('unauthenticated', 'too many attempts, try again in 15 minutes')
+    const user = db.users.find((u) => u.email === email)
+    if (!verifyPassword(String(password ?? ''), user?.passwordHash) || !user) {
+      failures.set(email, [...recent, now])
+      throw new EngineError('unauthenticated', 'email or password is wrong')
+    }
+    failures.delete(email)
+    const token = newToken()
+    db.sessions = db.sessions.filter((x) => x.expiresAt > new Date(now).toISOString())
+    db.sessions.push({
+      tokenHash: hashToken(token),
+      userId: user.id,
+      createdAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + SESSION_DAYS * DAY).toISOString(),
+    })
+    store.commit()
+    return { token, user: publicUser(user), organisations: organisationsFor(user.id) }
+  }
+
+  function logout(token: string) {
+    const h = hashToken(token)
+    db.sessions = db.sessions.filter((x) => x.tokenHash !== h)
+    store.commit()
+  }
+
+  /** Who a session token belongs to, if it is still valid. */
+  function userForToken(token: string | undefined) {
+    if (!token) return undefined
+    const h = hashToken(token)
+    const session = db.sessions.find((x) => x.tokenHash === h && x.expiresAt > new Date().toISOString())
+    const user = session && db.users.find((u) => u.id === session.userId)
+    return user ? publicUser(user) : undefined
+  }
+
+  /** A new person setting up their firm on Ardent. */
+  function signUp(input: { email: string; password: string; name: string; firm: string; slug: string }) {
+    if (input.password === undefined) throw invalid('a password is needed')
+    const user = addUser({ email: input.email, name: input.name, password: input.password })
+    createOrganisation(user.id, { name: input.firm, slug: input.slug })
+    return login(user.email, input.password)
+  }
+
+  // ---------- signed photo links ----------
+
+  db.secret ??= platform.randomSecret()
+  const sign = (text: string) => platform.sign(db.secret!, text)
+  /** The photo a signed link points at, if the link is genuine and in date. */
+  function photoForLink(photoId: string, exp: string, sig: string) {
+    if (!(Number(exp) > Date.now())) return undefined
+    if (!platform.same(sign(`${photoId}:${exp}`), String(sig))) return undefined
+    const p = db.photos.find((x) => x.id === photoId)
+    return p?.uri.startsWith('ardent:') ? { orgId: p.orgId, id: p.id } : undefined
+  }
+
+  // ---------- retries ----------
+
+  const REQUEST_MEMORY = 5000
+  /** The answer already given for this request, if the app is retrying one the engine applied. */
+  function recall(key: string) {
+    return db.requests.find((r) => r.key === key)
+  }
+  function remember(key: string, result: unknown) {
+    db.requests.push({ key, at: new Date().toISOString(), result })
+    if (db.requests.length > REQUEST_MEMORY) db.requests.splice(0, db.requests.length - REQUEST_MEMORY)
+    store.commit()
   }
 
   /** Sign-up: a new firm, with the person creating it as its owner. */
@@ -227,6 +334,18 @@ export function createEngine(store: Store) {
             db.jobs.push(job)
             return job
           }).then((job) => done(out(job))),
+        update: (id, patch) =>
+          run(() => {
+            requireOffice('change bookings')
+            const job = findJob(id)
+            const allowed = ['title', 'trade', 'priority', 'start', 'end', 'notes', 'operatorIds'] as const
+            for (const key of Object.keys(patch)) if (!(allowed as readonly string[]).includes(key)) throw invalid(`can't change ${key}`)
+            for (const opId of patch.operatorIds ?? []) if (!db.operators.some((o) => o.id === opId && o.orgId === orgId)) throw notFound('operator')
+            const next = { ...job, ...structuredClone(patch) }
+            if (next.end < next.start) throw invalid('job ends before it starts')
+            Object.assign(job, next)
+            return job
+          }).then((job) => done(out(job))),
         setStatus: (id, status) =>
           run(() => {
             const job = findJob(id)
@@ -265,21 +384,95 @@ export function createEngine(store: Store) {
           run(() =>
             db.customers
               .filter((c) => c.orgId === orgId && (isOffice() || fieldSees((j) => j.customerId === c.id)))
-              .map((c) => out(c)),
+              .map(withBalance),
           ),
         get: (id) =>
           run(() => {
             const c = db.customers.find((x) => x.id === id && x.orgId === orgId)
-            return c && (isOffice() || fieldSees((j) => j.customerId === c.id)) ? out(c) : undefined
+            return c && (isOffice() || fieldSees((j) => j.customerId === c.id)) ? withBalance(c) : undefined
           }),
+        create: (input) =>
+          run(() => {
+            requireOffice('add customers')
+            if (!input.name?.trim()) throw invalid('the customer needs a name')
+            if (!CUSTOMER_KINDS.includes(input.kind)) throw invalid(`unknown customer kind ${input.kind}`)
+            const c: Owned<Customer> = { ...structuredClone(input), name: input.name.trim(), id: newId('cus'), balance: 0, orgId }
+            db.customers.push(c)
+            return c
+          }).then((c) => done(withBalance(c))),
+        update: (id, patch) =>
+          run(() => {
+            requireOffice('change customers')
+            const c = db.customers.find((x) => x.id === id && x.orgId === orgId)
+            if (!c) throw notFound('customer')
+            const { id: _i, balance: _b, orgId: _o, ...rest } = structuredClone(patch) as Partial<Owned<Customer>>
+            if (rest.name !== undefined && !rest.name.trim()) throw invalid('the customer needs a name')
+            if (rest.kind !== undefined && !CUSTOMER_KINDS.includes(rest.kind)) throw invalid(`unknown customer kind ${rest.kind}`)
+            Object.assign(c, rest)
+            return c
+          }).then((c) => done(withBalance(c))),
       },
 
       sites: {
+        list: (f = {}) =>
+          run(() =>
+            db.sites
+              .filter((s) => s.orgId === orgId && (!f.customerId || s.customerId === f.customerId) && (isOffice() || fieldSees((j) => j.siteId === s.id)))
+              .map((s) => out(s)),
+          ),
         get: (id) =>
           run(() => {
             const s = db.sites.find((x) => x.id === id && x.orgId === orgId)
             return s && (isOffice() || fieldSees((j) => j.siteId === s.id)) ? out(s) : undefined
           }),
+        create: (input) =>
+          run(() => {
+            requireOffice('add sites')
+            if (!db.customers.some((c) => c.id === input.customerId && c.orgId === orgId)) throw notFound('customer')
+            if (!input.line1?.trim() || !input.postcode?.trim()) throw invalid('a site needs an address and postcode')
+            const site = { ...structuredClone(input), postcode: input.postcode.trim().toUpperCase(), id: newId('sit'), orgId }
+            db.sites.push(site)
+            return site
+          }).then((s) => done(out(s))),
+      },
+
+      attention: {
+        list: () =>
+          run(() => {
+            requireOffice('see the attention list')
+            const now = new Date()
+            const iso = now.toISOString()
+            const today = iso.slice(0, 10)
+            const soon = new Date(now.getTime() + DUE_SOON_DAYS * DAY).toISOString().slice(0, 10)
+            const items: Exception[] = []
+            const siteName = (id: string) => db.sites.find((s) => s.id === id)?.line1 ?? 'site'
+            for (const op of db.operators.filter((o) => o.orgId === orgId)) {
+              for (const r of op.registrations) {
+                if (r.expires < today) items.push({ id: `att_reg_${op.id}_${r.number}`, at: `${r.expires}T00:00:00Z`, who: op.name, rule: 'Registration expired', detail: `${r.body} ${r.number} lapsed ${r.expires}`, outcome: 'blocked' })
+                else if (r.expires <= soon) items.push({ id: `att_reg_${op.id}_${r.number}`, at: iso, who: op.name, rule: 'Registration expiring', detail: `${r.body} ${r.number} lapses ${r.expires}`, outcome: 'chasing' })
+              }
+              if (op.state === 'delayed') items.push({ id: `att_late_${op.id}`, at: iso, who: op.name, rule: 'Running late', detail: `${db.jobs.find((j) => j.id === op.currentJobId)?.ref ?? 'Next job'}${op.etaMinutes ? `, ETA +${op.etaMinutes} min` : ''}`, outcome: 'chasing' })
+            }
+            for (const c of db.certificates.filter((x) => x.orgId === orgId && certificateState(x, today) === 'overdue')) {
+              items.push({ id: `att_cert_${c.id}`, at: `${c.expires}T00:00:00Z`, who: db.customers.find((x) => x.id === db.sites.find((s) => s.id === c.siteId)?.customerId)?.name ?? 'Customer', rule: `${c.kind} overdue`, detail: `${siteName(c.siteId)}, expired ${c.expires}`, outcome: 'blocked' })
+            }
+            for (const inv of db.invoices.filter((i) => i.orgId === orgId && OWING.includes(i.status) && i.dueAt && i.dueAt < iso)) {
+              items.push({ id: `att_inv_${inv.id}`, at: inv.dueAt!, who: db.customers.find((x) => x.id === inv.customerId)?.name ?? 'Customer', rule: 'Invoice overdue', detail: `${inv.ref}, due ${inv.dueAt!.slice(0, 10)}`, outcome: 'chasing' })
+            }
+            for (const j of db.jobs.filter((x) => x.orgId === orgId && x.status === 'booked' && x.start < iso && x.end > iso)) {
+              items.push({ id: `att_job_${j.id}`, at: j.start, who: j.ref, rule: 'Not started', detail: `${j.title}, booked for ${j.start.slice(11, 16)}`, outcome: 'chasing' })
+            }
+            return items.sort((a, b) => b.at.localeCompare(a.at))
+          }),
+      },
+
+      certificates: {
+        list: (f = {}) =>
+          run(() =>
+            db.certificates
+              .filter((c) => c.orgId === orgId && (!f.siteId || c.siteId === f.siteId) && (isOffice() || fieldSees((j) => j.siteId === c.siteId)))
+              .map((c) => ({ ...out(c), state: certificateState(c) })),
+          ),
       },
 
       operators: {
@@ -349,7 +542,50 @@ export function createEngine(store: Store) {
       },
 
       quotes: {
+        list: () => run(() => (requireOffice('see every quote'), db.quotes.filter((q) => q.orgId === orgId).map((q) => out(q)))),
         forJob: (jobId) => run(() => (findJob(jobId), db.quotes.filter((q) => q.jobId === jobId).map((q) => out(q)))),
+        create: (jobId, opts = {}) =>
+          run(() => {
+            requireOffice('write quotes')
+            const job = findJob(jobId)
+            const lines = opts.lines ? opts.lines.map((l) => ({ ...l, id: newId('li') })) : structuredClone(job.lines)
+            const q: Owned<Quote> = {
+              id: newId('quo'),
+              ref: `Q-${nextNumber(orgId, 'quote')}`,
+              jobId,
+              customerId: job.customerId,
+              lines,
+              status: 'draft',
+              validUntil: opts.validUntil ?? new Date(Date.now() + 30 * DAY).toISOString().slice(0, 10),
+              orgId,
+            }
+            db.quotes.push(q)
+            return q
+          }).then((q) => done(out(q))),
+        send: (id) =>
+          run(() => {
+            requireOffice('send quotes')
+            const q = findQuote(id)
+            if (q.status !== 'draft' && q.status !== 'sent') throw invalid(`quote is ${q.status}`)
+            q.status = 'sent'
+            q.sentAt = new Date().toISOString()
+            const job = findJob(q.jobId)
+            if (job.status === 'enquiry') job.status = 'quoted'
+            return q
+          }).then((q) => done(out(q))),
+        respond: (id, answer) =>
+          run(() => {
+            requireOffice('record a customer’s answer')
+            const q = findQuote(id)
+            if (q.status !== 'sent') throw invalid(`quote is ${q.status}`)
+            q.status = answer
+            const job = findJob(q.jobId)
+            if (answer === 'accepted' && (job.status === 'enquiry' || job.status === 'quoted')) {
+              job.status = 'booked'
+              job.lines = structuredClone(q.lines)
+            }
+            return q
+          }).then((q) => done(out(q))),
       },
 
       signatures: {
@@ -366,6 +602,7 @@ export function createEngine(store: Store) {
       // Engineers invoice and take payment on the doorstep, so Field can do
       // these on their own jobs. The job's status follows the invoice.
       invoices: {
+        list: () => run(() => (requireOffice('see every invoice'), db.invoices.filter((i) => i.orgId === orgId).map((i) => out(i)))),
         forJob: (jobId) => run(() => (findJob(jobId), db.invoices.filter((i) => i.jobId === jobId).map((i) => out(i)))),
         create: (jobId, opts = {}) =>
           run(() => {
@@ -411,6 +648,21 @@ export function createEngine(store: Store) {
       },
     }
 
+    function findQuote(id: string) {
+      const q = db.quotes.find((x) => x.id === id && x.orgId === orgId)
+      if (!q) throw notFound('quote')
+      findJob(q.jobId)
+      return q
+    }
+
+    /** What a customer owes: everything sent and not yet paid. */
+    function withBalance(c: Owned<Customer>): Customer {
+      const balance = db.invoices
+        .filter((i) => i.orgId === orgId && i.customerId === c.id && OWING.includes(i.status))
+        .reduce((sum, i) => sum + invoiceTotals(i).total - i.paidAmount, 0)
+      return { ...out(c), balance }
+    }
+
     function findInvoice(id: string) {
       const inv = db.invoices.find((i) => i.id === id && i.orgId === orgId)
       if (!inv) throw notFound('invoice')
@@ -444,12 +696,64 @@ export function createEngine(store: Store) {
           store.commit()
         }),
       role: () => run(() => membership().role),
+      /**
+       * Give someone a sign-in for this firm. Owners only. A new person gets
+       * the temporary password given here; someone who already has an Ardent
+       * sign-in (another firm) keeps their own.
+       */
+      invite: (input: { email: string; name: string; role: Role; password: string; operatorId?: string }) =>
+        run(() => {
+          if (!isOwner()) throw forbidden('only the owner adds people')
+          if (!['owner', 'office', 'field'].includes(input.role)) throw invalid(`unknown role ${input.role}`)
+          const email = String(input.email ?? '').trim().toLowerCase()
+          const existing = db.users.find((u) => u.email === email)
+          const user = existing ? publicUser(existing) : addUser({ email, name: input.name, password: input.password })
+          if (db.memberships.some((m) => m.orgId === orgId && m.userId === user.id)) throw invalid('already in the firm')
+          db.memberships.push({ orgId, userId: user.id, role: input.role })
+          if (input.operatorId) {
+            const op = db.operators.find((o) => o.id === input.operatorId && o.orgId === orgId)
+            if (!op) throw notFound('operator')
+            op.userId = user.id
+          }
+          store.commit()
+          return user
+        }),
+      /** Add someone to the crew list (they can be given a sign-in later). */
+      addOperator: (input: Omit<Operator, 'id' | 'state' | 'currentJobId' | 'etaMinutes'>) =>
+        run(() => {
+          requireOffice('add crew')
+          if (!input.name?.trim()) throw invalid('a name is needed')
+          const op = { ...structuredClone(input), id: newId('opr'), state: 'off_shift' as const, orgId }
+          db.operators.push(op)
+          store.commit()
+          return out(op) as Operator
+        }),
+      /** Record that a photo's image has landed; returns where the file belongs. */
+      photoUploaded: (photoId: string, ext: string) =>
+        run(() => {
+          const p = db.photos.find((x) => x.id === photoId && x.orgId === orgId)
+          if (!p) throw notFound('photo')
+          const job = findJob(p.jobId)
+          if (!isOffice() && (p.operatorId !== myOperator()?.id || !assigned(job))) throw forbidden("can't change someone else's photo")
+          p.uri = `ardent:photo/${p.id}`
+          store.commit()
+          return { file: `${orgId}/${p.id}.${ext}`, uri: p.uri }
+        }),
+      /** A link to a photo's image that works for an hour, for showing it on screen. */
+      photoLink: (photoId: string) =>
+        run(() => {
+          const p = db.photos.find((x) => x.id === photoId && x.orgId === orgId)
+          if (!p) throw notFound('photo')
+          findJob(p.jobId)
+          const exp = Date.now() + 60 * 60 * 1000
+          return `/files/photos/${p.id}?exp=${exp}&sig=${sign(`${p.id}:${exp}`)}`
+        }),
     }
 
     return { client, admin }
   }
 
-  return { addUser, createOrganisation, organisationsFor, as, data: db }
+  return { addUser, createOrganisation, organisationsFor, signUp, login, logout, userForToken, recall, remember, photoForLink, as, data: db }
 }
 
 export type Engine = ReturnType<typeof createEngine>
