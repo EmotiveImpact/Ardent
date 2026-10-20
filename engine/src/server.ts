@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url'
 import { createEngine, type Engine, EngineError } from './engine.ts'
 import { isRead } from './http-client.ts'
 import { nodePlatform } from './platform-node.ts'
-import { demoData } from './seed.ts'
+import { demoData, shiftDemo } from './seed.ts'
 import { fileStore } from './store-file.ts'
 
 const STATUS: Record<EngineError['code'], number> = { unauthenticated: 401, forbidden: 403, not_found: 404, invalid: 400 }
@@ -178,7 +178,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const host = process.env.HOST ?? (open ? '0.0.0.0' : '127.0.0.1')
   const port = Number(process.env.PORT ?? 8787)
   const dataDir = process.env.ARDENT_DATA ?? fileURLToPath(new URL('../.data', import.meta.url))
-  const engine = createEngine(fileStore(join(dataDir, 'ardent.json'), () => demoData(nodePlatform)), nodePlatform)
+  // A fresh data file opens on the demo firm, with its busy day moved to today (UK).
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const engine = createEngine(fileStore(join(dataDir, 'ardent.json'), () => shiftDemo(demoData(nodePlatform), today)), nodePlatform)
   const allowOrigin = open ? () => true : undefined
   createServer(engine, { filesDir: join(dataDir, 'photos'), allowOrigin }).listen(port, host, () => {
     console.log(`Ardent engine on http://${host}:${port}  (data: ${dataDir})`)

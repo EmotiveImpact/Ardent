@@ -21,8 +21,13 @@ npm test        # rules, tenancy and a job end to end, over HTTP too
 npm start       # http://127.0.0.1:8787, data in engine/.data/ardent.json
 ```
 
-It opens on the Manchester demo firm from Core's mock data. Delete
-`.data/ardent.json` to start fresh.
+It opens on the Manchester demo firm from Core's mock data, with its busy
+day moved to today. Delete `.data/ardent.json` to start fresh.
+
+To run the engine and Ardent Core together, Core reading the engine, use
+`scripts/dev.sh` from the repo root. Without an engine, Core and Field run
+this same engine inside the app on the demo firm (`src/connect.ts`), which is
+what the published prototypes do.
 
 ## What's in it
 
@@ -31,7 +36,9 @@ It opens on the Manchester demo firm from Core's mock data. Delete
 | `src/engine.ts` | Records and rules. `engine.as({ userId, orgId })` gives that person the same `ArdentClient` both apps already use, plus firm admin |
 | `src/store.ts` | Where records are kept: memory, or memory saved to a file |
 | `src/server.ts` | The engine over HTTP for Core and Field: `POST /api/rpc`, `GET /api/me` |
-| `src/http-client.ts` | `ArdentClient` over HTTP, for the apps to swap in for the mock |
+| `src/http-client.ts` | `ArdentClient` over HTTP |
+| `src/connect.ts` | The one connection both apps use: a running engine, or the engine in the app on the demo firm |
+| `kit/` | The design kit both apps share: colours, type, state labels and tones, number and time formats. `npm run kit` writes `kit/ardent.css` |
 | `src/seed.ts` | The demo firm, built from `core/src/data/mock.ts` |
 
 The records are the shapes in `core/src/data/model.ts`, which stays the
@@ -53,10 +60,11 @@ and history stay.
 
 ## Sign-in
 
-Not built yet. For now the caller names themselves with an `x-ardent-user`
-header, which is only safe on your own machine, so the server only listens on
-localhost. Demo sign-ins: `dan@` (owner), `jo@` (office), `kofi@`, `ryan@`,
-`tom@demo.ardent.local` (field).
+Email and password, checked against a salted hash. Signing in gives a token
+that lasts 30 days; the apps send it as `Authorization: Bearer`. Demo
+sign-ins, all with the password `ardent-demo`: `dan@` (owner), `jo@`
+(office), `kofi@`, `ryan@`, `tom@demo.ardent.local` (field). The server
+listens on this machine only unless `ARDENT_PUBLIC=1`, and has no HTTPS yet.
 
 ## Where it came from
 
@@ -65,8 +73,7 @@ customer, site and job records are adapted from Haumea.
 
 ## Next
 
-1. Sign-in, then Core and Field switched from mock data to this engine.
-2. Field offline: Haumea's save queue, and photo upload to Ardent storage.
-3. One real job end to end, with no signal on site.
-4. Customers, sites and quotes created from Core (the shared client only reads them today).
-5. A real database (Neon) and hosting, when Edem says go.
+1. Field offline: Haumea's save queue and photo upload, tested with no signal.
+2. One real job end to end across both apps.
+3. Sending quotes and invoices for real (email and a card payment link).
+4. A real database (Neon) and hosting, when Edem says go.
