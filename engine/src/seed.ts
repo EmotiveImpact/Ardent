@@ -44,3 +44,58 @@ export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {
     },
   }
 }
+
+/** The day the demo firm's records were written around. */
+export const DEMO_DAY = '2026-10-18'
+
+const DAY_MS = 86_400_000
+const ZONE = 'Europe/London'
+
+/** UK wall-clock parts of an instant. */
+function londonParts(ms: number) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', { timeZone: ZONE, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      .formatToParts(ms)
+      .map((p) => [p.type, Number(p.value)]),
+  )
+  return parts as Record<'year' | 'month' | 'day' | 'hour' | 'minute' | 'second', number>
+}
+
+/** The instant a UK wall-clock time falls on. */
+function fromLondon(y: number, mo: number, d: number, h: number, mi: number, s: number) {
+  const wall = Date.UTC(y, mo - 1, d, h, mi, s)
+  let at = wall
+  for (let i = 0; i < 2; i++) {
+    const p = londonParts(at)
+    at = wall - (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - at)
+  }
+  return at
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/
+const STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?Z$/
+
+/**
+ * Moves every date in the demo records by whole days so the demo's busy day
+ * lands on `today`, keeping UK wall-clock times (a 09:30 visit stays 09:30
+ * either side of the clocks changing). Used by the in-app demo so the
+ * prototypes always open on a live-looking day.
+ */
+export function shiftDemo<T>(value: T, today: string, from = DEMO_DAY): T {
+  const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS)
+  if (!days) return value
+  const move = (v: unknown): unknown => {
+    if (typeof v === 'string') {
+      if (DATE.test(v)) return new Date(Date.parse(`${v}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10)
+      if (STAMP.test(v)) {
+        const p = londonParts(Date.parse(v))
+        return new Date(fromLondon(p.year, p.month, p.day + days, p.hour, p.minute, p.second)).toISOString().replace('.000Z', 'Z')
+      }
+      return v
+    }
+    if (Array.isArray(v)) return v.map(move)
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, move(x)]))
+    return v
+  }
+  return move(value) as T
+}

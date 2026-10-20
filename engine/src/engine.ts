@@ -672,7 +672,17 @@ export function createEngine(store: Store, platform: Platform) {
 
     /** Firm admin, beyond what the shared client covers. */
     const admin = {
-      members: () => run(() => (membership(), db.memberships.filter((m) => m.orgId === orgId).map((m) => ({ ...m })))),
+      /** Everyone in the firm with their role and name. */
+      members: () =>
+        run(() => {
+          membership()
+          return db.memberships
+            .filter((m) => m.orgId === orgId)
+            .map((m) => {
+              const u = db.users.find((x) => x.id === m.userId)
+              return { ...m, name: u?.name ?? '', email: u?.email ?? '', operatorId: db.operators.find((o) => o.orgId === orgId && o.userId === m.userId)?.id }
+            })
+        }),
       /** Owners add people, change roles and remove members, but never themselves. */
       setRole: (memberUserId: string, role: Role | null) =>
         run(() => {
