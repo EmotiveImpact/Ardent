@@ -1,0 +1,144 @@
+{
+  "model": "gpt-image-1",
+  "style": "Moody editorial documentary photography. Desaturated cool palette with deep blacks, muted steel greys and a single warm practical light source. Soft cinematic falloff, slight 35mm film grain, shallow haze. Photorealistic, shot on a full-frame camera. No text, no lettering, no logos, no watermarks, no brand names on clothing or vans.",
+  "images": [
+    {
+      "id": "hero",
+      "file": "hero.jpg",
+      "size": "1536x1024",
+      "prompt": "Wide interior of a trade merchant warehouse at night, tall steel racking stacked with cable drums, copper pipe bundles, boxed boilers and radiators. A single engineer in dark workwear walks away from camera down the central aisle, lit by a row of cold overhead lights fading into darkness. Strong one-point perspective, lots of negative space in the lower left for a headline."
+    },
+    {
+      "id": "aerial",
+      "file": "aerial.jpg",
+      "size": "1536x1024",
+      "prompt": "High aerial drone view looking straight down over a long curving row of British terraced houses at dusk, wet slate roofs, chimney stacks, one house wrapped in scaffolding with a white van parked outside. Muted violet and slate grey tones, street lamps just switching on. Calm, graphic composition."
+    },
+    {
+      "id": "service-jobs",
+      "file": "service-jobs.jpg",
+      "size": "1536x1024",
+      "prompt": "Inside the back of a tradesperson's van at night, neat steel shelving with labelled parts bins, coiled cable, fittings and power tools, lit only by a cool LED strip. Symmetrical framing looking in through the open rear doors, rain on the road behind."
+    },
+    {
+      "id": "service-certificates",
+      "file": "service-certificates.jpg",
+      "size": "1536x1024",
+      "prompt": "Close-up of an electrician's gloved hands testing a domestic consumer unit with a multifunction tester, probe leads clipped on, cover removed. Dim hallway, head torch light raking across the breakers, everything else falling into shadow."
+    },
+    {
+      "id": "service-quotes",
+      "file": "service-quotes.jpg",
+      "size": "1536x1024",
+      "prompt": "Aerial view at blue hour over a new-build housing site, rows of half-finished homes, timber frames and roof trusses, site floodlights casting pools of warm light on wet mud tracks. Muted teal and amber tones."
+    },
+    {
+      "id": "service-mobile",
+      "file": "service-mobile.jpg",
+      "size": "1536x1024",
+      "prompt": "A plumber kneeling in a dark basement plant room, phone in hand lighting up insulated pipework, pumps and a pressure vessel. The screen glow and a single caged bulkhead light are the only light sources. Looking down a narrow corridor of pipes."
+    },
+    {
+      "id": "trade-electricians",
+      "file": "trade-electricians.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of an electrician in dark workwear on a stepladder in an unfinished commercial ceiling void, pulling cable through cable tray, head torch beam cutting through dust, everything else in deep shadow. Figure small to medium in frame."
+    },
+    {
+      "id": "trade-gas",
+      "file": "trade-gas.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait-orientation shot of a heating engineer standing on a flat commercial rooftop beside large air-source heat pump units and ducting, late golden hour light low on the horizon, city skyline hazy behind. Figure small in frame, industrial and calm."
+    },
+    {
+      "id": "trade-plumbers",
+      "file": "trade-plumbers.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a plumber under a kitchen sink in a dim terraced house at night, torch clamped on the cabinet lighting chrome pipework and an isolation valve, hands with grips, wet floor reflecting the light."
+    },
+    {
+      "id": "trade-fire",
+      "file": "trade-fire.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a fire and security engineer testing a ceiling smoke detector with a test pole in a dark empty office corridor at night, a red fire alarm panel glowing softly on the wall, green exit sign light."
+    },
+    {
+      "id": "trade-hvac",
+      "file": "trade-hvac.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a refrigeration engineer connecting manifold gauges to a condensing unit in a dim commercial plant room, frost on copper lines, blue-white light from a single fluorescent tube, steam faintly visible."
+    },
+    {
+      "id": "trade-lifts",
+      "file": "trade-lifts.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot looking up a lift shaft from the pit, a lift engineer standing on top of the lift car far above with a work lamp, steel guide rails and cables converging into darkness."
+    },
+    {
+      "id": "trade-roofers",
+      "file": "trade-roofers.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a roofer kneeling on a pitched slate roof at dusk, laying new slates, chimney stacks and a row of rooftops fading into mist behind, last light low on the horizon. Figure small in frame."
+    },
+    {
+      "id": "trade-multi",
+      "file": "trade-multi.jpg",
+      "size": "1024x1536",
+      "prompt": "Portrait shot of a small crew of three tradespeople in dark workwear walking from a row of parked white vans towards a commercial building entrance at early morning, wet car park, sodium street light, mist. Figures seen from behind."
+    },
+    {
+      "id": "cta",
+      "file": "cta.jpg",
+      "size": "1536x1024",
+      "prompt": "Before dawn in a British trade depot yard: a line of plain white vans parked side by side with rear doors open, interior LED lights glowing warm, three engineers in dark workwear loading tools and cable reels, breath visible in the cold air, wet tarmac reflecting the van lights, a chain-link fence and sodium street lamp behind, deep blue pre-dawn sky. Very dark overall. Large calm empty area of dark sky across the upper centre for a headline."
+    },
+    {
+      "id": "news-regs",
+      "file": "news-regs.jpg",
+      "size": "1536x1024",
+      "prompt": "Close-up of new copper pipework and brass valves freshly soldered on a plain plastered wall, soft side light, cool grey tones, very clean and minimal."
+    },
+    {
+      "id": "news-guide",
+      "file": "news-guide.jpg",
+      "size": "1536x1024",
+      "prompt": "A scaffold-wrapped Victorian building in morning fog, debris netting softly lit, muted grey and sand tones, minimal and atmospheric."
+    },
+    {
+      "id": "news-event",
+      "file": "news-event.jpg",
+      "size": "1536x1024",
+      "prompt": "A quiet trade exhibition hall before opening, rows of simple stands with boilers, cable reels and heat pumps on display, high industrial ceiling with cool overhead light and a few people setting up in the distance."
+    },
+    {
+      "id": "news-product",
+      "file": "news-product.jpg",
+      "size": "1536x1024",
+      "prompt": "Over-the-shoulder close-up of a gas engineer in a dim kitchen holding a phone out to a customer for a signature, the screen glow lighting their hands, a wall-hung boiler softly lit behind. Faces out of frame."
+    },
+    {
+      "id": "news-show",
+      "file": "news-show.jpg",
+      "size": "1536x1024",
+      "prompt": "An empty dark exhibition stand at a British trade show the evening before opening, a blank wall screen glowing softly, two people setting up a demo table with a rugged tablet and a boiler display unit, industrial hall ceiling fading into darkness."
+    },
+    {
+      "id": "news-subbies",
+      "file": "news-subbies.jpg",
+      "size": "1536x1024",
+      "prompt": "Over the shoulder of a subcontractor on a building site at dusk, signing on a smartphone whose glow lights his gloved hand and hi-vis cuff, blurred scaffolding and floodlights behind."
+    },
+    {
+      "id": "news-callout",
+      "file": "news-callout.jpg",
+      "size": "1536x1024",
+      "prompt": "A plain white van on a wet terraced street at 2am, an engineer with a head torch and tool bag walking to a front door with the porch light on, rain in the street lamp light."
+    },
+    {
+      "id": "news-fgas",
+      "file": "news-fgas.jpg",
+      "size": "1536x1024",
+      "prompt": "A heat pump installer kneeling beside a new air-source heat pump at the side of a brick house on a frosty winter morning, connecting refrigerant gauges."
+    }
+  ]
+}

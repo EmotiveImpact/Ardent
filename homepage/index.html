@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en-GB" class="ardent">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ardent | Job management for the trades</title>
+  <meta name="description" content="Ardent runs your jobs, certificates, quotes and invoices from one place, with an engineer app that works with no signal.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Michroma&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="ardent.css">
+</head>
+<body>
+  <div class="mnav" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+    <div class="mnav__top">
+      <a class="logo" href="index.html">ARDENT<sup>&reg;</sup></a>
+      <button class="mnav__close" type="button" aria-label="Close menu"><span></span><span></span></button>
+    </div>
+    <ul class="mnav__links">
+      <li><a href="index.html" aria-current="page"><span class="mnav__num mono">01</span>Home</a></li>
+      <li><a href="product.html"><span class="mnav__num mono">02</span>Product</a></li>
+      <li><a href="index.html#trades"><span class="mnav__num mono">03</span>Trades</a></li>
+      <li><a href="engineers.html"><span class="mnav__num mono">04</span>Engineer app</a></li>
+      <li><a href="news.html"><span class="mnav__num mono">05</span>News</a></li>
+      <li><a href="pricing.html"><span class="mnav__num mono">06</span>Pricing</a></li>
+    </ul>
+    <div class="mnav__foot">
+      <a class="btn btn--light" href="pricing.html#demo">Book a demo</a>
+      <p class="mono">hello@ardent.example</p>
+    </div>
+  </div>
+
+
+  <!-- 1. Hero -->
+  <header class="hero">
+    <figure class="shot hero__bg" data-img="hero">
+      <img src="images/hero-poster.jpg" alt="An engineer walking down a dimly lit trade merchant warehouse aisle">
+      <video class="hero__video" autoplay muted loop playsinline preload="auto" poster="images/hero-poster.jpg" aria-hidden="true">
+        <source src="video/hero.webm" type="video/webm">
+        <source src="video/hero.mp4" type="video/mp4">
+      </video>
+    </figure>
+    <nav class="nav wrap" aria-label="Main">
+      <a class="logo" href="index.html">ARDENT<sup>&reg;</sup></a>
+      <ul class="nav__links">
+        <li><a href="product.html">Product</a></li>
+        <li><a href="index.html#trades">Trades</a></li>
+        <li><a href="engineers.html">Engineer app</a></li>
+        <li><a href="news.html">News</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+      </ul>
+      <a class="nav__cta" href="pricing.html#demo">Book a demo</a>
+      <button class="nav__toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu"><span></span><span></span></button>
+    </nav>
+    <div class="hero__foot wrap">
+      <div class="hud-row" aria-hidden="true">
+        <span class="hud-chip"><b class="hud-dot"></b>Live</span>
+        <span class="hud-chip"><span class="hud-k">Shift</span><span class="hud-v js-clock">05:47</span></span>
+        <span class="hud-chip"><span class="hud-k">Jobs</span><span class="hud-v">12</span></span>
+        <span class="hud-chip"><span class="hud-k">Crews</span><span class="hud-v">4</span></span>
+        <span class="hud-chip"><span class="hud-k">Overdue</span><span class="hud-v">0</span></span>
+      </div>
+      <p class="eyebrow mono">+ Built for the trades</p>
+      <div class="hero__row">
+        <h1>Run the job.<br>Prove the work.</h1>
+        <p class="hero__aside">Ardent brings jobs, certificates, quotes and invoices together, so engineers and the office are always working from the same page.</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- 2. Focus -->
+    <section id="focus" class="focus wrap">
+      <p class="eyebrow mono">+ Our focus</p>
+      <div class="focus__body">
+        <p class="lead">Ardent was shaped alongside electricians, gas engineers and building services contractors, with one aim: less time chasing paperwork and more time on the tools, with every certificate, photo and signature filed the moment the job is done.</p>
+        <div class="focus__cols">
+          <p>From the first call to the final invoice, every job carries its own record. Engineers see what they need on site, the office sees progress as it happens, and clients get proof without asking twice.</p>
+          <p>Compliance sits inside the workflow. Expired accreditations block dispatch, permits gate the start of work, and gas, electrical and fire certificates are issued from the job itself.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Role select (prototype, Ardent look only) -->
+    <section id="roles" class="roles" aria-labelledby="roles-title">
+      <div class="wrap">
+        <div class="roles__head">
+          <p class="roles__eyebrow">Choose your role</p>
+          <h2 id="roles-title">Three ways into the same job</h2>
+        </div>
+        <div class="roles__deck">
+          <article class="role is-active" data-role="owner">
+            <img src="images/role-owner.jpg" alt="An owner checking his phone at the back of a van in the depot before dawn">
+            <button class="role__hit" type="button" aria-expanded="true" aria-controls="role-owner-kit"><span class="visually-hidden">Show the owner loadout</span></button>
+            <div class="role__body">
+              <span class="role__num">01</span>
+              <h3 class="role__name">Owner</h3>
+              <p class="role__sub">See the whole operation</p>
+              <div class="role__kit" id="role-owner-kit">
+                <p class="role__label">Loadout</p>
+                <ul><li><span>Margin per job</span><span class="hud-v">Live</span></li><li><span>Compliance by site</span><span class="hud-v">Live</span></li><li><span>Cash in and out</span><span class="hud-v">Daily</span></li><li><span>Crew workload</span><span class="hud-v">Live</span></li></ul>
+                <a class="btn roles__go" href="product.html">See the owner view</a>
+              </div>
+            </div>
+          </article>
+          <article class="role" data-role="office">
+            <img src="images/role-office.jpg" alt="An office manager at her desk at dawn, vans parked outside" loading="lazy">
+            <button class="role__hit" type="button" aria-expanded="false" aria-controls="role-office-kit"><span class="visually-hidden">Show the office loadout</span></button>
+            <div class="role__body">
+              <span class="role__num">02</span>
+              <h3 class="role__name">Office</h3>
+              <p class="role__sub">Run the board</p>
+              <div class="role__kit" id="role-office-kit">
+                <p class="role__label">Loadout</p>
+                <ul><li><span>Dispatch board</span><span class="hud-v">Drag and drop</span></li><li><span>SLA timers</span><span class="hud-v">Every job</span></li><li><span>Quote to job</span><span class="hud-v">One click</span></li><li><span>Invoice on sign-off</span><span class="hud-v">Xero, QuickBooks</span></li></ul>
+                <a class="btn roles__go" href="product.html">See the office view</a>
+              </div>
+            </div>
+          </article>
+          <article class="role" data-role="engineer">
+            <img src="images/role-engineer.jpg" alt="An electrician testing a consumer unit by head torch" loading="lazy">
+            <button class="role__hit" type="button" aria-expanded="false" aria-controls="role-engineer-kit"><span class="visually-hidden">Show the engineer loadout</span></button>
+            <div class="role__body">
+              <span class="role__num">03</span>
+              <h3 class="role__name">Engineer</h3>
+              <p class="role__sub">The day in your pocket</p>
+              <div class="role__kit" id="role-engineer-kit">
+                <p class="role__label">Loadout</p>
+                <ul><li><span>Run sheet</span><span class="hud-v">Today</span></li><li><span>Works with no signal</span><span class="hud-v">Offline</span></li><li><span>Certificates on site</span><span class="hud-v">EICR, CP12</span></li><li><span>Sign-off and payment</span><span class="hud-v">On the spot</span></li></ul>
+                <a class="btn roles__go" href="engineers.html">See the engineer app</a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Full-bleed aerial with trade labels -->
+    <section class="bleed" aria-label="Trades Ardent supports">
+      <figure class="shot" data-img="aerial">
+          <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Sector</span><span>North London</span><span class="hud-v">51.55N 0.10W</span></figcaption>
+        <img src="images/aerial.jpg" alt="Aerial view of a row of terraced houses at dusk, one wrapped in scaffolding" loading="lazy">
+      </figure>
+      <ul class="bleed__labels mono">
+        <li>+ Electrical</li>
+        <li>+ Gas &amp; heating</li>
+        <li>+ Fire &amp; security</li>
+        <li>+ Plumbing</li>
+      </ul>
+    </section>
+
+    <!-- 4. Services list -->
+    <section id="services" class="services wrap">
+      <h2>Your kit</h2>
+      <ol class="svc">
+        <li class="svc__row">
+          <span class="svc__num mono">[01]</span>
+          <h3>Jobs &amp; scheduling</h3>
+          <p>Drag jobs onto the right engineer, with skills, travel and availability in view. Reactive call-outs and planned maintenance share one board, and SLA timers count down on every job.</p>
+          <figure class="shot" data-img="service-jobs">
+          <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Jobs</span><span>Board</span><span class="hud-v">SLA 02:14</span></figcaption><img src="images/service-jobs.jpg" alt="Neatly racked parts inside a van at night" loading="lazy"></figure>
+        </li>
+        <li class="svc__row">
+          <span class="svc__num mono">[02]</span>
+          <h3>Certificates &amp; compliance</h3>
+          <p>Issue EICRs, CP12s, fire alarm and emergency lighting certificates straight from the job. Renewals are tracked per property, and a live compliance score shows clients exactly where they stand.</p>
+          <figure class="shot" data-img="service-certificates">
+          <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Certs</span><span>EICR</span><span class="hud-v">C2 x1</span></figcaption><img src="images/service-certificates.jpg" alt="An electrician testing a consumer unit" loading="lazy"></figure>
+        </li>
+        <li class="svc__row">
+          <span class="svc__num mono">[03]</span>
+          <h3>Quotes &amp; invoicing</h3>
+          <p>Turn a site survey into a priced quote, convert it to a job when the client approves online, and invoice the moment work is signed off. Xero and QuickBooks sync, with every push visible and retryable.</p>
+          <figure class="shot" data-img="service-quotes">
+          <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Quotes</span><span>Site 14</span><span class="hud-v">Approved</span></figcaption><img src="images/service-quotes.jpg" alt="Aerial view of a housing site under floodlights" loading="lazy"></figure>
+        </li>
+        <li class="svc__row">
+          <span class="svc__num mono">[04]</span>
+          <h3>Engineer app</h3>
+          <p>An app that keeps working in basements, risers and plant rooms. Photos, readings and signatures save on the device and sync when signal returns, so a job sheet is never lost.</p>
+          <figure class="shot" data-img="service-mobile">
+          <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">App</span><span>Offline</span><span class="hud-v">Synced 06:12</span></figcaption><img src="images/service-mobile.jpg" alt="A plumber using a phone in a dark plant room" loading="lazy"></figure>
+        </li>
+      </ol>
+    </section>
+
+    <!-- 5. Trades we cover -->
+    <section id="trades" class="trades wrap">
+      <div class="trades__img">
+          <figure class="shot trades__shot is-active" data-img="trade-electricians" data-trade="electricians">
+            <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Class</span><span>Electrician</span><span class="hud-v">EICR · MFT</span></figcaption>
+            <img src="images/trade-electricians.jpg" alt="An electrician pulling cable through a ceiling void by head torch">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-gas" data-trade="gas">
+            <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Class</span><span>Gas & heating</span><span class="hud-v">CP12 · FGA</span></figcaption>
+            <img src="images/trade-gas.jpg" alt="A heating engineer on a rooftop beside heat pump units at sunset" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-plumbers" data-trade="plumbers">
+            <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Class</span><span>Plumber</span><span class="hud-v">WRAS</span></figcaption>
+            <img src="images/trade-plumbers.jpg" alt="A plumber working under a kitchen sink by torchlight" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-fire" data-trade="fire">
+            <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Class</span><span>Fire & security</span><span class="hud-v">BS 5839</span></figcaption>
+            <img src="images/trade-fire.jpg" alt="An engineer testing a smoke detector in a dark corridor" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-hvac" data-trade="hvac">
+            <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Class</span><span>HVAC</span><span class="hud-v">F-Gas</span></figcaption>
+            <img src="images/trade-hvac.jpg" alt="A refrigeration engineer connecting gauges in a plant room" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-lifts" data-trade="lifts">
+            <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Class</span><span>Lift engineer</span><span class="hud-v">LOLER</span></figcaption>
+            <img src="images/trade-lifts.jpg" alt="Looking up a lift shaft towards an engineer on the car roof" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-roofers" data-trade="roofers">
+            <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Class</span><span>Roofer</span><span class="hud-v">Survey</span></figcaption>
+            <img src="images/trade-roofers.jpg" alt="A roofer laying slates at dusk" loading="lazy">
+          </figure>
+          <figure class="shot trades__shot" data-img="trade-multi" data-trade="multi">
+            <figcaption class="hud-tag" aria-hidden="true"><span class="hud-k">Class</span><span>Multi-trade</span><span class="hud-v">All kit</span></figcaption>
+            <img src="images/trade-multi.jpg" alt="A crew of tradespeople walking from their vans at dawn" loading="lazy">
+          </figure>
+        <p class="trades__caption mono"><span class="trades__count">01</span> / 08</p>
+      </div>
+      <div class="trades__list">
+        <p class="eyebrow">Select your trade</p>
+        <ul>
+          <li><a class="trades__item is-active" href="for-electricians.html" data-trade="electricians">Electricians<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-gas.html" data-trade="gas">Gas &amp; heating engineers<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-plumbers.html" data-trade="plumbers">Plumbers<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-fire.html" data-trade="fire">Fire &amp; security<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-hvac.html" data-trade="hvac">HVAC &amp; refrigeration<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-lifts.html" data-trade="lifts">Lift engineers<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-roofers.html" data-trade="roofers">Roofers<span class="trades__go mono">View page</span></a></li>
+          <li><a class="trades__item" href="for-multi.html" data-trade="multi">Multi-trade contractors<span class="trades__go mono">View page</span></a></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 8. Closing CTA -->
+    <section id="contact" class="cta">
+      <figure class="shot" data-img="cta">
+        <img src="images/cta.jpg" alt="Engineers loading their vans in a depot yard before dawn" loading="lazy">
+      </figure>
+      <div class="cta__body">
+        <h2>Ready before<br>the vans roll out</h2>
+        <a class="btn btn--dark" href="pricing.html#demo">Book a demo</a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 9. Footer -->
+  <footer class="footer">
+    <div class="wrap footer__top">
+      <div>
+        <p class="footer__label mono">Contact</p>
+        <div class="footer__start">
+          <p>Let&rsquo;s get started</p>
+          <a class="btn btn--dark btn--sm" href="pricing.html#demo">Book a demo</a>
+        </div>
+      </div>
+      <div class="footer__cols mono">
+        <div>
+          <p class="footer__label">Address</p>
+          <p>Ardent Ltd<br>Manchester<br>United Kingdom</p>
+        </div>
+        <div>
+          <p class="footer__label">Menu</p>
+          <a href="index.html">Home</a><a href="product.html">Product</a><a href="index.html#trades">Trades</a><a href="engineers.html">Engineer app</a><a href="pricing.html">Pricing</a><a href="news.html">News</a>
+        </div>
+        <div>
+          <p class="footer__label">Support</p>
+          <a href="#">Help centre</a><a href="#">Privacy policy</a>
+        </div>
+      </div>
+    </div>
+    <div class="wrap footer__social">
+      <p class="footer__label mono">Quick contact</p>
+      <div class="footer__icons">
+        <a href="#" aria-label="Email"><svg viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="9" rx="1"/><path d="m2.5 4.5 5.5 4 5.5-4"/></svg></a>
+        <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 7v4M5 5v.01M8 11V7m0 1.8c0-1 .8-1.8 1.8-1.8s1.7.8 1.7 1.8V11"/></svg></a>
+        <a href="#" aria-label="Instagram"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="3.5"/><circle cx="8" cy="8" r="2.6"/></svg></a>
+        <a href="#" aria-label="YouTube"><svg viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" rx="2.5"/><path d="m6.8 6 3 2-3 2z"/></svg></a>
+      </div>
+    </div>
+    <div class="wrap footer__legal mono">
+      <p>&copy; 2026 Ardent. All rights reserved</p>
+    </div>
+    <p class="footer__word" aria-hidden="true">ARDENT<sup>&reg;</sup></p>
+  </footer>
+
+  <script src="main.js"></script>
+
+</body>
+</html>

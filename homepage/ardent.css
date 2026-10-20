@@ -1,0 +1,244 @@
+/* Ardent look: near-black, grain, Michroma / Geist / Geist Mono, one ember accent.
+   Layered over styles.css; every rule is scoped to html.ardent. */
+
+html.ardent {
+  --paper: #070707;
+  --paper-2: #121212;
+  --text: #f2f2f2;
+  --text-soft: #9a9a9a;
+  --line: #1c1c1c;
+  --line-dark: #1c1c1c;
+  --ink: #070707;
+  --ink-2: #0b0b0b;
+  --ink-3: #1d1d1d;
+  --on-dark: #f2f2f2;
+  --on-dark-soft: #9a9a9a;
+  --orange: #ff6a1a;
+  --orange-deep: #ff6a1a;
+  --ember: #ff6a1a;
+  --faint: #5f5f5f;
+  --sans: 'Geist', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, Menlo, monospace;
+  --wide: 'Michroma', 'Geist', sans-serif;
+  color-scheme: dark;
+}
+html.ardent body { background: #070707; color: #f2f2f2; }
+
+/* Film grain over everything */
+html.ardent body::after {
+  content: ''; position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0.07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Three voices of type */
+html.ardent .logo { font-family: var(--wide); font-size: 13px; letter-spacing: 0.22em; }
+html.ardent .eyebrow, html.ardent .eyebrow.mono, html.ardent .bleed__labels, html.ardent .footer__label {
+  font-family: var(--wide); font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--faint);
+}
+html.ardent .hero .eyebrow { color: rgba(242,242,242,0.6); }
+html.ardent .hero h1 {
+  font-family: var(--wide); font-weight: 400; text-transform: uppercase;
+  font-size: clamp(30px, 5.2vw, 76px); line-height: 1.08; letter-spacing: 0.01em;
+}
+html.ardent .services h2, html.ardent .cta h2, html.ardent .roles h2 {
+  font-family: var(--wide); font-weight: 400; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: clamp(22px, 2.6vw, 36px); line-height: 1.15;
+}
+html.ardent .cta h2 { font-size: clamp(26px, 3.6vw, 52px); }
+html.ardent .svc__row h3 { font-weight: 500; }
+html.ardent .svc__num, html.ardent .trades__caption, html.ardent .mnav__num { font-family: var(--mono); letter-spacing: 0.04em; color: var(--faint); }
+html.ardent .trades__caption { color: rgba(242,242,242,0.7); }
+
+/* No lines: drop the hero rules and footer divider */
+html.ardent .hero__foot .eyebrow { border-bottom: 0; padding-bottom: 0; }
+html.ardent .hero__aside { border-left: 0; padding-left: 0; color: rgba(242,242,242,0.72); }
+html.ardent .footer__top { border-bottom: 0; padding-bottom: 0; }
+/* Pull the footer into one block: links, contact icons, legal and wordmark sit close */
+html.ardent .footer__social { padding-block: 36px 0; }
+html.ardent .footer__legal { padding-block: 28px 12px; }
+html.ardent .footer__word { margin-top: 0; }
+
+/* One accent: the primary action */
+html.ardent .nav__cta, html.ardent .cta .btn, html.ardent .roles__go { background: var(--ember); color: #070707; backdrop-filter: none; }
+html.ardent .nav__cta:hover, html.ardent .cta .btn:hover, html.ardent .roles__go:hover { background: #ff7d36; color: #070707; }
+html.ardent .mnav { background: #070707; }
+
+/* Hero: bloom and live readout */
+html.ardent .hero__bg::after {
+  background:
+    radial-gradient(60% 50% at 78% 70%, rgba(255,106,26,0.10), transparent 70%),
+    linear-gradient(180deg, rgba(7,7,7,0.55) 0%, rgba(7,7,7,0.05) 35%, rgba(7,7,7,0.85) 100%);
+}
+.hud-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.hud-chip, .hud-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 999px;
+  background: rgba(18,18,18,0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  font-family: var(--wide); font-size: 8.5px; letter-spacing: 0.2em; text-transform: uppercase; color: #f2f2f2;
+}
+.hud-k { color: #8a8a8a; }
+.hud-v { font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; text-transform: none; color: #f2f2f2; }
+.hud-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ember); box-shadow: 0 0 10px var(--ember); animation: hud-pulse 2.4s ease-in-out infinite; }
+@keyframes hud-pulse { 50% { opacity: 0.35; } }
+
+/* HUD tags on photographs */
+.hud-tag { position: absolute; left: 12px; top: 12px; z-index: 2; border-radius: 10px; pointer-events: none; }
+.trades__shot .hud-tag { left: 16px; top: 16px; }
+.bleed .hud-tag { left: var(--gutter); top: auto; bottom: 24px; }
+
+/* Services become the kit list */
+html.ardent .svc__row { border-top-color: #1c1c1c; }
+html.ardent .svc__row .shot { border-radius: 10px; }
+
+/* Trades become operator select */
+html.ardent .trades__img { border-radius: 14px; }
+html.ardent .trades__item { font-family: var(--sans); opacity: 0.58; }
+html.ardent .trades__item:hover, html.ardent .trades__item.is-active { opacity: 1; }
+html.ardent .trades__item.is-active::before {
+  content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 14px; vertical-align: middle;
+  background: var(--ember); border-radius: 2px;
+}
+html.ardent .trades__go { font-family: var(--wide); font-size: 8.5px; letter-spacing: 0.2em; }
+
+/* Role select: full-image cards, the chosen one opens out */
+.roles { padding-block: clamp(40px, 7vw, 100px) clamp(80px, 10vw, 140px); }
+.roles__head { margin-bottom: clamp(24px, 4vw, 44px); }
+.roles__eyebrow { font-family: var(--wide); font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ember); margin-bottom: 14px; }
+.roles__deck { display: flex; gap: 10px; height: clamp(460px, 46vw, 640px); }
+.role {
+  position: relative; flex: 1 1 0; min-width: 0; overflow: hidden; border-radius: 14px; background: #121212; isolation: isolate;
+  transition: flex-grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.role.is-active { flex-grow: 2.6; }
+.role > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; filter: saturate(0.85) brightness(0.62); transform: scale(1.04); transition: filter 0.7s ease, transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.role.is-active > img { filter: none; transform: none; }
+.role::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(7,7,7,0) 30%, rgba(7,7,7,0.92) 100%); }
+.role__hit { position: absolute; inset: 0; z-index: 1; border: 0; background: none; cursor: pointer; }
+.role.is-active .role__hit { pointer-events: none; }
+.role__hit:focus-visible { outline: 2px solid var(--ember); outline-offset: -2px; border-radius: 14px; }
+.role__body { position: absolute; left: 0; right: 0; bottom: 0; padding: clamp(18px, 2.2vw, 28px); display: grid; gap: 6px; }
+.role__num { font-family: var(--mono); font-size: 12px; color: rgba(242,242,242,0.5); }
+.role.is-active .role__num { color: var(--ember); }
+.role__name { font-family: var(--wide); font-weight: 400; font-size: clamp(16px, 1.7vw, 24px); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+.role__sub { font-size: 14px; color: rgba(242,242,242,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.role__kit { display: grid; gap: 12px; max-width: 420px; max-height: 0; opacity: 0; overflow: hidden; transition: max-height 0.7s ease, opacity 0.4s ease; position: relative; z-index: 2; }
+.role.is-active .role__kit { max-height: 340px; opacity: 1; transition-delay: 0s, 0.25s; margin-top: 10px; }
+.role__label { font-family: var(--wide); font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(242,242,242,0.45); }
+.role__kit ul { display: grid; }
+.role__kit li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; font-size: 14px; }
+.role__kit li + li { box-shadow: inset 0 1px 0 rgba(242,242,242,0.08); }
+.role__kit .hud-v { color: rgba(242,242,242,0.6); text-align: right; }
+.roles__go { justify-self: start; margin-top: 4px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 820px) {
+  .roles__deck { flex-direction: column; height: auto; }
+  .role { flex: none; height: 104px; transition: height 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .role.is-active { height: 520px; }
+  .role__sub { display: none; }
+  .role.is-active .role__sub { display: block; white-space: normal; }
+  .hud-tag { font-size: 7.5px; gap: 6px; padding: 6px 8px; }
+  .hud-tag .hud-v { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-dot { animation: none; }
+  .role, .role > img, .role__kit { transition: none; }
+}
+
+/* Footer wordmark in the wide face */
+html.ardent .footer__word { font-family: var(--wide); font-weight: 400; font-size: clamp(56px, 14.5vw, 210px); letter-spacing: 0.02em; color: #141414; }
+
+/* ---------- Inner pages ---------- */
+
+/* Screen titles and section heads in the wide face */
+html.ardent :is(.field h1, .console h1, .pricing h1, .tp-hero h1, .news__title) {
+  font-family: var(--wide); font-weight: 400; text-transform: uppercase;
+  font-size: clamp(26px, 3.8vw, 54px); line-height: 1.12; letter-spacing: 0.01em;
+}
+html.ardent :is(.field h2, .field__cta h2, .console h2, .faq h2, .demo h2, .feat h2, .tp-features h2, .tp-certs h2, .tp-inside h2, .product-next__card h2) {
+  font-family: var(--wide); font-weight: 400; text-transform: uppercase;
+  font-size: clamp(19px, 2.2vw, 30px); line-height: 1.18; letter-spacing: 0.03em;
+}
+html.ardent :is(.art__head h1) { font-weight: 500; letter-spacing: -0.03em; }
+html.ardent .news__title { font-size: clamp(30px, 5vw, 72px); }
+
+/* Primary buttons are ember; everything else is a plain fill */
+html.ardent .btn--light { background: var(--ember); color: #070707; }
+html.ardent .btn--light:hover { background: #ff7d36; }
+html.ardent :is(.footer .btn, .plan .btn--dark) { background: #1d1d1d; color: #f2f2f2; }
+
+/* Bullets and small markers stop competing with the ember button */
+html.ardent :is(.plan__list li, .feat__points li, .art__body li)::before { background: #5f5f5f; }
+html.ardent .tp-certs__list .mono { color: #f2f2f2; background: #1d1d1d; }
+html.ardent .console__tab.is-active { background: #f2f2f2; color: #070707; }
+
+/* Engineer app page: lose the frame lines, keep the texture faint */
+html.ardent :is(.field__frame, .field__intro, .field__grid, .hatch--col, .hatch--tl, .hatch--tr, .hatch--tab, .log__head, .app-peek__side) { border: 0; }
+html.ardent .hatch { background-image: repeating-linear-gradient(135deg, rgba(242,242,242,0.06) 0 1px, transparent 1px 7px); }
+html.ardent .field__cta { background: radial-gradient(70% 60% at 50% 100%, rgba(255,106,26,0.16), transparent 70%), #070707; }
+html.ardent .field__intro, html.ardent .field__grid { background: #0b0b0b; }
+html.ardent .field__grid { margin-top: 8px; }
+
+/* News: near-black with a low ember bloom instead of the orange page */
+html.ardent .news {
+  background:
+    radial-gradient(70% 50% at 85% 0%, rgba(255,106,26,0.14), transparent 70%),
+    #070707;
+}
+html.ardent .card { background: #121212; color: #f2f2f2; }
+html.ardent .card--dark, html.ardent .card--brief, html.ardent a.lead { background: #0b0b0b; color: #f2f2f2; }
+html.ardent .card p, html.ardent .card .mono { color: #9a9a9a; }
+html.ardent :is(.tag, .tag--light, .lead__text .tag) { background: #1d1d1d; color: #f2f2f2; font-family: var(--mono); }
+html.ardent .tag--violet { background: #1d1d1d; color: var(--ember); }
+html.ardent .news__chip { background: #121212; }
+html.ardent .news__faces i { background: #1d1d1d; color: #9a9a9a; }
+html.ardent .news__chipbtn { background: #121212; color: #9a9a9a; }
+html.ardent .news__chipbtn:hover { background: #1d1d1d; color: #f2f2f2; }
+html.ardent .news__chipbtn.is-active { background: #f2f2f2; color: #070707; }
+html.ardent .product-next__card--light { background: #1d1d1d; color: #f2f2f2; }
+html.ardent .product-next__card--light p:not(.eyebrow), html.ardent .product-next__card--light .eyebrow { color: #9a9a9a; }
+html.ardent .product-next__card--light .product-next__go { color: var(--ember); }
+html.ardent :is(.plan, .tp-grid li, .tp-chips li, .feat__points li, .art__card, .brief--aside, .demo__done) { border-radius: 10px; }
+html.ardent :is(.tp-hero__shot, .feat__shot, .art__hero img, .tp-others img, .art-more__item .shot, .card) { border-radius: 10px; }
+@media (max-width: 600px) {
+  html.ardent .card { min-height: 0; }
+  html.ardent .card h3 { padding-bottom: 28px; }
+}
+
+/* Trade labels over the aerial photo: full white on a deeper overlay */
+html.ardent .bleed__labels { color: #f2f2f2; text-shadow: 0 1px 12px rgba(0,0,0,0.6); }
+html.ardent .bleed .shot::after { background: linear-gradient(180deg, rgba(7,7,7,0.35) 0%, rgba(7,7,7,0.55) 50%, rgba(7,7,7,0.35) 100%); }
+html.ardent .bleed__labels { font-size: 11.5px; }
+@media (max-width: 820px) {
+  html.ardent .bleed__labels { font-size: 9.5px; }
+  html.ardent .bleed .hud-tag { top: 12px; bottom: auto; left: 12px; }
+}
+
+/* Desktop footer: contact icons tuck under "Book a demo" so the links,
+   icons, legal line and wordmark read as one block */
+@media (min-width: 821px) {
+  html.ardent .footer { display: grid; padding-top: 56px; }
+  html.ardent .footer > * { grid-column: 1; }
+  html.ardent .footer__top { grid-row: 1; }
+  html.ardent .footer__social { grid-row: 1; align-self: end; padding-block: 0; pointer-events: none; }
+  html.ardent .footer__social a { pointer-events: auto; }
+  html.ardent .footer__legal { grid-row: 2; padding-block: 32px 4px; }
+  html.ardent .footer__word { grid-row: 3; }
+}
+
+/* Header loop is 16:9: on phones lean the crop right so the van shot keeps the engineer */
+@media (max-width: 820px) {
+  html.ardent .hero__bg img, html.ardent .hero__video { object-position: 58% center; }
+}
+
+/* Sticky top menu (main.js adds .is-fixed and a spacer in its place) */
+.nav.is-fixed { position: fixed; top: 0; left: 0; right: 0; z-index: 60; color: #f2f2f2; transition: background 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease; }
+.nav.is-fixed.is-scrolled {
+  padding-block: 14px;
+  background: rgba(7,7,7,0.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 0 100vmax rgba(7,7,7,0.82); clip-path: inset(0 -100vmax);
+}
+html { scroll-padding-top: 80px; }
+@media (max-width: 820px) {
+  html.ardent .trades__item:not(.is-active) .trades__go { display: none; }
+}

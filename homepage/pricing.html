@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en-GB" class="ardent">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ardent | Pricing</title>
+  <meta name="description" content="Simple per-engineer pricing for Ardent, and a 30-minute demo booked around your working day.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Michroma&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="ardent.css">
+</head>
+<body class="page page--ink">
+  <div class="mnav" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+    <div class="mnav__top">
+      <a class="logo" href="index.html">ARDENT<sup>&reg;</sup></a>
+      <button class="mnav__close" type="button" aria-label="Close menu"><span></span><span></span></button>
+    </div>
+    <ul class="mnav__links">
+      <li><a href="index.html"><span class="mnav__num mono">01</span>Home</a></li>
+      <li><a href="product.html"><span class="mnav__num mono">02</span>Product</a></li>
+      <li><a href="index.html#trades"><span class="mnav__num mono">03</span>Trades</a></li>
+      <li><a href="engineers.html"><span class="mnav__num mono">04</span>Engineer app</a></li>
+      <li><a href="news.html"><span class="mnav__num mono">05</span>News</a></li>
+      <li><a href="pricing.html" aria-current="page"><span class="mnav__num mono">06</span>Pricing</a></li>
+    </ul>
+    <div class="mnav__foot">
+      <a class="btn btn--light" href="pricing.html#demo">Book a demo</a>
+      <p class="mono">hello@ardent.example</p>
+    </div>
+  </div>
+
+  <header class="page-nav page-nav--ink">
+  <nav class="nav wrap" aria-label="Main">
+      <a class="logo" href="index.html">ARDENT<sup>&reg;</sup></a>
+      <ul class="nav__links">
+        <li><a href="product.html">Product</a></li>
+        <li><a href="index.html#trades">Trades</a></li>
+        <li><a href="engineers.html">Engineer app</a></li>
+        <li><a href="news.html">News</a></li>
+        <li><a href="pricing.html" aria-current="page">Pricing</a></li>
+      </ul>
+      <a class="nav__cta" href="pricing.html#demo">Book a demo</a>
+      <button class="nav__toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu"><span></span><span></span></button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="pricing wrap">
+      <p class="eyebrow mono">+ Pricing</p>
+      <div class="pricing__head">
+        <h1>One price per engineer.<br>Everything included.</h1>
+        <p>No setup fees and no long contracts. We move your customers, jobs and certificates across for free.</p>
+      </div>
+
+      <div class="plans">
+        <article class="plan">
+          <p class="plan__name mono">01 / Solo</p>
+          <p class="plan__price"><span>&pound;29</span> per month</p>
+          <p class="plan__fit">For a sole trader doing it all.</p>
+          <ul class="plan__list">
+            <li>Jobs, quotes and invoices</li>
+            <li>Gas, electrical and fire certificates</li>
+            <li>Engineer app that works with no signal</li>
+            <li>Customer signatures and photos on every job</li>
+          </ul>
+          <a class="btn btn--dark" href="#demo" data-plan="Solo">Book a demo</a>
+        </article>
+        <article class="plan plan--pick">
+          <p class="plan__name mono">02 / Crew <span class="plan__tag">Most teams</span></p>
+          <p class="plan__price"><span>&pound;24</span> per engineer, per month</p>
+          <p class="plan__fit">For 2 to 15 engineers and an office.</p>
+          <ul class="plan__list">
+            <li>Everything in Solo</li>
+            <li>Dispatch board and live crew tracking</li>
+            <li>Compliance gates that block expired accreditations</li>
+            <li>Certificate register with automatic renewal chasing</li>
+            <li>Xero and QuickBooks sync</li>
+          </ul>
+          <a class="btn btn--light" href="#demo" data-plan="Crew">Book a demo</a>
+        </article>
+        <article class="plan">
+          <p class="plan__name mono">03 / Fleet</p>
+          <p class="plan__price"><span>Let&rsquo;s talk</span></p>
+          <p class="plan__fit">For 16 engineers or more, across sites.</p>
+          <ul class="plan__list">
+            <li>Everything in Crew</li>
+            <li>Permits to work and RAMS sign-off</li>
+            <li>Multiple depots and regions</li>
+            <li>API access and a dedicated onboarding lead</li>
+          </ul>
+          <a class="btn btn--dark" href="#demo" data-plan="Fleet">Talk to us</a>
+        </article>
+      </div>
+      <p class="pricing__note mono">Prices exclude VAT. Billed monthly, cancel any time.</p>
+
+      <div class="faq">
+        <h2>Common questions</h2>
+        <div class="faq__list">
+          <details><summary>Do my engineers need signal on site?</summary><p>No. Job sheets, checklists and certificates work offline and sync as soon as the phone finds a connection.</p></details>
+          <details><summary>Can you move our existing data across?</summary><p>Yes, free on every plan. Send us your customer list, open jobs and certificate history and we&rsquo;ll import it before you go live.</p></details>
+          <details><summary>Which certificates can we issue?</summary><p>Gas safety records (CP12), EICRs and minor works, PAT, fire alarm (BS 5839) and unvented cylinder certificates, with more on the way.</p></details>
+          <details><summary>Is there a contract?</summary><p>No. Plans run month to month and you can add or remove engineers whenever you like.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo" class="demo">
+      <div class="wrap demo__grid">
+        <div class="demo__intro">
+          <p class="eyebrow mono">+ Book a demo</p>
+          <h2>See Ardent on your own jobs.</h2>
+          <p>Thirty minutes on a call, at a time that suits you. We&rsquo;ll set it up with your trade, your certificates and the way your team works.</p>
+          <ol class="demo__steps mono">
+            <li><span>01</span>Tell us about your team</li>
+            <li><span>02</span>We call to book a time</li>
+            <li><span>03</span>Walk through it with your own jobs</li>
+          </ol>
+        </div>
+        <form class="demo__form" id="demo-form" data-endpoint="" data-email="hello@ardent.example" novalidate>
+          <div class="field2">
+            <label for="d-name">Name</label>
+            <input id="d-name" name="name" autocomplete="name" required>
+          </div>
+          <div class="field2">
+            <label for="d-company">Company</label>
+            <input id="d-company" name="company" autocomplete="organization" required>
+          </div>
+          <div class="field2">
+            <label for="d-email">Email</label>
+            <input id="d-email" name="email" type="email" autocomplete="email" required>
+          </div>
+          <div class="field2">
+            <label for="d-phone">Phone <span>(optional)</span></label>
+            <input id="d-phone" name="phone" type="tel" autocomplete="tel">
+          </div>
+          <div class="field2">
+            <label for="d-trade">Trade</label>
+            <select id="d-trade" name="trade" required>
+              <option value="">Choose one</option>
+              <option>Electrical</option><option>Gas and heating</option><option>Plumbing</option><option>Fire and security</option><option>HVAC and refrigeration</option><option>Lifts</option><option>Roofing</option><option>Multi-trade</option>
+            </select>
+          </div>
+          <div class="field2">
+            <label for="d-size">Engineers</label>
+            <select id="d-size" name="engineers" required>
+              <option value="">How many?</option>
+              <option>Just me</option><option>2 to 5</option><option>6 to 15</option><option>16 or more</option>
+            </select>
+          </div>
+          <div class="field2 field2--wide">
+            <label for="d-note">Anything we should know? <span>(optional)</span></label>
+            <textarea id="d-note" name="note" rows="3"></textarea>
+          </div>
+          <input type="hidden" name="plan" id="d-plan">
+          <div class="demo__submit field2--wide">
+            <button class="btn btn--light" type="submit">Request a demo</button>
+            <p class="demo__error" role="alert" hidden></p>
+          </div>
+          <div class="demo__done field2--wide" role="status" hidden>
+            <p class="mono">Request received</p>
+            <h3>Thanks. We&rsquo;ll call you within one working day to book a time.</h3>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__top">
+      <div>
+        <p class="footer__label mono">Contact</p>
+        <div class="footer__start">
+          <p>Let&rsquo;s get started</p>
+          <a class="btn btn--dark btn--sm" href="pricing.html#demo">Book a demo</a>
+        </div>
+      </div>
+      <div class="footer__cols mono">
+        <div>
+          <p class="footer__label">Address</p>
+          <p>Ardent Ltd<br>Manchester<br>United Kingdom</p>
+        </div>
+        <div>
+          <p class="footer__label">Menu</p>
+          <a href="index.html">Home</a><a href="product.html">Product</a><a href="index.html#trades">Trades</a><a href="engineers.html">Engineer app</a><a href="pricing.html">Pricing</a><a href="news.html">News</a>
+        </div>
+        <div>
+          <p class="footer__label">Support</p>
+          <a href="#">Help centre</a><a href="#">Privacy policy</a>
+        </div>
+      </div>
+    </div>
+    <div class="wrap footer__social">
+      <p class="footer__label mono">Quick contact</p>
+      <div class="footer__icons">
+        <a href="#" aria-label="Email"><svg viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="9" rx="1"/><path d="m2.5 4.5 5.5 4 5.5-4"/></svg></a>
+        <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 7v4M5 5v.01M8 11V7m0 1.8c0-1 .8-1.8 1.8-1.8s1.7.8 1.7 1.8V11"/></svg></a>
+        <a href="#" aria-label="Instagram"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="3.5"/><circle cx="8" cy="8" r="2.6"/></svg></a>
+        <a href="#" aria-label="YouTube"><svg viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" rx="2.5"/><path d="m6.8 6 3 2-3 2z"/></svg></a>
+      </div>
+    </div>
+    <div class="wrap footer__legal mono">
+      <p>&copy; 2026 Ardent. All rights reserved</p>
+    </div>
+    <p class="footer__word" aria-hidden="true">ARDENT<sup>&reg;</sup></p>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
