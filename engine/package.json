@@ -1,0 +1,17 @@
+{
+  "name": "@ardent/engine",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The one backend under Ardent Core and Ardent Field.",
+  "engines": { "node": ">=22.6" },
+  "scripts": {
+    "start": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/server.ts",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "~6.0.2"
+  }
+}
