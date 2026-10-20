@@ -1,0 +1,40 @@
+/* Generated from engine/kit/tokens.ts by `npm run kit`. Do not edit by hand. */
+:root {
+  color-scheme: dark;
+  --bg: #070707;
+  --surface: #121212;
+  --inset: #0b0b0b;
+  --raised: #1d1d1d;
+  --line: #1c1c1c;
+  --line-strong: #2e2e2e;
+  --fg: #f2f2f2;
+  --fg-muted: #9a9a9a;
+  --fg-faint: #5f5f5f;
+  --ember: #ff6a1a;
+  --ember-soft: rgba(255, 106, 26, 0.15);
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --violet: #8b5cf6;
+
+  --radius: 0.625rem;
+  --kit-radius-sm: 6px;
+  --kit-radius-md: 8px;
+  --kit-radius-lg: 10px;
+  --kit-radius-xl: 14px;
+  --kit-radius-pill: 999px;
+
+  --motion-enter: 400ms;
+  --motion-light: 900ms;
+  --motion-stagger: 45ms;
+  --motion-hold: 900ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --bloom-on-site: #ff6a1a;
+  --bloom-en-route: #7d93ad;
+  --bloom-workshop: #b08a5a;
+  --bloom-on-call: #9a9a9a;
+  --bloom-delayed: #f59e0b;
+  --bloom-off-shift: #5f5f5f;
+}

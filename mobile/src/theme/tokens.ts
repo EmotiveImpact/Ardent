@@ -1,7 +1,7 @@
 // Ardent design tokens on mobile. Colours, radius, spacing and type scale
-// come straight from Core (./core/tokens.ts, synced, never edited here).
+// come from the Ardent design kit (src/kit, synced from engine/kit).
 // React Native needs loaded font family names, so only `font` is mapped.
-export { color, radius, space, type } from './core/tokens';
+export { color, radius, space, type } from '@/kit/tokens';
 
 export const font = {
   display: 'Michroma_400Regular',

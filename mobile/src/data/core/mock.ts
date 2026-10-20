@@ -1,7 +1,8 @@
 import type { Certificate, Customer, Operator, Exception, Invoice, Job, Quote, Site } from './model'
 
 const day = '2026-10-18'
-const t = (hhmm: string) => `${day}T${hhmm}:00Z`
+/** A UK wall-clock time today (British Summer Time), stored as UTC like every Ardent time. */
+const t = (hhmm: string) => new Date(`${day}T${hhmm}:00+01:00`).toISOString().replace('.000', '')
 
 export const customers: Customer[] = [
   { id: 'cus_01', name: 'Sarah Whitfield', kind: 'homeowner', phone: '07700 900412', balance: 0 },
@@ -95,7 +96,7 @@ export const jobs: Job[] = [
   },
   {
     id: 'job_1039', ref: 'J-1039', title: 'Radiator valves x6', trade: 'heating', status: 'complete', priority: 'normal',
-    customerId: 'cus_05', siteId: 'sit_05', operatorIds: ['opr_03'], start: '2026-10-17T13:00:00Z', end: '2026-10-17T16:00:00Z',
+    customerId: 'cus_05', siteId: 'sit_05', operatorIds: ['opr_03'], start: '2026-10-17T12:00:00Z', end: '2026-10-17T15:00:00Z',
     lines: [
       { id: 'li_9', kind: 'material', description: 'TRV, Drayton TRV4', quantity: 6, unitPrice: 2200 },
       { id: 'li_10', kind: 'labour', description: 'Drain down, fit, refill', quantity: 3, unitPrice: 5500 },
@@ -104,24 +105,24 @@ export const jobs: Job[] = [
   },
   {
     id: 'job_1036', ref: 'J-1036', title: 'Outside socket and lighting', trade: 'electrical', status: 'invoiced', priority: 'normal',
-    customerId: 'cus_05', siteId: 'sit_05', operatorIds: ['opr_02'], start: '2026-10-16T09:00:00Z', end: '2026-10-16T12:00:00Z',
+    customerId: 'cus_05', siteId: 'sit_05', operatorIds: ['opr_02'], start: '2026-10-16T08:00:00Z', end: '2026-10-16T11:00:00Z',
     lines: [{ id: 'li_11', kind: 'labour', description: 'IP66 socket, PIR flood', quantity: 1, unitPrice: 26000 }],
     checks: [{ key: 'eicr', label: 'Minor works cert', state: 'pass' }],
   },
   {
     id: 'job_1051', ref: 'J-1051', title: 'Bathroom refit, quote visit', trade: 'plumbing', status: 'quoted', priority: 'normal',
-    customerId: 'cus_01', siteId: 'sit_01', operatorIds: [], start: '2026-10-22T10:00:00Z', end: '2026-10-22T11:00:00Z',
+    customerId: 'cus_01', siteId: 'sit_01', operatorIds: [], start: '2026-10-22T09:00:00Z', end: '2026-10-22T10:00:00Z',
     lines: [{ id: 'li_12', kind: 'other', description: 'Full refit, supply and fit', quantity: 1, unitPrice: 685000 }],
     checks: [],
   },
   {
     id: 'job_1052', ref: 'J-1052', title: 'No hot water', trade: 'heating', status: 'enquiry', priority: 'high',
-    customerId: 'cus_02', siteId: 'sit_02', operatorIds: [], start: '2026-10-20T08:00:00Z', end: '2026-10-20T10:00:00Z',
+    customerId: 'cus_02', siteId: 'sit_02', operatorIds: [], start: '2026-10-20T07:00:00Z', end: '2026-10-20T09:00:00Z',
     lines: [], checks: [],
   },
   {
     id: 'job_1030', ref: 'J-1030', title: 'Cellar pump service', trade: 'plumbing', status: 'paid', priority: 'normal',
-    customerId: 'cus_03', siteId: 'sit_03', operatorIds: ['opr_03'], start: '2026-10-12T07:00:00Z', end: '2026-10-12T09:00:00Z',
+    customerId: 'cus_03', siteId: 'sit_03', operatorIds: ['opr_03'], start: '2026-10-12T06:00:00Z', end: '2026-10-12T08:00:00Z',
     lines: [{ id: 'li_13', kind: 'labour', description: 'Service and descale', quantity: 1, unitPrice: 16500 }],
     checks: [],
   },
@@ -174,19 +175,19 @@ const li = (id: string, description: string, unitPrice: number, quantity = 1, ki
 })
 
 export const invoices: Invoice[] = [
-  { id: 'inv_2207', ref: 'INV-2207', jobId: 'job_1036', customerId: 'cus_05', lines: [li('a', 'IP66 socket, PIR flood', 26000)], vatRate: 2000, status: 'sent', issuedAt: '2026-10-16T15:00:00Z', dueAt: '2026-10-30T00:00:00Z', paidAmount: 0 },
-  { id: 'inv_2204', ref: 'INV-2204', jobId: 'job_1030', customerId: 'cus_03', lines: [li('b', 'Cellar pump service', 16500)], vatRate: 2000, status: 'paid', issuedAt: '2026-10-12T12:00:00Z', dueAt: '2026-10-26T00:00:00Z', paidAmount: 19800 },
-  { id: 'inv_2198', ref: 'INV-2198', jobId: 'job_0998', customerId: 'cus_02', lines: [li('c', 'Void property gas and electric checks', 153333)], vatRate: 2000, status: 'overdue', issuedAt: '2026-09-22T12:00:00Z', dueAt: '2026-10-06T00:00:00Z', paidAmount: 0 },
-  { id: 'inv_2201', ref: 'INV-2201', jobId: 'job_1011', customerId: 'cus_03', lines: [li('d', 'Glass washer drain, new trap', 35417)], vatRate: 2000, status: 'part_paid', issuedAt: '2026-10-02T12:00:00Z', dueAt: '2026-10-16T00:00:00Z', paidAmount: 20000 },
-  { id: 'inv_2206', ref: 'INV-2206', jobId: 'job_1022', customerId: 'cus_06', lines: [li('e', 'Emergency lighting test, 14 fittings', 42000)], vatRate: 2000, status: 'paid', issuedAt: '2026-10-14T12:00:00Z', dueAt: '2026-10-28T00:00:00Z', paidAmount: 50400 },
+  { id: 'inv_2207', ref: 'INV-2207', jobId: 'job_1036', customerId: 'cus_05', lines: [li('a', 'IP66 socket, PIR flood', 26000)], vatRate: 2000, status: 'sent', issuedAt: '2026-10-16T14:00:00Z', dueAt: '2026-10-30T00:00:00Z', paidAmount: 0 },
+  { id: 'inv_2204', ref: 'INV-2204', jobId: 'job_1030', customerId: 'cus_03', lines: [li('b', 'Cellar pump service', 16500)], vatRate: 2000, status: 'paid', issuedAt: '2026-10-12T11:00:00Z', dueAt: '2026-10-26T00:00:00Z', paidAmount: 19800 },
+  { id: 'inv_2198', ref: 'INV-2198', jobId: 'job_0998', customerId: 'cus_02', lines: [li('c', 'Void property gas and electric checks', 153333)], vatRate: 2000, status: 'overdue', issuedAt: '2026-09-22T11:00:00Z', dueAt: '2026-10-05T23:00:00Z', paidAmount: 0 },
+  { id: 'inv_2201', ref: 'INV-2201', jobId: 'job_1011', customerId: 'cus_03', lines: [li('d', 'Glass washer drain, new trap', 35417)], vatRate: 2000, status: 'part_paid', issuedAt: '2026-10-02T11:00:00Z', dueAt: '2026-10-15T23:00:00Z', paidAmount: 20000 },
+  { id: 'inv_2206', ref: 'INV-2206', jobId: 'job_1022', customerId: 'cus_06', lines: [li('e', 'Emergency lighting test, 14 fittings', 42000)], vatRate: 2000, status: 'paid', issuedAt: '2026-10-14T11:00:00Z', dueAt: '2026-10-28T00:00:00Z', paidAmount: 50400 },
   { id: 'inv_2208', ref: 'INV-2208', jobId: 'job_1039', customerId: 'cus_05', lines: [li('f', 'TRV, Drayton TRV4', 2200, 6, 'material'), li('g', 'Drain down, fit, refill', 5500, 3)], vatRate: 2000, status: 'draft', paidAmount: 0 },
 ]
 
 export const quotes: Quote[] = [
-  { id: 'quo_311', ref: 'Q-311', jobId: 'job_1051', customerId: 'cus_01', lines: [li('h', 'Full bathroom refit, supply and fit', 685000, 1, 'other')], status: 'sent', validUntil: '2026-11-05', sentAt: '2026-10-15T18:20:00Z' },
-  { id: 'quo_309', ref: 'Q-309', jobId: 'job_1040', customerId: 'cus_04', lines: [li('i', 'Rewire, 3 bed semi', 520000, 1, 'other')], status: 'accepted', validUntil: '2026-10-30', sentAt: '2026-10-09T10:00:00Z' },
+  { id: 'quo_311', ref: 'Q-311', jobId: 'job_1051', customerId: 'cus_01', lines: [li('h', 'Full bathroom refit, supply and fit', 685000, 1, 'other')], status: 'sent', validUntil: '2026-11-05', sentAt: '2026-10-15T17:20:00Z' },
+  { id: 'quo_309', ref: 'Q-309', jobId: 'job_1040', customerId: 'cus_04', lines: [li('i', 'Rewire, 3 bed semi', 520000, 1, 'other')], status: 'accepted', validUntil: '2026-10-30', sentAt: '2026-10-09T09:00:00Z' },
   { id: 'quo_312', ref: 'Q-312', jobId: 'job_1052', customerId: 'cus_02', lines: [li('j', 'Cylinder thermostat and immersion', 38500)], status: 'draft', validUntil: '2026-11-01' },
-  { id: 'quo_305', ref: 'Q-305', jobId: 'job_1019', customerId: 'cus_06', lines: [li('k', 'Air con service, 4 units', 64000)], status: 'declined', validUntil: '2026-10-12', sentAt: '2026-09-28T10:00:00Z' },
+  { id: 'quo_305', ref: 'Q-305', jobId: 'job_1019', customerId: 'cus_06', lines: [li('k', 'Air con service, 4 units', 64000)], status: 'declined', validUntil: '2026-10-12', sentAt: '2026-09-28T09:00:00Z' },
 ]
 
 /** Weekly takings in pounds, last 8 weeks, oldest first. */

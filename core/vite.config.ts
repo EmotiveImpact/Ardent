@@ -7,6 +7,11 @@ export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { '@': path.resolve(import.meta.dirname, './src') },
+    alias: {
+      '@': path.resolve(import.meta.dirname, './src'),
+      '@kit': path.resolve(import.meta.dirname, '../engine/kit'),
+    },
   },
+  // The design kit and the engine live beside the app in the monorepo.
+  server: { fs: { allow: ['..'] } },
 })

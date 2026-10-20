@@ -28,6 +28,7 @@ const toneClass: Record<string, string> = {
   info: 'bg-info/10 [--bar:var(--info)]',
   warn: 'bg-warn/10 [--bar:var(--warn)]',
   neutral: 'bg-raised [--bar:#555]',
+  faint: 'bg-raised/60 [--bar:var(--fg-faint)]',
   violet: 'bg-violet/10 [--bar:var(--violet)]',
   danger: 'bg-danger/10 [--bar:var(--danger)]',
 }
