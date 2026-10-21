@@ -40,7 +40,7 @@ export function jobSteps(job: Job, book: Book, field?: JobField): Step[] {
     ['Arrived on site', !!labour || past(job.status), labour && clock(labour.start)],
     [job.checks.length ? `Checks, ${lastCheck} done` : 'Checks', job.checks.length > 0 && checksLeft === 0, undefined],
     [`Photos${field?.photos.length ? `, ${field.photos.length} in` : ''}`, after.length > 0, after[0] && clock(after[0].takenAt)],
-    [`Sign-off with ${customer?.name.split(' ')[0] ?? 'the customer'}`, !!sig || past(job.status), sig && clock(sig.at)],
+    [`Sign-off with ${customer ? (customer.kind === 'homeowner' ? customer.name.split(' ')[0] : customer.name) : 'the customer'}`, !!sig || past(job.status), sig && clock(sig.at)],
   ]
   const active = ['en_route', 'on_site', 'paused'].includes(job.status)
   const live = active ? raw.findIndex(([, done]) => !done) : -1
@@ -100,7 +100,7 @@ export function LiveJobSheet({ job, book }: { job: Job; book: Book }) {
           <span className="ml-4">{field?.photos.length ?? 0} photos</span>
         </p>
         <div className="flex gap-2">
-          {customer?.phone && <RowButton onClick={() => (window.location.href = `tel:${customer.phone.replace(/\s/g, '')}`)}>Call {customer.name.split(' ')[0]}</RowButton>}
+          {customer?.phone && <RowButton onClick={() => (window.location.href = `tel:${customer.phone.replace(/\s/g, '')}`)}>Call {customer.kind === 'homeowner' ? customer.name.split(' ')[0] : customer.name}</RowButton>}
           <RowButton to={`/jobs/${job.id}`}>Open job</RowButton>
         </div>
       </div>

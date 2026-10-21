@@ -185,12 +185,13 @@ export function Topbar() {
           <Icon name="search" className="size-4" />
         </button>
       </div>
-      <div className="flex min-w-0 items-center gap-2">
-        <div ref={setSlot} className="flex items-center gap-2 empty:hidden after:mx-1 after:h-[22px] after:w-px after:bg-line" />
+      <div className="ml-auto flex min-w-0 items-center gap-2">
+        <div ref={setSlot} className="hidden items-center gap-2 empty:hidden sm:flex after:mx-1 after:h-[22px] after:w-px after:bg-line" />
         {!bar.noCallout && (
           <button type="button" onClick={() => navigate('/callout')} className={barButton}>
             <span className="size-[7px] rounded-full bg-danger" />
-            Emergency callout
+            <span className="hidden sm:inline">Emergency callout</span>
+            <span className="sm:hidden">Callout</span>
           </button>
         )}
         {!bar.noNew && <NewMenu />}

@@ -1,18 +1,19 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { BadgeCheck, KeyRound, Plus, Truck, UserPlus } from 'lucide-react'
-import { initials, jobStatus, operatorState, shortDate, trade as tradeName, window as timeWindow } from '@kit'
-import { Panel, PanelHeader, Row, SectionLabel, Well, PageHeader } from '@/components/ui/panel'
-import { Avatar } from '@/components/ui/avatar'
-import { Badge, Chip } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Field, selectClass } from '@/components/ui/field'
+import { clock, initials, trade as tradeName, window as timeWindow } from '@kit'
+import { PageBar } from '@/components/layout/bar'
+import { barButton } from '@/components/layout/topbar'
+import { Icon } from '@/components/layout/icons'
+import { Card, PageHead, StateDot } from '@/components/ardent/parts'
+import { FormDialog, Monogram } from '@/components/ardent/people-parts'
+import { daysTo, expiryWord, hoursBetween, hoursWord, softButton, solidButton } from '@/components/ardent/people-kit'
+import { Dialog, DialogTrigger } from '@/components/ui/dialog'
+import { selectClass } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { useArdent, useBook, useQuery } from '@/data/ardent'
-import type { Operator, Trade } from '@/data/model'
+import { useArdent, useBook, useQuery, type Book } from '@/data/ardent'
+import type { Operator, OperatorState, Trade } from '@/data/model'
 import { act } from '@/lib/act'
-import { find, onDay, today } from '@/lib/jobs'
+import { addDays, find, isDone, onDay, today, weekStart } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 
 export type Member = { userId: string; role: 'owner' | 'office' | 'field'; name: string; email: string; operatorId?: string }
@@ -24,7 +25,20 @@ export function useMembers() {
 }
 
 const trades: Trade[] = ['gas', 'heating', 'plumbing', 'electrical', 'fire', 'hvac', 'lifts', 'roofing', 'carpentry', 'general']
-const daysTo = (day: string) => Math.round((Date.parse(`${day}T12:00:00Z`) - Date.parse(`${today()}T12:00:00Z`)) / 86_400_000)
+
+/** A registration this close to running out needs booking in. */
+const SOON = 30
+
+function Labelled({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <label htmlFor={htmlFor} className="cap">
+        {label}
+      </label>
+      {children}
+    </div>
+  )
+}
 
 function AddCrewDialog({ children }: { children: ReactNode }) {
   const { admin } = useArdent()
@@ -53,27 +67,24 @@ function AddCrewDialog({ children }: { children: ReactNode }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-xl">
-        <div className="px-3 pt-3 pb-3">
-          <DialogTitle>Add to the crew</DialogTitle>
-          <DialogDescription>They can be given a sign-in for Ardent Field afterwards.</DialogDescription>
+      <FormDialog wide eyebrow="Crew" title="Add to the crew" line="They can be given a sign-in for Ardent Field afterwards.">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
+          <Labelled label="Name" htmlFor="ac-name">
+            <Input id="ac-name" autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Sam Okafor" />
+          </Labelled>
+          <Labelled label="Works as" htmlFor="ac-role">
+            <select id="ac-role" className={selectClass} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Operator['role'] })}>
+              <option value="operator">Employee</option>
+              <option value="subcontractor">Subcontractor</option>
+              <option value="owner">Owner</option>
+            </select>
+          </Labelled>
+          <Labelled label="Van" htmlFor="ac-van">
+            <Input id="ac-van" className="font-mono uppercase" value={f.van} onChange={(e) => setF({ ...f, van: e.target.value })} placeholder="MA24 KTX" />
+          </Labelled>
         </div>
-        <Well className="space-y-4 p-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
-            <Field label="Name" htmlFor="ac-name">
-              <Input id="ac-name" autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Sam Okafor" />
-            </Field>
-            <Field label="Works as" htmlFor="ac-role">
-              <select id="ac-role" className={selectClass} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Operator['role'] })}>
-                <option value="operator">Employee</option>
-                <option value="subcontractor">Subcontractor</option>
-                <option value="owner">Owner</option>
-              </select>
-            </Field>
-            <Field label="Van" htmlFor="ac-van">
-              <Input id="ac-van" className="font-mono uppercase" value={f.van} onChange={(e) => setF({ ...f, van: e.target.value })} placeholder="MA24 KTX" />
-            </Field>
-          </div>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="cap pb-2">Trades</legend>
           <div className="flex flex-wrap gap-1.5">
             {trades.map((t) => {
               const on = f.trades.includes(t)
@@ -81,30 +92,31 @@ function AddCrewDialog({ children }: { children: ReactNode }) {
                 <button
                   key={t}
                   type="button"
+                  aria-pressed={on}
                   onClick={() => setF({ ...f, trades: on ? f.trades.filter((x) => x !== t) : [...f.trades, t] })}
-                  className={cn('h-8 rounded-md bg-surface px-3 text-[12px] text-muted transition-colors hover:text-foreground', on && 'bg-foreground text-black hover:text-black')}
+                  className={cn('h-8 rounded-lg bg-raised px-3 text-[12px] text-muted outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60', on && 'bg-foreground text-background hover:text-background')}
                 >
                   {tradeName[t]}
                 </button>
               )
             })}
           </div>
-          <div className="grid grid-cols-1 gap-3 rounded-lg bg-surface p-3 sm:grid-cols-3">
-            <Field label="Registered with" htmlFor="ac-body">
-              <Input id="ac-body" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Gas Safe" />
-            </Field>
-            <Field label="Number" htmlFor="ac-num">
-              <Input id="ac-num" className="font-mono" value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} />
-            </Field>
-            <Field label="Expires" htmlFor="ac-exp">
-              <Input id="ac-exp" type="date" className="font-mono" value={f.expires} onChange={(e) => setF({ ...f, expires: e.target.value })} />
-            </Field>
-          </div>
-          <Button variant="ember" className="h-11 w-full" disabled={!ready} onClick={() => void save()}>
-            Add to the crew
-          </Button>
-        </Well>
-      </DialogContent>
+        </fieldset>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Labelled label="Registered with" htmlFor="ac-body">
+            <Input id="ac-body" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Gas Safe" />
+          </Labelled>
+          <Labelled label="Number" htmlFor="ac-num">
+            <Input id="ac-num" className="font-mono" value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} />
+          </Labelled>
+          <Labelled label="Expires" htmlFor="ac-exp">
+            <Input id="ac-exp" type="date" className="font-mono" value={f.expires} onChange={(e) => setF({ ...f, expires: e.target.value })} />
+          </Labelled>
+        </div>
+        <button type="button" className={solidButton} disabled={!ready} onClick={() => void save()}>
+          Add to the crew
+        </button>
+      </FormDialog>
     </Dialog>
   )
 }
@@ -128,183 +140,217 @@ function SignInDialog({ op, children }: { op: Operator; children: ReactNode }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
-        <div className="px-3 pt-3 pb-3">
-          <DialogTitle>Sign-in for {op.name}</DialogTitle>
-          <DialogDescription>They sign in to Ardent Field with this email and password. Pass it on to them yourself.</DialogDescription>
-        </div>
-        <Well className="space-y-3 p-3">
-          <Field label="Email" htmlFor="si-email">
-            <Input id="si-email" type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <Field label="Temporary password, 8 or more characters" htmlFor="si-pass">
-            <Input id="si-pass" className="font-mono" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </Field>
-          <Button variant="ember" className="h-11 w-full" disabled={!ready} onClick={() => void save()}>
-            Give them a sign-in
-          </Button>
-        </Well>
-      </DialogContent>
+      <FormDialog eyebrow="Ardent Field" title={`Sign-in for ${op.name.split(' ')[0]}`} line="They sign in to Ardent Field with this email and password. Ardent doesn't send it, so pass it on to them yourself.">
+        <Labelled label="Email" htmlFor="si-email">
+          <Input id="si-email" type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+        </Labelled>
+        <Labelled label="Temporary password, 8 or more characters" htmlFor="si-pass">
+          <Input id="si-pass" className="font-mono" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Labelled>
+        <button type="button" className={solidButton} disabled={!ready} onClick={() => void save()}>
+          Give them a sign-in
+        </button>
+      </FormDialog>
     </Dialog>
   )
 }
+
+/* ---------- The screen ---------- */
+
+const stateWord: Record<OperatorState, [string, 'ok' | 'info' | 'warn' | 'faint']> = {
+  on_site: ['On site', 'ok'],
+  en_route: ['On the road', 'info'],
+  delayed: ['Held up', 'warn'],
+  on_call: ['In the yard', 'faint'],
+  workshop: ['Workshop', 'faint'],
+  off_shift: ['Off today', 'faint'],
+}
+
+const todaysJobs = (book: Book, opId: string) =>
+  book.jobs.filter((j) => j.operatorIds.includes(opId) && onDay(j.start, today()) && j.status !== 'cancelled').sort((a, b) => a.start.localeCompare(b.start))
 
 export function Crew() {
   const { me } = useArdent()
   const { data: book } = useBook()
   const { data: members } = useMembers()
-  const [picked, setPicked] = useState<string>()
-  const day = today()
   const ops = book?.operators ?? []
-  const op = find(ops, picked) ?? ops[0]
-  const out = ops.filter((o) => ['en_route', 'on_site', 'delayed'].includes(o.state)).length
-  const lapsing = ops.flatMap((o) => o.registrations.filter((r) => daysTo(r.expires) <= 30)).length
+  const outToday = book ? ops.filter((o) => todaysJobs(book, o.id).length > 0 || ['en_route', 'on_site', 'delayed'].includes(o.state)).length : 0
+  const regs = ops.flatMap((o) => o.registrations)
+  const lapsed = regs.filter((r) => daysTo(r.expires) < 0).length
+  const running = regs.filter((r) => daysTo(r.expires) <= SOON).length
+  const jobsToday = book?.jobs.filter((j) => onDay(j.start, today()) && j.status !== 'cancelled').length ?? 0
+
+  const add = (
+    <AddCrewDialog>
+      <button type="button" className={barButton}>
+        <Icon name="plus" className="size-4" /> Add to the crew
+      </button>
+    </AddCrewDialog>
+  )
 
   return (
-    <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader
-        eyebrow={`${ops.length} on the books, ${out} out now${lapsing ? `, ${lapsing} ${lapsing === 1 ? 'registration' : 'registrations'} to renew` : ''}`}
+    <div className="flex flex-col gap-10 pb-6">
+      <PageBar crumbs={[{ label: 'Crew' }]} actions={add} />
+      <PageHead
         title="Crew"
-        aside={
-          <AddCrewDialog>
-            <Button variant="ember" size="sm">
-              <Plus /> Add to the crew
-            </Button>
-          </AddCrewDialog>
+        book={book}
+        className="pb-0"
+        sub="Who's out, what they're on, and what they're cleared to do."
+        figures={
+          book && [
+            { label: 'Out today', value: outToday, unit: `of ${ops.length}` },
+            { label: 'Jobs today', value: jobsToday },
+            { label: 'Cards running out', value: running, tone: lapsed ? 'danger' : running ? 'warn' : undefined },
+          ]
         }
       />
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <div className="grid grid-cols-1 content-start gap-3 sm:grid-cols-2">
-          {ops.map((o, i) => {
-            const st = operatorState[o.state]
-            const todays = book!.jobs.filter((j) => j.operatorIds.includes(o.id) && onDay(j.start, day) && j.status !== 'cancelled')
-            const current = find(book!.jobs, o.currentJobId)
-            const soonest = [...o.registrations].sort((a, b) => a.expires.localeCompare(b.expires))[0]
-            const d = soonest && daysTo(soonest.expires)
-            return (
-              <button
-                key={o.id}
-                onClick={() => setPicked(o.id)}
-                style={{ '--i': i } as CSSProperties}
-                className={cn('animate-rise flex flex-col rounded-xl bg-surface/90 p-1.5 text-left transition-colors hover:bg-[#141414]', op?.id === o.id && 'bg-raised hover:bg-raised')}
-              >
-                <div className="flex items-center gap-3 px-2.5 py-2.5">
-                  <Avatar initials={o.initials} className="size-10 text-[12px]" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px]">{o.name}</p>
-                    <p className="truncate text-[12px] text-muted">{o.trades.map((t) => tradeName[t]).join(', ')}</p>
-                  </div>
-                  <Badge tone={st.tone} dot>
-                    {st.label}
-                  </Badge>
-                </div>
-                <div className="rounded-lg bg-inset px-3 py-2.5 text-[12px]">
-                  <p className="truncate text-muted">
-                    {current ? (
-                      <>
-                        <span className="font-mono text-foreground">{current.ref}</span> {current.title}
-                      </>
-                    ) : todays.length ? (
-                      `${todays.length} ${todays.length === 1 ? 'job' : 'jobs'} today`
-                    ) : (
-                      'Nothing booked today'
-                    )}
-                  </p>
-                  <div className="mt-2 flex items-center justify-between gap-2 font-mono text-[11px] text-faint">
-                    <span className="flex items-center gap-1.5">
-                      <Truck className="size-3.5" /> {o.van || 'No van'}
-                    </span>
-                    {soonest && (
-                      <span className={cn(d < 0 ? 'text-danger' : d <= 30 ? 'text-warn' : 'text-faint')}>
-                        {soonest.body} {d < 0 ? 'lapsed' : `to ${shortDate(`${soonest.expires}T12:00:00Z`)}`}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-            )
-          })}
+      <div className="-mt-4 sm:hidden">{add}</div>
+
+      {!book ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-[480px] animate-pulse rounded-[14px] bg-surface/60" />
+          ))}
         </div>
+      ) : ops.length ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(270px,1fr))]">
+          {ops.map((o, i) => (
+            <CrewCard key={o.id} book={book} op={o} index={i} member={members?.find((m) => m.operatorId === o.id)} owner={me?.role === 'owner'} membersKnown={!!members} />
+          ))}
+        </div>
+      ) : (
+        <Card className="py-16 text-center text-[14px] text-muted">No one on the crew yet. Add the first person from the top bar.</Card>
+      )}
+    </div>
+  )
+}
 
-        {op && book && (
-          <Panel className="xl:sticky xl:top-0 xl:self-start">
-            <PanelHeader icon={<BadgeCheck />} title={op.name} />
-            <Well className="px-2 pb-2">
-              <SectionLabel>Today</SectionLabel>
-              <div className="divide-y divide-line rounded-lg bg-surface">
-                {book.jobs
-                  .filter((j) => j.operatorIds.includes(op.id) && onDay(j.start, day) && j.status !== 'cancelled')
-                  .sort((a, b) => a.start.localeCompare(b.start))
-                  .map((j) => (
-                    <Link key={j.id} to={`/jobs/${j.id}`} className="flex min-h-11 items-center gap-3 px-3 py-2 text-[13px] hover:bg-white/[0.02]">
-                      <span className="font-mono text-[12px] text-muted">{timeWindow(j.start, j.end)}</span>
-                      <span className="min-w-0 flex-1 truncate">{j.title}</span>
-                      <Badge tone={jobStatus[j.status].tone} dot>
-                        {jobStatus[j.status].label}
-                      </Badge>
-                    </Link>
-                  ))}
-                {!book.jobs.some((j) => j.operatorIds.includes(op.id) && onDay(j.start, day)) && <p className="px-3 py-3 text-[13px] text-faint">Nothing booked.</p>}
-              </div>
+/** "Owner, gas and heating", "Electrician", "Subcontractor, carpentry". */
+function roleLine(o: Operator) {
+  const t = o.trades.map((x) => tradeName[x].toLowerCase())
+  const list = t.length > 1 ? `${t.slice(0, -1).join(', ')} and ${t[t.length - 1]}` : (t[0] ?? '')
+  if (o.role === 'owner') return list ? `Owner, ${list}` : 'Owner'
+  if (o.role === 'subcontractor') return list ? `Subcontractor, ${list}` : 'Subcontractor'
+  if (o.trades.length === 1 && o.trades[0] === 'electrical') return 'Electrician'
+  return list ? list.charAt(0).toUpperCase() + list.slice(1) : 'Employee'
+}
 
-              <SectionLabel>Registrations</SectionLabel>
-              <div className="divide-y divide-line rounded-lg bg-surface">
-                {op.registrations.map((r) => {
-                  const d = daysTo(r.expires)
-                  return (
-                    <Row key={r.number} label={r.body}>
-                      <Chip>{r.number}</Chip>
-                      <span className={cn('font-mono text-[12px]', d < 0 ? 'text-danger' : d <= 30 ? 'text-warn' : 'text-muted')}>
-                        {d < 0 ? `lapsed ${shortDate(`${r.expires}T12:00:00Z`)}` : `to ${shortDate(`${r.expires}T12:00:00Z`)}`}
-                      </span>
-                    </Row>
-                  )
-                })}
-                {!op.registrations.length && <p className="px-3 py-3 text-[13px] text-faint">None on file.</p>}
-              </div>
+/** What they're doing now, in a title and a mono detail line. */
+function nowLine(book: Book, o: Operator) {
+  const job = find(book.jobs, o.currentJobId)
+  const nowIso = new Date().toISOString()
+  const next = todaysJobs(book, o.id).find((j) => j.id !== job?.id && !isDone(j) && j.end > nowIso)
+  const nextWord = next ? `NEXT ${next.ref}  ${clock(next.start)}` : 'NOTHING ELSE TODAY'
+  if (job && o.state === 'on_site') return { job, title: job.title, detail: `${job.ref}  ${timeWindow(job.start, job.end).toUpperCase()}` }
+  if (job && o.state === 'en_route') return { job, title: job.title, detail: o.etaMinutes ? `${job.ref}  THERE ${clock(new Date(Date.now() + o.etaMinutes * 60_000).toISOString())}` : `${job.ref}  ON THE WAY` }
+  if (job && o.state === 'delayed') return { job, title: job.title, detail: o.etaMinutes ? `${job.ref}  ${o.etaMinutes} MIN LATE` : `${job.ref}  RUNNING LATE` }
+  if (o.state === 'workshop') return { job: next, title: 'In the workshop', detail: nextWord }
+  if (o.state === 'off_shift') return { job: next, title: 'Off shift', detail: next ? nextWord : 'NOTHING BOOKED TODAY' }
+  return { job: next, title: o.state === 'on_call' ? 'In the yard' : stateWord[o.state][0], detail: nextWord }
+}
 
-              <SectionLabel>Ardent Field</SectionLabel>
-              <div className="divide-y divide-line rounded-lg bg-surface">
-                {(() => {
-                  const m = members?.find((x) => x.operatorId === op.id)
-                  if (m)
-                    return (
-                      <Row label="Signs in as">
-                        <span className="truncate">{m.email}</span>
-                      </Row>
-                    )
-                  return (
-                    <div className="flex items-center justify-between gap-3 px-3 py-2.5 text-[13px]">
-                      <span className="text-muted">No sign-in yet</span>
-                      {me?.role === 'owner' ? (
-                        <SignInDialog op={op}>
-                          <Button variant="outline" size="xs">
-                            <KeyRound /> Give them a sign-in
-                          </Button>
-                        </SignInDialog>
-                      ) : (
-                        <span className="text-[12px] text-faint">The owner can add one</span>
-                      )}
-                    </div>
-                  )
-                })()}
-                <Row label="Works as">{op.role === 'subcontractor' ? 'Subcontractor' : op.role === 'owner' ? 'Owner' : 'Employee'}</Row>
-                <Row label="Van">
-                  <Chip>{op.van || '·'}</Chip>
-                </Row>
-              </div>
-            </Well>
-          </Panel>
-        )}
-        {book && !ops.length && (
-          <Panel>
-            <Well className="flex flex-col items-center gap-3 px-3 py-14 text-center text-[13px] text-faint">
-              <UserPlus className="size-5" />
-              No one on the crew yet.
-            </Well>
-          </Panel>
-        )}
+function CrewCard({ book, op, index, member, owner, membersKnown }: { book: Book; op: Operator; index: number; member?: Member; owner: boolean; membersKnown: boolean }) {
+  const [word, tone] = stateWord[op.state]
+  const now = nowLine(book, op)
+  const day = today()
+  const month = day.slice(0, 7)
+  const mine = book.jobs.filter((j) => j.operatorIds.includes(op.id) && j.status !== 'cancelled')
+  const monthJobs = mine.filter((j) => j.start.slice(0, 7) === month).length
+  const mon = weekStart(day)
+  const week = Array.from({ length: 7 }, (_, i) => addDays(mon, i))
+  const weekHours = mine.filter((j) => week.some((d) => onDay(j.start, d))).reduce((s, j) => s + hoursBetween(j.start, j.end), 0)
+  const monthName = new Date(`${day}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+  const regs = [...op.registrations].sort((a, b) => a.expires.localeCompare(b.expires))
+
+  const nowBody = (
+    <>
+      <span className="cap">Now</span>
+      <span className="truncate text-[14px]">{now.title}</span>
+      <span className="truncate font-mono text-[11px] whitespace-pre text-muted">{now.detail}</span>
+    </>
+  )
+
+  return (
+    <Card aria-label={op.name} className="flex flex-col gap-[22px] p-6" style={{ '--i': index } as CSSProperties}>
+      <div className="flex items-start justify-between gap-3">
+        <Monogram size="lg">{op.initials}</Monogram>
+        <span className="cap flex h-7 items-center gap-2 rounded-full bg-raised px-[11px] text-foreground">
+          <StateDot tone={tone} />
+          {word}
+        </span>
       </div>
+
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <h2 className="op-title truncate text-[15px] tracking-[.16em]">{op.name}</h2>
+        <span className="text-[13px] text-muted">{roleLine(op)}</span>
+      </div>
+
+      {now.job ? (
+        <Link to={`/jobs/${now.job.id}`} className="flex min-w-0 flex-col gap-1 rounded-[10px] bg-inset px-3.5 py-3 outline-none transition-colors hover:bg-[#101010] focus-visible:ring-2 focus-visible:ring-ring/60">
+          {nowBody}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-col gap-1 rounded-[10px] bg-inset px-3.5 py-3">{nowBody}</div>
+      )}
+
+      <dl className="grid grid-cols-3 gap-2.5">
+        <Stat label={`Jobs, ${monthName}`}>{monthJobs}</Stat>
+        <Stat label="Today">{todaysJobs(book, op.id).length}</Stat>
+        <Stat label="Week">{hoursWord(weekHours)}</Stat>
+      </dl>
+
+      <ul className="rows text-[13px]">
+        {regs.map((r) => {
+          const d = daysTo(r.expires)
+          return (
+            <li key={`${r.body}${r.number}`} className="flex items-center justify-between gap-2.5 py-2.5">
+              <span className="truncate">{r.body}</span>
+              <span className={cn('shrink-0 font-mono text-[12px] whitespace-pre', d < 0 ? 'text-danger' : d <= SOON ? 'text-warn' : 'text-muted')}>
+                {r.number}
+                {'  '}
+                {d < 0 ? `LAPSED ${expiryWord(r.expires)}` : expiryWord(r.expires)}
+              </span>
+            </li>
+          )
+        })}
+        {!regs.length && (
+          <li className="flex items-center justify-between gap-2.5 py-2.5">
+            <span>Registration</span>
+            <span className="font-mono text-[12px] text-muted">NONE ON FILE</span>
+          </li>
+        )}
+        <li className="flex items-center justify-between gap-2.5 py-2.5">
+          <span>Van</span>
+          <span className="font-mono text-[12px] text-muted">{op.van || 'NO VAN'}</span>
+        </li>
+        <li className="flex min-h-[46px] items-center justify-between gap-2.5 py-2">
+          <span>Ardent Field</span>
+          {member ? (
+            <span className="truncate font-mono text-[12px] text-muted" title={member.email}>
+              HAS A SIGN-IN
+            </span>
+          ) : !membersKnown ? (
+            <span className="font-mono text-[12px] text-faint">...</span>
+          ) : owner ? (
+            <SignInDialog op={op}>
+              <button type="button" className={cn(softButton, 'h-[30px] px-3 text-[12px]')}>
+                Give a sign-in
+              </button>
+            </SignInDialog>
+          ) : (
+            <span className="font-mono text-[12px] text-muted">NO SIGN-IN</span>
+          )}
+        </li>
+      </ul>
+    </Card>
+  )
+}
+
+function Stat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <dt className="cap truncate text-[9px]">{label}</dt>
+      <dd className="op-number text-[20px]">{children}</dd>
     </div>
   )
 }

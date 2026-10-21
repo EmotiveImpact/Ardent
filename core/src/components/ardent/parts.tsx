@@ -89,7 +89,7 @@ export function SectionHead({ title, aside, className }: { title: ReactNode; asi
   return (
     <div className={cn('flex items-center justify-between gap-4 pb-3', className)}>
       <h2 className="cap flex items-center gap-2.5">{title}</h2>
-      {aside && <div className="text-[13px] text-muted">{aside}</div>}
+      {aside && <div className="hidden text-right text-[13px] text-muted sm:block">{aside}</div>}
     </div>
   )
 }

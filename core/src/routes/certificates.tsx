@@ -1,208 +1,166 @@
-import { useState, type CSSProperties } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { CalendarPlus, FileBadge2, ShieldCheck } from 'lucide-react'
-import { certificateState, shortDate, ukToIso } from '@kit'
-import { Panel, PanelHeader, Well, PageHeader } from '@/components/ui/panel'
-import { Badge, Chip } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useArdent, useBook } from '@/data/ardent'
-import type { Certificate, CertificateKind, ComplianceCheck, Trade } from '@/data/model'
-import { act } from '@/lib/act'
-import { addDays, find, today } from '@/lib/jobs'
+import { useState } from 'react'
+import { Link } from 'react-router'
+import { PageBar } from '@/components/layout/bar'
+import { Card, PageHead, RowButton } from '@/components/ardent/parts'
+import { capDay, say } from '@/components/ardent/money-lib'
+import { useBook, type Book } from '@/data/ardent'
+import type { Certificate, CertificateKind } from '@/data/model'
+import { find } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
-import { useCountUp } from '@/hooks/use-now'
 
-const daysFrom = (day: string) => Math.round((Date.parse(`${day}T12:00:00Z`) - Date.parse(`${today()}T12:00:00Z`)) / 86_400_000)
-const bar: Record<Certificate['state'], string> = { overdue: 'bg-danger', due_soon: 'bg-warn', valid: 'bg-ok', draft: 'bg-faint' }
 const order: Certificate['state'][] = ['overdue', 'due_soon', 'valid', 'draft']
+const dot: Record<Certificate['state'], string> = { overdue: 'bg-danger', due_soon: 'bg-warn', valid: 'bg-foreground', draft: 'bg-[#5f5f5f]' }
+const runsOutTone: Record<Certificate['state'], string> = { overdue: 'text-danger', due_soon: 'text-warn', valid: 'text-muted', draft: 'text-muted' }
+const kindName: Record<CertificateKind, string> = { CP12: 'CP12', EICR: 'EICR', PAT: 'PAT', BS5839: 'Fire alarm', 'Boiler service': 'Boiler service', Unvented: 'Unvented' }
 
-/** The trade and checks a renewal visit needs. */
-const renewal: Record<CertificateKind, { trade: Trade; title: string; hours: number; checks: ComplianceCheck['key'][] }> = {
-  CP12: { trade: 'gas', title: 'Landlord gas safety check (CP12)', hours: 1, checks: ['registration', 'gas_tightness'] },
-  'Boiler service': { trade: 'heating', title: 'Annual boiler service', hours: 1, checks: ['registration', 'gas_tightness'] },
-  EICR: { trade: 'electrical', title: 'Electrical installation condition report', hours: 3, checks: ['registration', 'eicr'] },
-  PAT: { trade: 'electrical', title: 'PAT testing', hours: 2, checks: [] },
-  BS5839: { trade: 'fire', title: 'Fire alarm service (BS 5839)', hours: 2, checks: [] },
-  Unvented: { trade: 'plumbing', title: 'Unvented cylinder service', hours: 1, checks: [] },
+/** Words a renewal visit for this kind of certificate would carry in its title or notes. */
+const renewalWords: Record<CertificateKind, string[]> = {
+  CP12: ['cp12', 'gas safety'],
+  'Boiler service': ['boiler service'],
+  EICR: ['eicr', 'electrical installation condition'],
+  PAT: ['pat test', 'portable appliance'],
+  BS5839: ['bs5839', 'bs 5839', 'fire alarm'],
+  Unvented: ['unvented'],
 }
-const checkName: Record<ComplianceCheck['key'], string> = { rams: 'RAMS', permit: 'Permit', registration: 'Registration', gas_tightness: 'Tightness test', eicr: 'Electrical cert', photos: 'Photos', signature: 'Customer sign-off' }
+const OPEN_DONE = ['complete', 'invoiced', 'paid', 'cancelled']
 
-function Score({ value }: { value: number }) {
-  const v = useCountUp(value, 1200)
-  const r = 44
-  const c = 2 * Math.PI * r
+/** A renewal visit already in the book: an open job at the same site for the same kind of work. */
+function bookedFor(c: Certificate, book: Book) {
+  const words = renewalWords[c.kind]
+  return book.jobs.find((j) => j.siteId === c.siteId && !OPEN_DONE.includes(j.status) && words.some((w) => `${j.title} ${j.notes ?? ''}`.toLowerCase().includes(w)))
+}
+
+type Filter = 'all' | 'overdue' | 'due_soon' | 'valid'
+
+export function Certificates() {
+  const { data: book } = useBook()
+  const [filter, setFilter] = useState<Filter>('all')
+  const certs = book?.certificates ?? []
+  const counts = { overdue: 0, due_soon: 0, valid: 0, draft: 0 }
+  for (const c of certs) counts[c.state]++
+  const rows = certs.filter((c) => filter === 'all' || c.state === filter).sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || a.expires.localeCompare(b.expires))
+
+  const sub = !book
+    ? ' '
+    : counts.overdue
+      ? `${say(counts.overdue)} ${counts.overdue === 1 ? 'has' : 'have'} run out${counts.due_soon ? ` and ${say(counts.due_soon).toLowerCase()} more ${counts.due_soon === 1 ? 'runs' : 'run'} out in the next 30 days` : ''}. Book the renewals from here.`
+      : counts.due_soon
+        ? `Nothing has run out. ${say(counts.due_soon)} ${counts.due_soon === 1 ? 'runs' : 'run'} out in the next 30 days.`
+        : 'Everything is in date.'
+
   return (
-    <div className="relative size-28 shrink-0">
-      <svg viewBox="0 0 100 100" className="size-full -rotate-90">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="var(--raised)" strokeWidth="6" />
-        <circle cx="50" cy="50" r={r} fill="none" stroke="var(--ember)" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)} style={{ filter: 'drop-shadow(0 0 6px var(--ember))' }} />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-mono text-[28px] leading-none tabular">{Math.round(v)}%</span>
-        <span className="mt-1 text-[10px] tracking-wider text-faint uppercase">In date</span>
+    <div className="flex flex-col gap-10 pb-6">
+      <PageBar crumbs={[{ label: 'Certs' }]} />
+      <div className="flex flex-wrap items-end justify-between gap-x-10">
+        <PageHead title="Certificates" book={book} sub={sub} className="pb-0" />
+        {book && <Gauge certs={certs} counts={counts} filter={filter} setFilter={setFilter} />}
       </div>
+
+      {!book ? (
+        <div className="h-[420px] animate-pulse rounded-[14px] bg-surface/60" />
+      ) : (
+        <Card className="px-4 py-1.5 sm:px-[22px]">
+          <div className="cap hidden gap-4 py-3.5 lg:grid lg:grid-cols-[130px_minmax(200px,2fr)_minmax(140px,1.3fr)_90px_100px_150px]">
+            <span>Certificate</span>
+            <span>Address</span>
+            <span>Customer</span>
+            <span>Issued</span>
+            <span>Runs out</span>
+            <span />
+          </div>
+          {!rows.length && <p className="py-10 text-center text-[14px] text-muted">{certs.length ? 'None in this state.' : 'No certificates yet.'}</p>}
+          <ul className="rows lg:shadow-[inset_0_1px_0_var(--line)]">
+            {rows.map((c) => (
+              <CertRow key={c.id} c={c} book={book} />
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
   )
 }
 
-export function Certificates() {
-  const { client } = useArdent()
-  const { data: book } = useBook()
-  const navigate = useNavigate()
-  const [filter, setFilter] = useState<'all' | Certificate['state']>('all')
-  const certs = book?.certificates ?? []
-  const counts = { overdue: 0, due_soon: 0, valid: 0, draft: 0 }
-  for (const c of certs) counts[c.state]++
-  const total = Math.max(1, certs.length - counts.draft)
-  const score = Math.round(((counts.valid + counts.due_soon) / total) * 100)
-  const rows = certs.filter((c) => filter === 'all' || c.state === filter).sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || a.expires.localeCompare(b.expires))
-
-  /** A renewal visit already in the book for this site and kind of work. */
-  const booked = (c: Certificate) => {
-    const r = renewal[c.kind]
-    return book?.jobs.find((j) => j.siteId === c.siteId && j.title === r.title && !['complete', 'invoiced', 'paid', 'cancelled'].includes(j.status))
-  }
-
-  const bookRenewal = async (c: Certificate) => {
-    const site = find(book?.sites, c.siteId)
-    if (!site) return
-    const r = renewal[c.kind]
-    const start = ukToIso(addDays(today(), 1), '09:00')
-    const job = await act(
-      client.jobs.create({
-        title: r.title,
-        trade: r.trade,
-        status: 'booked',
-        priority: c.state === 'overdue' ? 'high' : 'normal',
-        customerId: site.customerId,
-        siteId: site.id,
-        operatorIds: [],
-        start,
-        end: new Date(Date.parse(start) + r.hours * 3_600_000).toISOString(),
-        lines: [],
-        checks: (['rams', ...r.checks, 'photos', 'signature'] as ComplianceCheck['key'][]).map((key) => ({ key, label: checkName[key], state: 'pending' })),
-        notes: `Renewal of ${c.kind}, expires ${c.expires}.`,
-      }),
-      (j) => `${j.ref} booked for tomorrow 09:00. Pick who goes on the schedule.`,
-    )
-    if (job) navigate(`/jobs/${job.id}`)
-  }
-
+function CertRow({ c, book }: { c: Certificate; book: Book }) {
+  const site = find(book.sites, c.siteId)
+  const customer = find(book.customers, site?.customerId)
+  const visit = c.state === 'overdue' || c.state === 'due_soon' ? bookedFor(c, book) : undefined
+  const needsBooking = (c.state === 'overdue' || c.state === 'due_soon') && !visit
+  const address = site ? `${site.line1}, ${site.postcode}` : 'Unknown site'
+  const action = visit ? (
+    <Link to={`/jobs/${visit.id}`} className="rounded-sm font-mono text-[11px] tracking-[.1em] text-muted uppercase outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60">
+      Booked {visit.ref}
+    </Link>
+  ) : needsBooking ? (
+    <RowButton to={`/jobs/new?site=${c.siteId}&for=${encodeURIComponent(c.kind)}`} className="h-8 px-3">
+      Book renewal
+    </RowButton>
+  ) : null
   return (
-    <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader
-        eyebrow="Renewals your customers rely on"
-        title="Certificates"
-        aside={
-          <span className="caps flex h-8 items-center gap-2 rounded-md bg-surface px-3 text-muted">
-            <span className={cn('size-1.5 rounded-full', counts.overdue ? 'bg-danger' : 'bg-ok')} />
-            {counts.overdue} overdue
-          </span>
-        }
-      />
-      <Panel style={{ '--i': 0 } as CSSProperties}>
-        <PanelHeader icon={<ShieldCheck />} title="Where you stand" />
-        <Well className="flex flex-col gap-5 p-4 sm:flex-row sm:items-center">
-          <Score value={book ? score : 0} />
-          <div className="min-w-0 flex-1">
-            <div className="flex h-2.5 overflow-hidden rounded-full bg-raised">
-              {(['overdue', 'due_soon', 'valid'] as const).map((k) => (
-                <span key={k} className={cn('h-full transition-all', bar[k])} style={{ width: `${(counts[k] / total) * 100}%` }} />
-              ))}
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {(['overdue', 'due_soon', 'valid'] as const).map((k) => (
-                <button key={k} onClick={() => setFilter(filter === k ? 'all' : k)} className={cn('rounded-lg bg-surface px-3 py-2.5 text-left transition-colors hover:bg-raised', filter === k && 'bg-raised')}>
-                  <span className="flex items-center gap-2 text-[12px] text-muted">
-                    <span className={cn('size-1.5 rounded-full', bar[k])} />
-                    {certificateState[k].label}
-                  </span>
-                  <span className="mt-1 block font-mono text-[22px] leading-none tabular">{counts[k]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </Well>
-      </Panel>
+    <li className={cn('flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3 lg:grid lg:grid-cols-[130px_minmax(200px,2fr)_minmax(140px,1.3fr)_90px_100px_150px] lg:py-[11px]', (c.state === 'valid' || c.state === 'draft') && 'opacity-55')}>
+      <span className="flex w-full items-center gap-2.5 text-[13.5px] lg:w-auto">
+        <span aria-hidden className={cn('size-[7px] shrink-0 rounded-full', dot[c.state])} />
+        {kindName[c.kind]}
+        <span className="sr-only">, {c.state.replace('_', ' ')}</span>
+        <span className={cn('ml-auto font-mono text-[11px] lg:hidden', runsOutTone[c.state])}>{capDay(c.expires)}</span>
+      </span>
+      <span className="min-w-0 flex-1 truncate pl-[17px] text-[14px] lg:flex-none lg:pl-0">{address}</span>
+      <span className="hidden min-w-0 truncate text-[13.5px] text-[#c8c8c8] lg:block">
+        {customer ? (
+          <Link to={`/customers/${customer.id}`} className="rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60">
+            {customer.name}
+          </Link>
+        ) : null}
+      </span>
+      <span className="hidden font-mono text-[12px] text-muted lg:block">{c.issued ? capDay(c.issued) : '--'}</span>
+      <span className={cn('hidden font-mono text-[12px] lg:block', runsOutTone[c.state])}>{capDay(c.expires)}</span>
+      <span className="flex shrink-0 justify-end lg:min-h-8 lg:items-center">{action}</span>
+      <span className="w-full truncate pl-[17px] text-[12.5px] text-muted lg:hidden">{customer?.name}</span>
+    </li>
+  )
+}
 
-      <Panel style={{ '--i': 1 } as CSSProperties}>
-        <PanelHeader
-          icon={<FileBadge2 />}
-          title="Certificates"
-          actions={
-            <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-              <TabsList className="h-8">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="overdue">Overdue</TabsTrigger>
-                <TabsTrigger value="due_soon">Due soon</TabsTrigger>
-                <TabsTrigger value="valid">Valid</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
-          className="h-11"
-        />
-        <Well className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-[13px]">
-            <thead className="text-muted">
-              <tr className="border-b">
-                <th className="h-10 px-3 font-normal">Type</th>
-                <th className="px-3 font-normal">Site</th>
-                <th className="px-3 font-normal">Customer</th>
-                <th className="px-3 font-normal">Expires</th>
-                <th className="px-3 text-right font-normal">State</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((c) => {
-                const site = find(book?.sites, c.siteId)
-                const customer = find(book?.customers, site?.customerId)
-                const d = daysFrom(c.expires)
-                const visit = booked(c)
-                return (
-                  <tr key={c.id} className="group border-b last:border-0 hover:bg-white/[0.025]">
-                    <td className="h-12 px-3">
-                      <Chip>{c.kind}</Chip>
-                    </td>
-                    <td className="px-3">
-                      {site?.line1} <span className="ml-1 font-mono text-[11px] text-faint">{site?.postcode}</span>
-                    </td>
-                    <td className="px-3 text-muted">{customer && <Link to={`/customers/${customer.id}`} className="hover:text-foreground">{customer.name}</Link>}</td>
-                    <td className="px-3 font-mono text-[12px] whitespace-nowrap">
-                      {shortDate(`${c.expires}T12:00:00Z`)}
-                      <span className={cn('ml-2', d < 0 ? 'text-danger' : d <= 30 ? 'text-warn' : 'text-faint')}>{d < 0 ? `${-d}d late` : d === 0 ? 'today' : `in ${d}d`}</span>
-                    </td>
-                    <td className="px-3 text-right">
-                      <span className="inline-flex items-center gap-2">
-                        {c.state !== 'valid' &&
-                          (visit ? (
-                            <Link to={`/jobs/${visit.id}`}>
-                              <Badge tone="info">Renewal booked {shortDate(visit.start)}</Badge>
-                            </Link>
-                          ) : (
-                            <Button size="xs" variant="outline" className="h-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" onClick={() => void bookRenewal(c)}>
-                              <CalendarPlus /> Book renewal
-                            </Button>
-                          ))}
-                        <Badge tone={certificateState[c.state].tone} dot>
-                          {certificateState[c.state].label}
-                        </Badge>
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-              {book && !rows.length && (
-                <tr>
-                  <td colSpan={5} className="px-3 py-10 text-center text-faint">
-                    Nothing here.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </Well>
-      </Panel>
+/** In date out of all, one segment per certificate, and a legend that filters the list. */
+function Gauge({ certs, counts, filter, setFilter }: { certs: Certificate[]; counts: Record<Certificate['state'], number>; filter: Filter; setFilter: (f: Filter) => void }) {
+  const live = certs.filter((c) => c.state !== 'draft')
+  const segs = [...live].sort((a, b) => order.indexOf(b.state) - order.indexOf(a.state))
+  const inDate = counts.valid + counts.due_soon
+  const legend: { key: Filter; label: string; n: number; dot: string }[] = [
+    { key: 'overdue', label: 'Run out', n: counts.overdue, dot: 'bg-danger' },
+    { key: 'due_soon', label: 'Due in 30 days', n: counts.due_soon, dot: 'bg-warn' },
+    { key: 'valid', label: 'Fine', n: counts.valid, dot: 'bg-foreground' },
+  ]
+  return (
+    <div className="flex w-[440px] max-w-full flex-col gap-3 pt-6">
+      <div className="flex items-baseline justify-between">
+        <span className="cap">In date</span>
+        <span className="op-number text-[30px]">
+          {inDate} <span className="text-[16px] text-muted">of {live.length}</span>
+        </span>
+      </div>
+      <div aria-hidden className="flex gap-[3px]">
+        {segs.map((c) => (
+          <span key={c.id} className={cn('h-2 flex-1 rounded-[1px]', dot[c.state])} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Show only">
+        {legend.map((l) => (
+          <button
+            key={l.key}
+            type="button"
+            aria-pressed={filter === l.key}
+            onClick={() => setFilter(filter === l.key ? 'all' : l.key)}
+            className={cn('cap flex h-7 items-center gap-1.5 rounded-full px-2.5 outline-none transition-colors first:-ml-2.5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60', filter === l.key && 'bg-raised text-foreground')}
+          >
+            <span className={cn('size-[7px] rounded-full', l.dot)} />
+            {l.label} <span className="text-foreground">{l.n}</span>
+          </button>
+        ))}
+        {filter !== 'all' && (
+          <button type="button" onClick={() => setFilter('all')} className="cap flex h-7 items-center rounded-full px-2.5 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60">
+            Show all
+          </button>
+        )}
+      </div>
     </div>
   )
 }

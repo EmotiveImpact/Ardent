@@ -131,17 +131,18 @@ function Readouts({ book }: { book: Book }) {
 
   const mon = weekStart(day)
   const week = Array.from({ length: 5 }, (_, i) => addDays(mon, i))
-  const crew = book.operators.filter((o) => o.state !== 'off_shift')
+  // Same sums as the Diary: each person's own jobs, against the whole crew's week.
+  const crew = book.operators
   const bookedPct = (w: string) => {
     const d5 = Array.from({ length: 5 }, (_, i) => addDays(w, i))
-    const h = d5.reduce((s, d) => s + hoursOf(book, d), 0)
+    const h = d5.reduce((s, d) => s + crew.reduce((n, o) => n + hoursOf(book, d, o.id), 0), 0)
     return Math.round((h / Math.max(1, crew.length * WEEK_HOURS)) * 100)
   }
   // A free slot is a crew member with half a day or more open, from today to Friday.
   const free = week.filter((d) => d >= day).reduce((s, d) => s + crew.filter((o) => hoursOf(book, d, o.id) <= 4).length, 0)
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
       <Readout index={0} label="Jobs done today" value={done} unit={`of ${todays.length}`} bars={days.map((d) => book.jobs.filter((j) => onDay(j.start, d) && isDone(j)).length)} note={`${onSite} on site, ${onRoad} on the road`} action={{ label: 'Jobs', to: '/jobs' }} />
       <Readout index={1} label="Hours booked" value={(Math.round(hoursOf(book, day) * 2) / 2).toString()} unit="h" bars={days.map((d) => hoursOf(book, d))} note={`${crewToday === crew.length ? 'All' : crewToday} of the ${crew.length} crew`} action={{ label: 'Diary', to: '/schedule' }} />
       <Readout index={2} label="Owed to you" value={pounds(owed)} bars={weeks.map(invoicedIn)} note={late ? `${pounds(late)} late` : 'Nothing late'} action={{ label: 'Record payment', to: '/money' }} />
@@ -205,7 +206,7 @@ function FromTheVans({ book }: { book: Book }) {
 function ThisWeek({ book }: { book: Book }) {
   const mon = weekStart(today())
   const week = Array.from({ length: 5 }, (_, i) => addDays(mon, i))
-  const crew = book.operators.filter((o) => o.state !== 'off_shift')
+  const crew = book.operators
   return (
     <Card>
       <SectionHead title="This week" aside={<a href="#/schedule" className="text-muted hover:text-foreground">Open diary</a>} />
