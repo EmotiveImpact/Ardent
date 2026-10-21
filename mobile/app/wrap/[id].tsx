@@ -43,6 +43,7 @@ export default function WrapUp() {
   const job = day?.jobs.find((j) => j.id === id);
   const invoice = day && job ? jobInvoice(day, job.id) : undefined;
   const signature = day?.signatures.filter((s) => s.jobId === id).at(-1);
+  const report = day?.reports.find((r) => r.jobId === id && r.operatorId === day.operator.id && r.status === 'signed') ?? day?.reports.find((r) => r.jobId === id && r.operatorId === day.operator.id);
 
   // Pick up where the job is: signed already goes to the invoice, settled goes to the end.
   const [step, setStep] = useState<Step>(() => (invoice?.status === 'paid' ? 'done' : signature || invoice ? 'invoice' : 'review'));
@@ -147,6 +148,7 @@ export default function WrapUp() {
                 {job.lines.length === 0 && <Line first left="Nothing logged yet" />}
                 <Line left="Time on site" right={onSite} />
                 <Line left="Photos" right={String(photos.length)} />
+                <Line left="Job report" right={report ? (report.status === 'signed' ? 'Signed' : 'Draft') : 'None'} tint={report?.status === 'signed' ? color.ok : undefined} onPress={() => router.push({ pathname: '/report/[id]', params: { id: job.id } })} />
                 {job.checks.length > 0 && <Line left="Checks" right={`${answered} of ${job.checks.length}`} />}
               </Card>
             </Animated.View>

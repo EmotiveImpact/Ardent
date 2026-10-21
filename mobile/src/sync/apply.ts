@@ -5,8 +5,9 @@
  * folds the engine's answer back in once a change has gone.
  */
 import { totals } from '@/kit/format';
+import { buildReport, partLines } from '@/kit/report';
 import { checkLabel } from '@/kit/states';
-import type { ComplianceCheck, Day, GasAppliance, GasSafetyRecord, Invoice, Job, LineItem, Note, Operator, OperatorState, Photo, Signature, Standby, TimeEntry, VanFix } from '@/data/types';
+import type { ComplianceCheck, Day, GasAppliance, GasSafetyRecord, Invoice, Job, JobReport, LineItem, Note, Operator, OperatorState, Photo, Signature, Standby, TimeEntry, VanFix } from '@/data/types';
 
 import type { CallOp, Op } from './ops';
 
@@ -150,6 +151,24 @@ export function applyLocal(day: Day, op: Op): Day {
         checks: [...j.checks.filter((c) => c.key !== 'gas_tightness'), { key: 'gas_tightness', label: j.checks.find((c) => c.key === 'gas_tightness')?.label ?? checkLabel.gas_tightness, state: tightness === 'pending' ? 'pending' : tightness, detail: `${rec.ref || 'Gas safety record'} issued` }],
       }));
     }
+    case 'reports.save': {
+      const [jobId, input] = a as unknown as [string, { operatorId: string; segments: JobReport['segments']; parts?: JobReport['parts'] }];
+      const job = day.jobs.find((j) => j.id === jobId);
+      if (!job) return day;
+      const was = day.reports.find((r) => r.jobId === jobId && r.operatorId === input.operatorId && r.status === 'draft');
+      const built = buildReport({ segments: input.segments, trade: job.trade, priceList: day.priceList, van: day.stock });
+      const report: JobReport = { ...built, parts: input.parts ?? built.parts, id: was?.id ?? op.localId!, jobId, operatorId: input.operatorId, segments: input.segments, status: 'draft', createdAt: was?.createdAt ?? op.at, updatedAt: op.at };
+      return { ...day, reports: [...day.reports.filter((r) => r !== was), report] };
+    }
+    case 'reports.sign': {
+      const rep = day.reports.find((r) => r.id === a[0]);
+      if (!rep || rep.status !== 'draft') return day;
+      const lines = partLines(rep.parts, day.priceList, rep.operatorId);
+      let next: Day = { ...day, reports: day.reports.map((r) => (r.id === rep.id ? { ...r, status: 'signed', signedAt: op.at, signedBy: day.operator.name } : r)) };
+      next = patchJob(next, rep.jobId, (j) => ({ ...j, lines: [...j.lines, ...lines.map((l, i) => ({ ...l, id: `${op.id}_l${i}` }))] }));
+      for (const l of lines) if (l.fromVan && l.itemId) next = moveStock(next, l.fromVan, l.itemId, -l.quantity);
+      return next;
+    }
     default:
       return day;
   }
@@ -196,6 +215,9 @@ export function settle(base: Day, op: CallOp, result: unknown): { day: Day; ids:
       break;
     case 'invoices':
       day = { ...day, invoices: upsert(day.invoices, r as Invoice, op.localId ?? r.id) };
+      break;
+    case 'reports':
+      day = { ...day, reports: upsert(day.reports, r as JobReport, op.localId ?? r.id) };
       break;
     case 'gasRecords': {
       const rec = r as GasSafetyRecord;

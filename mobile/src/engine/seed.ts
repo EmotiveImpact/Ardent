@@ -8,6 +8,7 @@
  * Sam is a freelance gas engineer the firm calls in.
  */
 import * as mock from '../data/core/mock'
+import { buildReport } from '../kit/report'
 import type { Platform } from './platform'
 import { type Data, emptyData, type Role } from './store'
 
@@ -44,6 +45,7 @@ export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {
     priceList: own(mock.priceList),
     stock: own(mock.stock),
     gasRecords: own(mock.gasRecords),
+    reports: own([ryansReport()]),
     // The day so far: Dan drove over and has been on the tools since eight.
     time: own([
       { id: 'tim_01', operatorId: 'opr_01', jobId: 'job_1042', kind: 'travel' as const, start: '2026-10-18T06:35:00Z', end: '2026-10-18T07:00:00Z' },
@@ -111,4 +113,18 @@ export function shiftDemo<T>(value: T, today: string, from = DEMO_DAY): T {
     return v
   }
   return move(value) as T
+}
+
+/** Ryan's spoken report on the radiator valves job, signed off when he finished. */
+function ryansReport() {
+  const at = '2026-10-17T14:40:00Z'
+  const segments = [
+    'Drained the system down and fitted six new Drayton TRVs off the van, one on every radiator.',
+    'Refilled, bled the radiators and checked every valve, no leaks. System pressure one point two bar.',
+    'Nothing left to do.',
+    'She wants a quote for a power flush next spring.',
+  ].map((text) => ({ text, at }))
+  const van = mock.stock.filter((s) => s.operatorId === 'opr_03')
+  const built = buildReport({ segments, trade: 'heating', priceList: mock.priceList, van })
+  return { ...built, id: 'rep_01', jobId: 'job_1039', operatorId: 'opr_03', segments, status: 'signed' as const, createdAt: at, updatedAt: at, signedAt: '2026-10-17T14:45:00Z', signedBy: 'Ryan Holt' }
 }

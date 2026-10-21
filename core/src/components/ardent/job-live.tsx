@@ -6,13 +6,13 @@ import { find, jobContext } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 import { Card, ChecksRow, RowButton, StageTrack, StepRings, type Step } from './parts'
 
-/** Everything the crew have sent in for one job: time, photos, notes, signatures. */
+/** Everything the crew have sent in for one job: time, photos, notes, signatures, spoken reports. */
 export function useJobField(jobId: string | undefined) {
   return useQuery(
     async (c) => {
       if (!jobId) return undefined
-      const [time, photos, notes, signatures] = await Promise.all([c.time.forJob(jobId), c.photos.forJob(jobId), c.notes.forJob(jobId), c.signatures.forJob(jobId)])
-      return { time, photos, notes, signatures }
+      const [time, photos, notes, signatures, reports] = await Promise.all([c.time.forJob(jobId), c.photos.forJob(jobId), c.notes.forJob(jobId), c.signatures.forJob(jobId), c.reports.forJob(jobId)])
+      return { time, photos, notes, signatures, reports }
     },
     [jobId],
   )

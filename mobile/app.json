@@ -43,6 +43,17 @@
         {
           "locationWhenInUsePermission": "While you're on shift, Ardent shows your office where your van is, so emergencies go to whoever's nearest. Nothing is shared off shift."
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Ardent listens while you hold the button, to write up your job report.",
+          "speechRecognitionPermission": "Ardent turns what you say into your job report, on the phone.",
+          "androidSpeechServicePackages": [
+            "com.google.android.as",
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
       ]
     ],
     "experiments": {

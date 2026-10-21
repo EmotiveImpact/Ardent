@@ -29,7 +29,7 @@ export async function pullDay(client: ArdentClient): Promise<Day> {
     Promise.all(gasSites.map((siteId) => client.gasRecords.list({ siteId }))).then((r) => r.flat()),
     Promise.all(
       jobs.map((j) =>
-        Promise.all([client.time.forJob(j.id), client.photos.forJob(j.id), client.notes.forJob(j.id), client.signatures.forJob(j.id), client.invoices.forJob(j.id)]),
+        Promise.all([client.time.forJob(j.id), client.photos.forJob(j.id), client.notes.forJob(j.id), client.signatures.forJob(j.id), client.invoices.forJob(j.id), client.reports.forJob(j.id)]),
       ),
     ),
   ]);
@@ -45,6 +45,7 @@ export async function pullDay(client: ArdentClient): Promise<Day> {
     notes: perJob.flatMap(([, , n]) => n),
     signatures: perJob.flatMap(([, , , s]) => s),
     invoices: perJob.flatMap(([, , , , i]) => i),
+    reports: perJob.flatMap(([, , , , , r]) => r).filter((r) => r.operatorId === operator.id),
     priceList,
     stock,
     gasRecords,

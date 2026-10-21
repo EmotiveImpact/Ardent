@@ -36,6 +36,7 @@ export const METHODS = {
   priceList: ['list', 'create', 'update'],
   stock: ['list', 'set'],
   gasRecords: ['list', 'forJob', 'create', 'saveAppliance', 'removeAppliance', 'setInstallation', 'issue'],
+  reports: ['forJob', 'save', 'sign'],
   attention: ['list'],
   approvals: ['list', 'approve', 'reject'],
   log: ['list'],

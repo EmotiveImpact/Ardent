@@ -214,7 +214,7 @@ class FieldStore {
     try {
       const kept = raw ? (JSON.parse(raw) as Kept) : undefined;
       // A day kept before the price list, van stock and gas records came to the phone.
-      if (kept?.base) kept.base = { ...kept.base, priceList: kept.base.priceList ?? [], stock: kept.base.stock ?? [], gasRecords: kept.base.gasRecords ?? [] };
+      if (kept?.base) kept.base = { ...kept.base, priceList: kept.base.priceList ?? [], stock: kept.base.stock ?? [], gasRecords: kept.base.gasRecords ?? [], reports: kept.base.reports ?? [] };
       return kept;
     } catch {
       return undefined;

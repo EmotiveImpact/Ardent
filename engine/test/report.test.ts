@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { priceList, stock } from '../../core/src/data/mock.ts'
-import { buildReport, digits, spoken, tidy, tradeWords } from '../kit/report.ts'
+import { buildReport, digits, keepFixes, spoken, tidy, tradeWords } from '../kit/report.ts'
 import { demo } from './helpers.ts'
 
 const at = '2026-10-21T15:00:00Z'
@@ -128,7 +128,7 @@ test('the engine works the report out again, and signing puts the parts on the j
   await assert.rejects(kofi.reports.sign(mine.id), /already signed off/)
   await assert.rejects(kofi.reports.save('job_1045', { operatorId: 'opr_02', segments: electrician }), /already signed off/)
   assert.equal((await jo.reports.forJob('job_1045')).length, 1, 'the office reads it too')
-  assert.equal(engine.data.reports.length, 1)
+  assert.equal(engine.data.reports.filter((r) => r.jobId === 'job_1045').length, 1)
 })
 
 test('a part that could be two items has to be picked before signing', async () => {
@@ -143,4 +143,26 @@ test('a part that could be two items has to be picked before signing', async () 
   const picked = await tom.reports.save(job.id, { operatorId: 'opr_04', segments: r.segments, parts: [{ ...r.parts[0], itemId: 'itm_04', choices: undefined }] })
   const signed = await tom.reports.sign(picked.id)
   assert.equal(signed.parts[0].description, '15mm compression elbow')
+})
+
+test("talking some more keeps the engineer's fixes to the parts already said", () => {
+  const input = { trade: 'plumbing' as const, priceList, van: van('opr_03') }
+  const first = said('Swapped the cold feed isolating valve for a new fifteen mil isolating valve.')
+  const before = buildReport({ ...input, segments: first }).parts
+  const fixed = before.map((p) => ({ ...p, quantity: 2, quantitySaid: true, fromVan: false }))
+  const more = [...first, ...said('Also replaced two elbows under the bath.')]
+  const after = keepFixes(buildReport({ ...input, segments: more }).parts, fixed)
+  assert.deepEqual(after[0], fixed[0], 'the fixed valve stays fixed')
+  assert.deepEqual(after[1].choices, ['itm_03', 'itm_04'], 'the new part is worked out as said')
+})
+
+test('a heating job: testing a valve is not using one', () => {
+  const r = buildReport({
+    trade: 'heating',
+    priceList,
+    van: van('opr_03'),
+    segments: said('Drained the system down and fitted six new Drayton TRVs off the van.', 'Refilled, bled the radiators and checked every valve, no leaks. System pressure one point two bar.'),
+  })
+  assert.deepEqual(r.parts.map((p) => [p.itemId, p.quantity, p.fromVan]), [['itm_07', 6, true]])
+  assert.deepEqual(r.readings.map((x) => [x.label, x.value]), [['Leak check', 'No leaks'], ['Pressure', '1.2 bar']])
 })

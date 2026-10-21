@@ -10,7 +10,7 @@ import { Card, ChecksRow, RowButton, SectionHead, StageTrack, StateDot, StepRing
 import { BookedTime, OnSiteClock, jobSteps, useJobField, type JobField } from '@/components/ardent/job-live'
 import { Fact, OverrideHold, StageTimes } from '@/components/ardent/jobs-parts'
 import { useArdent, useBook, type Book } from '@/data/ardent'
-import type { Invoice, Job, JobStatus, LineItem, Priority, Quote } from '@/data/model'
+import type { Invoice, Job, JobStatus, LineItem, Priority, Quote, ReportTopic } from '@/data/model'
 import { act } from '@/lib/act'
 import { find, invoiceOwed, invoiceTotal, jobContext, onDay, today } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
@@ -100,6 +100,8 @@ export function JobDetail() {
         <FromSite job={job} book={book} field={fieldData} />
         <Money job={job} book={book} field={fieldData} />
       </div>
+
+      {!!fieldData?.reports.length && <JobReports book={book} field={fieldData} />}
 
       <section>
         <SectionHead title="The office" />
@@ -353,6 +355,60 @@ function FromSite({ job, book, field }: { job: Job; book: Book; field?: JobField
       )}
       {notes.length > 4 && <p className="pt-1 text-[12.5px] text-muted">{notes.length - 4} older notes.</p>}
     </Card>
+  )
+}
+
+const OFFICE_TITLES: Record<ReportTopic, string> = { work: 'Work done', parts: 'Parts', tests: 'Tests and readings', left: 'Left or found wrong', next: 'Customer wants next' }
+
+/** What the engineer said about the job, as the phone wrote it up: every line is their own words, tidied. */
+function JobReports({ book, field }: { book: Book; field: JobField }) {
+  const title = (t: ReportTopic) => OFFICE_TITLES[t]
+  const reports = [...field.reports].sort((a, b) => (b.signedAt ?? b.updatedAt).localeCompare(a.signedAt ?? a.updatedAt))
+  return (
+    <section>
+      <SectionHead title="Job report" aside="Written on the engineer's phone from what they said. Nothing is added that wasn't said." />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {reports.map((r) => {
+          const who = first(find(book.operators, r.operatorId)?.name) ?? 'Crew'
+          return (
+            <Card key={r.id} className="flex flex-col gap-4 p-[22px]">
+              <p className="cap">
+                {r.status === 'signed' ? `Signed off by ${r.signedBy ?? who} ${r.signedAt ? clock(r.signedAt) : ''}` : `${who}'s draft, not signed yet`}
+              </p>
+              {r.sections.map((s) => (
+                <div key={s.topic}>
+                  <p className="text-[12.5px] text-muted">{title(s.topic)}</p>
+                  <ul className="mt-1.5 flex flex-col gap-1">
+                    {s.lines.map((l, i) => (
+                      <li key={i} className="text-[14px] leading-snug">
+                        {l.text}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              {r.readings.length > 0 && (
+                <div className="rows">
+                  {r.readings.map((x, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-3 py-2">
+                      <span className="text-[14px]">{x.label}</span>
+                      <span className="font-mono text-[12px]">{x.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {r.parts.length > 0 && (
+                <p className="text-[13px] text-muted">
+                  Parts: {r.parts.map((p) => `${p.quantity > 1 ? `${p.quantity}× ` : ''}${p.description}${p.fromVan ? ' (van)' : ''}`).join(', ')}
+                  {r.status === 'signed' ? '. Added to the job.' : '.'}
+                </p>
+              )}
+              {r.missing.length > 0 && <p className="text-[13px] text-warn">Not said: {r.missing.map((t) => title(t).toLowerCase()).join(', ')}.</p>}
+            </Card>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 

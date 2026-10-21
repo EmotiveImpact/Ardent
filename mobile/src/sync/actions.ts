@@ -3,7 +3,7 @@
  * moves the screen at once and joins the queue for the engine. Times are the
  * moment the engineer acted, never the moment the change reaches the engine.
  */
-import type { ComplianceCheck, Day, DayMode, GasAppliance, GasInstallation, GasSafetyRecord, Job, LineItem, PaymentMethod, Photo, PriceItem, TimeEntry, Verdict } from '@/data/types';
+import type { ComplianceCheck, Day, DayMode, GasAppliance, GasInstallation, GasSafetyRecord, Job, JobReport, LineItem, PaymentMethod, Photo, PriceItem, TimeEntry, Verdict } from '@/data/types';
 import { clock, totals } from '@/kit/format';
 import { checkLabel, jobStatus } from '@/kit/states';
 
@@ -209,4 +209,15 @@ export function shareLocation(fix: { lat: number; lng: number; accuracy?: number
 export function setStandby(standby: { until: string; radius: number; base?: { lat: number; lng: number } } | null) {
   const day = current();
   return field.enqueueLatest(callOp('operators.setStandby', [day.operator.id, standby], standby ? `On standby until ${clock(standby.until)}` : 'Off standby'));
+}
+
+/** Save what's been said so far as the job's report draft. parts carries the engineer's own fixes to the parts. */
+export function saveReport(job: Job, segments: JobReport['segments'], parts?: JobReport['parts']) {
+  const day = current();
+  const has = day.reports.some((r) => r.jobId === job.id && r.status === 'draft');
+  return field.enqueue(callOp('reports.save', [job.id, { operatorId: day.operator.id, segments, ...(parts ? { parts } : {}) }], `${has ? 'Updated' : 'Recorded'} the job report on ${job.ref}`, has ? {} : { localId: localId('rep') }));
+}
+
+export function signReport(report: JobReport, job: Job) {
+  return field.enqueue(callOp('reports.sign', [report.id], `Signed off the job report on ${job.ref}`));
 }

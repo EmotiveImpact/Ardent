@@ -154,6 +154,8 @@ export default function JobScreen() {
   };
 
   const gasJob = GAS_TRADES.has(job.trade);
+  const reports = day.reports.filter((r) => r.jobId === job.id && r.operatorId === day.operator.id);
+  const report = reports.find((r) => r.status === 'draft') ?? reports[0];
   const gasRecord = day.gasRecords.filter((r) => r.jobId === job.id).sort((a, b) => (a.status === 'draft' ? -1 : b.status === 'draft' ? 1 : 0))[0];
   const openGas = () =>
     tryIt(async () => {
@@ -283,6 +285,19 @@ export default function JobScreen() {
                   right={gasRecord.status === 'issued' ? 'Issued' : 'Draft'}
                   tint={gasRecord.status === 'issued' ? color.ok : color.fgMuted}
                   onPress={() => router.push({ pathname: '/gas/[id]', params: { id: job.id } })}
+                />
+              </Card>
+            )}
+
+            {(open || report) && (
+              <Card style={{ marginTop: 8, paddingVertical: 2 }}>
+                <Line
+                  first
+                  left="Job report"
+                  sub={!report ? 'Hold and talk it through' : report.status === 'signed' ? `Signed at ${clock(report.signedAt ?? report.updatedAt)}` : report.missing.length ? `${report.missing.length} still to say` : 'Ready to sign off'}
+                  right={!report ? <Icon name="mic" size={18} tint={color.fgMuted} /> : report.status === 'signed' ? 'Signed' : 'Draft'}
+                  tint={report?.status === 'signed' ? color.ok : color.fgMuted}
+                  onPress={() => router.push({ pathname: '/report/[id]', params: { id: job.id } })}
                 />
               </Card>
             )}

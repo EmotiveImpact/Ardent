@@ -453,9 +453,10 @@ export function buildReport({ segments, trade, priceList, van }: ReportInput): B
       // "Swapped it for a new valve off the van" is the work as well as the part.
       if (topic === 'parts' && WORK.test(sen.text)) topic = 'work'
 
-      // Parts can be named in any sentence about the work, but never in what the customer wants next.
+      // Parts can be named in any sentence about the work, but never in what the customer wants next,
+      // and a test that names a part ("checked every valve") hasn't used one.
       let named = 0
-      if (topic !== 'next') {
+      if (topic !== 'next' && (topic !== 'tests' || WORK.test(sen.text))) {
         const taken = new Set<string>()
         for (const m of matches(sen.text, list)) {
           if (taken.has(m.x.item.id)) continue
@@ -566,4 +567,18 @@ export function partLines(parts: ReportPart[], priceList: PriceItem[], operatorI
 export function cantSign(parts: ReportPart[]): string | undefined {
   const open = parts.find((p) => !p.itemId && p.choices?.length)
   return open ? `Pick which part "${open.description}" is first` : undefined
+}
+
+/**
+ * A rebuilt report's parts, keeping the engineer's own fixes (a count, a pick,
+ * van or not) to parts from sentences that haven't changed. Parts are matched
+ * by the words they came from and their order within them.
+ */
+export function keepFixes(built: ReportPart[], saved: ReportPart[]): ReportPart[] {
+  const key = (p: ReportPart, list: ReportPart[]) => {
+    const same = list.filter((o) => o.from.segment === p.from.segment && o.from.start === p.from.start && o.from.end === p.from.end)
+    return `${p.from.segment}:${p.from.start}:${p.from.end}:${same.indexOf(p)}`
+  }
+  const fixed = new Map(saved.map((p) => [key(p, saved), p]))
+  return built.map((p) => fixed.get(key(p, built)) ?? p)
 }
