@@ -1503,7 +1503,8 @@ export function createEngine(store: Store, platform: Platform) {
       const keys = new Set(wanted.map(target))
       for (const a of db.approvals.filter((x) => x.orgId === orgId && x.status === 'waiting' && !keys.has(target(x)))) {
         a.status = 'stale'
-        a.note = 'done another way, or no longer needed'
+        const off = !(a.kind === 'send_invoice' ? sends : a.kind === 'chase_invoice' ? chases : quoting)
+        a.note = off ? "switched off in Ardent's rules" : 'done another way, or no longer needed'
         a.decidedAt = iso
         changed = true
       }

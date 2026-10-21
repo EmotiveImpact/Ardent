@@ -125,3 +125,59 @@ test('the morning brief adds up yesterday, what is late and what is on today', a
   await assert.rejects(jo.brief.get({ day: 'monday' }), { code: 'invalid' })
   await assert.rejects(as('kofi').client.brief.get(), { code: 'forbidden' })
 })
+
+test("the firm's rules decide what Ardent drafts, and only the owner changes them", async () => {
+  const { as } = demo()
+  const dan = as('dan').client
+  const jo = as('jo').client
+  const { settings, jobs } = await jo.automation.get()
+  assert.equal(settings.tone, 'friendly')
+  assert.equal(jobs.find((j) => j.key === 'invoice_chasing')?.level, 3)
+  assert.equal(jobs.find((j) => j.key === 'cert_prefill')?.level, 4)
+  await assert.rejects(jo.automation.set({ tone: 'formal' }), { code: 'forbidden' })
+  await assert.rejects(dan.automation.set({ levels: { cert_prefill: 3 } }), /only be set to L4/)
+  await assert.rejects(dan.automation.set({ chase: { firmer: 40 } }), /first, then firmer, then the statement/)
+
+  await dan.automation.set({ tone: 'formal', signOff: 'The Mercer team' })
+  const chase = (await jo.approvals.list()).find((a) => a.kind === 'chase_invoice' && a.invoiceId === 'inv_2198')!
+  assert.match(chase.preview, /^Dear Sir or Madam, .* The Mercer team$/)
+
+  await dan.automation.set({ levels: { invoice_chasing: 0 } })
+  assert.ok(!(await jo.approvals.list()).some((a) => a.kind === 'chase_invoice'), 'L0: just tells you, drafts nothing')
+  await dan.automation.set({ levels: { invoice_chasing: 3 }, areas: { money: false } })
+  const left = await jo.approvals.list()
+  assert.ok(!left.some((a) => a.kind === 'chase_invoice' || a.kind === 'send_quote'), 'money switched off')
+  assert.ok(left.some((a) => a.kind === 'send_invoice'), 'paperwork still on')
+  assert.equal((await jo.log.list())[0].summary, 'Switched money off, set Invoice chasing to L3 Auto')
+})
+
+test('usage is counted against the plan, and AI pauses at the cap', async () => {
+  const { as, engine } = demo()
+  const dan = as('dan').client
+  const org = 'org_demo'
+  await dan.automation.set({ limits: { aiPence: 1000 }, officeHours: { from: '08:00', to: '17:30', days: [1, 2, 3, 4, 5] } })
+  const sunday = '2026-10-18T22:00:00Z'
+  const monday = '2026-10-19T10:00:00Z'
+  assert.equal(engine.allowance(org, 'call', monday).allowed, false, 'office hours answering is Ardent Voice')
+  assert.equal(engine.allowance(org, 'call', sunday).allowed, true)
+  engine.meter(org, 'call', 149, sunday)
+  engine.meter(org, 'call', 3, sunday)
+  assert.equal(engine.allowance(org, 'call', sunday).allowed, false, '150 after-hours minutes used')
+  await dan.automation.set({ voice: true })
+  engine.meter(org, 'call', 300, monday)
+  const u = await dan.usage.get({ month: '2026-10' })
+  const line = Object.fromEntries(u.lines.map((l) => [l.key, l]))
+  assert.equal(line.voice.used, 300)
+  assert.equal(line.voice.overCost, 50 * 35, '50 minutes past 250 at 35p')
+
+  engine.meter(org, 'text', 1510, monday)
+  assert.equal((await dan.usage.get({ month: '2026-10' })).lines.find((l) => l.key === 'texts')!.over, 10)
+
+  engine.meter(org, 'ai', 999)
+  assert.equal(engine.allowance(org, 'ai').allowed, true)
+  engine.meter(org, 'ai', 5)
+  assert.equal(engine.allowance(org, 'ai').allowed, false)
+  assert.equal((await dan.usage.get()).aiPaused, true)
+  assert.match((await dan.log.list())[0].summary, /^AI paused: this month's £10 cap is reached/)
+  await assert.rejects(as('kofi').client.usage.get(), { code: 'forbidden' })
+})

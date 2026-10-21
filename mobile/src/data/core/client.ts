@@ -129,7 +129,7 @@ export interface ArdentClient {
   /** The firm's rules for Ardent: a level for each back office job, area switches, timings and limits. Owners change them. */
   automation: {
     get(): Promise<{ settings: Automation; jobs: AutomationJob[] }>
-    set(patch: Partial<Omit<Automation, 'areas' | 'levels' | 'chase' | 'limits'>> & { areas?: Partial<Automation['areas']>; levels?: Record<string, Level>; chase?: Partial<Automation['chase']>; limits?: Partial<Automation['limits']> }): Promise<{ settings: Automation; jobs: AutomationJob[] }>
+    set(patch: Partial<Omit<Automation, 'areas' | 'levels' | 'chase' | 'limits' | 'officeHours'>> & { areas?: Partial<Automation['areas']>; officeHours?: Partial<Automation['officeHours']>; levels?: Record<string, Level>; chase?: Partial<Automation['chase']>; limits?: Partial<Automation['limits']> }): Promise<{ settings: Automation; jobs: AutomationJob[] }>
   }
   /** This month's AI spend, call minutes and texts against the plan. Office only. */
   usage: { get(opts?: { month?: string }): Promise<Usage> }

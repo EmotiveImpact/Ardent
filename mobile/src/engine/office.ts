@@ -92,6 +92,17 @@ export function describe(method: string, args: unknown[], result: unknown, look:
       return { summary: `Marked ${r.ref} as sent`, jobId: r.jobId }
     case 'invoices.recordPayment':
       return { summary: `${pounds(args[1] as number)} paid on ${r.ref} by ${String(args[2]).replace('_', ' ')}`, jobId: r.jobId }
+    case 'automation.set': {
+      const p = (a0 ?? {}) as Partial<Automation>
+      const bits = [
+        ...Object.entries(p.areas ?? {}).map(([k, on]) => `switched ${AREA_NAME[k as AutomationArea] ?? k} ${on ? 'on' : 'off'}`),
+        ...Object.entries(p.levels ?? {}).map(([k, l]) => `set ${AUTOMATION_JOBS.find((j) => j.key === k)?.name ?? k} to L${l} ${LEVEL_NAME[l]}`),
+        ...(p.tone ? [`set the tone to ${p.tone}`] : []),
+        ...(p.voice !== undefined ? [p.voice ? 'added Ardent Voice' : 'removed Ardent Voice'] : []),
+      ]
+      const said = bits.join(', ')
+      return { summary: said ? `${said.charAt(0).toUpperCase()}${said.slice(1)}` : "Changed Ardent's rules" }
+    }
     case 'priceList.create':
       return { summary: `Added ${r.name} to the price list` }
     case 'priceList.update':
@@ -220,6 +231,9 @@ export const AUTOMATION_JOBS: JobDef[] = [
 
   { key: 'morning_brief', area: 'brief', name: 'Morning brief', does: "Yesterday's numbers, what's late, what's on and what waits for a yes, worked out from the records.", approves: 'Owner reads it', standard: 0, allowed: fixed(0), live: true },
 ]
+
+const AREA_NAME: Record<AutomationArea, string> = { calls: 'calls', dispatch: 'dispatch', paperwork: 'paperwork', money: 'money', compliance: 'compliance', brief: 'the morning brief' }
+const LEVEL_NAME = ['Read', 'Draft', 'Approve', 'Auto', 'Never']
 
 export const AREAS: AutomationArea[] = ['calls', 'dispatch', 'paperwork', 'money', 'compliance', 'brief']
 
