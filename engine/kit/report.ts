@@ -497,8 +497,9 @@ export function buildReport({ segments, trade, priceList, van }: ReportInput): B
 
       if (topic === 'parts') {
         covered.add('parts')
-        // A parts sentence that names nothing on the list still goes in, so nothing said is lost.
-        if (!named && !chatter(text)) lines.parts.push({ text, from })
+        // The sentence always goes in as said: it can name things the price list doesn't have
+        // ("took the board and the breakers"), and those must reach the office too.
+        if (!chatter(text)) lines.parts.push({ text, from })
         continue
       }
       if (topic === 'tests') {

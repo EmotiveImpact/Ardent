@@ -166,3 +166,9 @@ test('a heating job: testing a valve is not using one', () => {
   assert.deepEqual(r.parts.map((p) => [p.itemId, p.quantity, p.fromVan]), [['itm_07', 6, true]])
   assert.deepEqual(r.readings.map((x) => [x.label, x.value]), [['Leak check', 'No leaks'], ['Pressure', '1.2 bar']])
 })
+
+test('a parts sentence stays in the report even when it names things the price list does not have', () => {
+  const r = buildReport({ trade: 'electrical', priceList, van: van('opr_02'), segments: electrician })
+  const parts = r.sections.find((s) => s.topic === 'parts')
+  assert.ok(parts?.lines.some((l) => l.text.startsWith('Took the board and the breakers off the van')))
+})
