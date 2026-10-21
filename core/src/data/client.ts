@@ -1,4 +1,4 @@
-import type { ActionEntry, Approval, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobRequest, JobStatus, LineItem, MorningBrief, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, Standby, StockLevel, TimeEntry, VanFix, Level, Usage, Verdict } from './model'
+import type { ActionEntry, Approval, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, JobStatus, Level, LineItem, MorningBrief, Note, Operator, OperatorState, OptionKey, PaymentMethod, Photo, PriceItem, Quote, ReportPart, ReportSegment, Signature, Site, Standby, StockLevel, TimeEntry, Usage, VanFix, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -74,6 +74,18 @@ export interface ArdentClient {
   }
   photos: { add(photo: Omit<Photo, 'id'>): Promise<Photo>; forJob(jobId: string): Promise<Photo[]> }
   notes: { add(note: Omit<Note, 'id'>): Promise<Note>; forJob(jobId: string): Promise<Note[]> }
+  /**
+   * The engineer's spoken job report. Field writes it from what was said, with
+   * no signal; the engine works it out again from the same words, so nothing
+   * reaches the record that wasn't said. Signing it adds its parts to the job.
+   */
+  reports: {
+    forJob(jobId: string): Promise<JobReport[]>
+    /** Make or replace the job's draft. parts is the engineer's own pick, quantity and van for each part. */
+    save(jobId: string, input: { operatorId: string; segments: ReportSegment[]; parts?: ReportPart[] }): Promise<JobReport>
+    /** Signed off by the engineer: the parts go on the job (and a draft invoice) and come off their van. */
+    sign(id: string): Promise<JobReport>
+  }
   quotes: {
     list(): Promise<Quote[]>
     forJob(jobId: string): Promise<Quote[]>

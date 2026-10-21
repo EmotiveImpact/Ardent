@@ -22,8 +22,9 @@
  * rules checked in one place) and its customer, site and job records.
  */
 import type { ArdentClient } from '../../core/src/data/client.ts'
-import type { ActionEntry, Approval, Automation, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, StockLevel, Trade, Usage, VanFix, Verdict } from '../../core/src/data/model.ts'
+import type { ActionEntry, Approval, Automation, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobReport, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, ReportPart, ReportSegment, StockLevel, Trade, Usage, VanFix, Verdict } from '../../core/src/data/model.ts'
 import { pounds, shortDate, ukDay } from '../kit/format.ts'
+import { buildReport, cantSign, partLines } from '../kit/report.ts'
 import { AREAS, AUTOMATION_JOBS, automationJobs, composeBrief, defaultAutomation, describe, levelOf, PLAN, usageFor, type Look } from './office.ts'
 import type { Platform } from './platform.ts'
 import type { Data, Membership, OperatorRow, Organisation, Owned, Role, Store, User } from './store.ts'
@@ -1261,6 +1262,45 @@ export function createEngine(store: Store, platform: Platform) {
         forJob: (jobId) => run(() => (findJob(jobId), db.photos.filter((p) => p.jobId === jobId).map((p) => out(p)))),
       },
 
+      reports: {
+        forJob: (jobId) => run(() => (findJob(jobId), db.reports.filter((r) => r.orgId === orgId && r.jobId === jobId).map((r) => out(r)))),
+        save: (jobId, input) =>
+          run(() => {
+            const job = editableJob(jobId)
+            const op = actingAs(input.operatorId, job)
+            const segments = checkSegments(input.segments)
+            if (db.reports.some((r) => r.orgId === orgId && r.jobId === jobId && r.operatorId === op.id && r.status === 'signed')) throw invalid('the job report is already signed off')
+            const items = db.priceList.filter((i) => i.orgId === orgId)
+            const built = buildReport({ segments, trade: job.trade, priceList: items, van: db.stock.filter((x) => x.orgId === orgId && x.operatorId === op.id) })
+            const parts = input.parts ? checkParts(input.parts, segments, items) : built.parts
+            const now = new Date().toISOString()
+            const was = db.reports.find((r) => r.orgId === orgId && r.jobId === jobId && r.operatorId === op.id && r.status === 'draft')
+            const report: Owned<JobReport> = { ...built, parts, id: was?.id ?? newId('rep'), jobId, operatorId: op.id, segments, status: 'draft', createdAt: was?.createdAt ?? now, updatedAt: now, orgId }
+            db.reports = [...db.reports.filter((r) => r !== was), report]
+            return report
+          }).then((r) => done(out(r))),
+        sign: (id) =>
+          run(() => {
+            const report = db.reports.find((r) => r.id === id && r.orgId === orgId)
+            if (!report) throw notFound('job report')
+            const job = editableJob(report.jobId)
+            const op = actingAs(report.operatorId, job)
+            if (report.status === 'signed') throw invalid('the job report is already signed off')
+            const why = cantSign(report.parts)
+            if (why) throw invalid(why)
+            const lines = partLines(report.parts, db.priceList.filter((i) => i.orgId === orgId), op.id)
+            for (const l of lines) {
+              if (l.fromVan && l.itemId) moveStock(l.fromVan, l.itemId, -l.quantity)
+              job.lines.push({ ...l, id: newId('li') })
+            }
+            // A draft invoice already made from the job takes the parts too.
+            const draft = db.invoices.find((i) => i.orgId === orgId && i.jobId === job.id && i.status === 'draft')
+            if (draft) draft.lines.push(...lines.map(({ fromVan: _v, ...l }) => ({ ...l, id: newId('li') })))
+            Object.assign(report, { status: 'signed', signedAt: new Date().toISOString(), signedBy: op.name })
+            return report
+          }).then((r) => done(out(r))),
+      },
+
       notes: {
         add: (n) =>
           run(() => {
@@ -1671,6 +1711,44 @@ export function createEngine(store: Store, platform: Platform) {
       if (!Number.isInteger(i.price) || i.price < 0) throw invalid('price is whole pence of zero or more')
       if (i.cost !== undefined && (!Number.isInteger(i.cost) || i.cost < 0)) throw invalid('cost is whole pence of zero or more')
       return { ...i, name: i.name.trim(), code: i.code?.trim() || undefined, stocked: !!i.stocked }
+    }
+
+    /** What the engineer said, as the phone sends it: some words, each with a time. */
+    function checkSegments(input: unknown): ReportSegment[] {
+      if (!Array.isArray(input) || !input.length) throw invalid('the report needs something said')
+      if (input.length > 200) throw invalid('the report is too long')
+      return input.map((x) => {
+        const seg = x as Partial<ReportSegment>
+        const text = typeof seg?.text === 'string' ? seg.text.trim() : ''
+        if (!text) throw invalid('every part of the report needs words')
+        if (text.length > 4000) throw invalid('one part of the report is too long')
+        if (typeof seg.at !== 'string' || Number.isNaN(Date.parse(seg.at))) throw invalid('every part of the report needs a time')
+        return { text, at: seg.at }
+      })
+    }
+
+    /** The engineer's own pick for each part: a real item, a count, and the words it came from. */
+    function checkParts(input: ReportPart[], segments: ReportSegment[], items: PriceItem[]): ReportPart[] {
+      if (!Array.isArray(input) || input.length > 100) throw invalid('too many parts')
+      return input.map((p) => {
+        if (p.itemId && !items.some((i) => i.id === p.itemId)) throw notFound('price list item')
+        if (!(p.quantity > 0) || p.quantity > 10_000) throw invalid('quantity must be more than zero')
+        const seg = segments[p.from?.segment]
+        if (!seg || !(p.from.start >= 0 && p.from.end <= seg.text.length && p.from.start < p.from.end)) throw invalid('every part must point at the words it came from')
+        const item = items.find((i) => i.id === p.itemId)
+        return {
+          ...(p.itemId ? { itemId: p.itemId } : {}),
+          description: item?.name ?? String(p.description ?? '').slice(0, 200),
+          quantity: p.quantity,
+          unit: item?.unit ?? p.unit,
+          quantitySaid: !!p.quantitySaid,
+          fromVan: !!p.fromVan,
+          sourceSaid: !!p.sourceSaid,
+          heard: String(p.heard ?? '').slice(0, 500),
+          from: { segment: p.from.segment, start: p.from.start, end: p.from.end },
+          ...(!p.itemId && p.choices?.length ? { choices: p.choices.filter((c) => items.some((i) => i.id === c)) } : {}),
+        }
+      })
     }
 
     /** Lines in, with ids, checked the way addLine checks them. */

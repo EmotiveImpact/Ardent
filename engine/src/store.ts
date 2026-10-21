@@ -7,7 +7,7 @@
  * strips orgId and userId before anything leaves it, so callers only ever see
  * the shapes in core/src/data/model.ts.
  */
-import type { ActionEntry, Approval, Automation, Certificate, Customer, GasSafetyRecord, Invoice, Job, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
+import type { ActionEntry, Approval, Automation, Certificate, Customer, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
 
 /** A person who can sign in. */
 export interface User {
@@ -92,6 +92,8 @@ export interface Data {
   priceList: Owned<PriceItem>[]
   stock: Owned<StockLevel>[]
   gasRecords: Owned<GasSafetyRecord>[]
+  /** Engineers' spoken job reports, drafted and signed on the phone. */
+  reports: Owned<JobReport>[]
   jobRequests: Owned<JobRequest>[]
   approvals: Owned<Approval>[]
   /** Each firm's rules for Ardent, once changed from the standard ones. */
@@ -133,6 +135,7 @@ export const emptyData = (): Data => ({
   priceList: [],
   stock: [],
   gasRecords: [],
+  reports: [],
   jobRequests: [],
   approvals: [],
   automation: [],

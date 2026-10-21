@@ -363,6 +363,75 @@ export interface Signature {
   at: string
 }
 
+/** What a prompt in the engineer's job report asks about. */
+export type ReportTopic = 'work' | 'parts' | 'tests' | 'left' | 'next'
+
+/** One stretch of what the engineer said, as the phone heard it (or as they corrected it). */
+export interface ReportSegment {
+  text: string
+  /** When it was said. */
+  at: string
+}
+
+/** Where something in the report came from: a segment, and the characters within it. */
+export interface ReportSource {
+  segment: number
+  start: number
+  end: number
+}
+
+export interface ReportLine {
+  text: string
+  from: ReportSource
+}
+
+/** A part the engineer mentioned, matched to the firm's price list where the words fit one item. */
+export interface ReportPart {
+  itemId?: string
+  description: string
+  quantity: number
+  unit: PriceItem['unit']
+  /** False when they never said how many; the quantity is then 1 until they do. */
+  quantitySaid: boolean
+  fromVan: boolean
+  /** False when they never said where it came from; fromVan then follows what their van carries. */
+  sourceSaid: boolean
+  /** The words it was matched from. */
+  heard: string
+  from: ReportSource
+  /** Price list items it could be, when the words fit more than one. */
+  choices?: string[]
+}
+
+/** A reading or result the engineer said out loud. Never filled in by Ardent. */
+export interface ReportReading {
+  label: string
+  value: string
+  from: ReportSource
+}
+
+/**
+ * The engineer's job report, spoken on site and written on the phone with no
+ * signal: every line, part and reading points back at the words it came from.
+ */
+export interface JobReport {
+  id: string
+  jobId: string
+  operatorId: string
+  segments: ReportSegment[]
+  sections: { topic: ReportTopic; lines: ReportLine[] }[]
+  parts: ReportPart[]
+  readings: ReportReading[]
+  /** Prompts nothing was said about. */
+  missing: ReportTopic[]
+  status: 'draft' | 'signed'
+  createdAt: string
+  updatedAt: string
+  signedAt?: string
+  /** The engineer who signed it off. */
+  signedBy?: string
+}
+
 export type PaymentMethod = 'card' | 'bank_transfer' | 'cash'
 
 /**

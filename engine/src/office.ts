@@ -73,6 +73,12 @@ export function describe(method: string, args: unknown[], result: unknown, look:
       return { summary: `Clock stopped${r.jobId ? ` on ${ref(job(r.jobId), 'a job')}` : ''}`, jobId: r.jobId }
     case 'photos.add':
       return { summary: `Photo added to ${ref(job(r.jobId), 'a job')}`, jobId: r.jobId }
+    case 'reports.save':
+      return { summary: '' }
+    case 'reports.sign': {
+      const parts = ((r.parts as { itemId?: string }[] | undefined) ?? []).filter((p) => p.itemId).length
+      return { summary: `${r.signedBy ?? 'The engineer'} signed off the job report for ${ref(job(r.jobId), 'a job')}${parts ? `, ${parts} ${parts === 1 ? 'part' : 'parts'} added` : ''}`, jobId: r.jobId }
+    }
     case 'notes.add':
       return { summary: `Note on ${ref(job(r.jobId), 'a job')}`, jobId: r.jobId }
     case 'signatures.add':
