@@ -1,19 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Map as StreetMap } from 'maplibre-gl'
 import { createPortal } from 'react-dom'
 import { Crosshair, Maximize2, Minimize2, Minus, Plus } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import type { Job, Operator, OperatorState, Site } from '@/data/model'
-import { districts, lines, mapBounds, places, type LatLng, type Line } from '@/data/manchester'
+import { places, type LatLng } from '@/data/manchester'
 import { find, onDay, today } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 import { clock } from '@kit'
 import { startStreetMap } from './street-map'
 
-/*
- * A black map of south Manchester with every van placed and wired back to the yard.
- * Real streets come from the street map; until it loads, or where it can't, a drawing of the main roads stands in.
- */
+/* A black street map of south Manchester with every van placed and wired back to the yard. */
 
 export type MapView = 'streets' | 'heat' | 'routes'
 
@@ -40,19 +37,10 @@ const stateLabel: Record<OperatorState, string> = {
   off_shift: 'Off shift',
 }
 
-// Equirectangular projection, scaled so one unit is roughly ten metres.
-const K = 10000
-const COS = Math.cos((53.45 * Math.PI) / 180)
-const px = ([lat, lng]: LatLng) => [(lng - mapBounds.west) * COS * K, (mapBounds.north - lat) * K] as const
+type Point = readonly [number, number]
 
-const path = (pts: LatLng[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${px(p)[0].toFixed(1)} ${px(p)[1].toFixed(1)}`).join('')
-
-type Project = (p: LatLng) => readonly [number, number]
-
-/** A gentle arc between two points, bowed to one side. */
-function arc(at: Project, a: LatLng, b: LatLng, bow = 0.18) {
-  const [x0, y0] = at(a)
-  const [x1, y1] = at(b)
+/** A gentle arc between two screen points, bowed to one side. */
+function arc([x0, y0]: Point, [x1, y1]: Point, bow = 0.18) {
   const mx = (x0 + x1) / 2
   const my = (y0 + y1) / 2
   const dx = x1 - x0
@@ -60,14 +48,8 @@ function arc(at: Project, a: LatLng, b: LatLng, bow = 0.18) {
   return `M${x0} ${y0}Q${mx - dy * bow} ${my + dx * bow} ${x1} ${y1}`
 }
 
-function roadStyle(l: Line, view: MapView) {
-  if (l.kind === 'river') return { stroke: '#0c1419', width: 4 }
-  if (l.kind === 'canal') return { stroke: '#0c1419', width: 1.6 }
-  const dim = view === 'heat' ? 0.55 : 1
-  if (l.kind === 'motorway') return { stroke: '#343434', width: 2.4, opacity: dim }
-  if (l.kind === 'primary') return { stroke: '#242424', width: 1.6, opacity: dim }
-  return { stroke: '#181818', width: 1, opacity: dim }
-}
+/** Metres across one screen pixel at this zoom (MapLibre draws 512px tiles). */
+const metresPerPixel = (zoom: number, lat: number) => (40075016.686 * Math.cos((lat * Math.PI) / 180)) / (512 * 2 ** zoom)
 
 function Marker({ op, job, x, y, onSelect }: { op: Operator; job?: Job; x: number; y: number; onSelect?: (id: string) => void }) {
   const colour = stateColour[op.state]
@@ -117,24 +99,24 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
   const vanAt = Object.fromEntries(operators.map((op) => [op.id, vanFor(op, find(sites, jobOf(op)?.siteId))])) as Record<string, LatLng>
   const booked = jobs.filter((j) => j.status === 'booked' && onDay(j.start, day))
   // Jobs done at each site, for the Work view.
-  const workload = sites.map((s) => ({ at: siteAt(s), jobs: jobs.filter((j) => j.siteId === s.id).length * 9 }))
-  const focus = (() => {
-    const pts = [places.yard, ...Object.values(vanAt), ...sites.map(siteAt)].map(px)
-    const xs = pts.map((p) => p[0])
-    const ys = pts.map((p) => p[1])
-    const pad = 70
-    return { x0: Math.min(...xs) - pad, x1: Math.max(...xs) + pad * 1.6, y0: Math.min(...ys) - pad * 1.8, y1: Math.max(...ys) + pad }
-  })()
+  const workload = sites.map((s) => ({ at: siteAt(s), jobs: jobs.filter((j) => j.siteId === s.id).length }))
   const box = useRef<HTMLDivElement>(null)
+  const streetBox = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 800, h: 480 })
   const [view, setView] = useState<MapView>('streets')
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const drag = useRef<{ x: number; y: number } | null>(null)
   const [full, setFull] = useState(false)
-  const streetBox = useRef<HTMLDivElement>(null)
   const [street, setStreet] = useState<StreetMap | null>(null)
+  const [failed, setFailed] = useState(false)
   const [, setMoved] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => e.contentRect.width > 0 && e.contentRect.height > 0 && setSize({ w: e.contentRect.width, h: e.contentRect.height }))
+    ro.observe(el)
+    return () => ro.disconnect()
+    // The map remounts when it moves in and out of full screen, so watch the new element.
+  }, [full])
 
   // Every place on the map, for fitting the view around the crew.
   const everyone = [places.yard, ...Object.values(vanAt), ...sites.map(siteAt)]
@@ -156,6 +138,7 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
     let map: StreetMap | undefined
     let gone = false
     let frame = 0
+    setFailed(false)
     startStreetMap(el, [places.yard[1], places.yard[0]])
       .then((m) => {
         map = m
@@ -168,8 +151,10 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
         })
         setStreet(m)
       })
-      // No street map (no WebGL, no tiles): the drawn map stays.
-      .catch((e) => console.warn('Street map unavailable, showing the drawn map', e))
+      .catch((e) => {
+        console.warn('Street map unavailable', e)
+        if (!gone) setFailed(true)
+      })
     return () => {
       gone = true
       cancelAnimationFrame(frame)
@@ -179,41 +164,6 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
     // The map remounts when it moves in and out of full screen, so start again on the new element.
   }, [full])
 
-  useLayoutEffect(() => {
-    const el = box.current
-    if (!el) return
-    const ro = new ResizeObserver(([e]) => e.contentRect.width > 0 && e.contentRect.height > 0 && setSize({ w: e.contentRect.width, h: e.contentRect.height }))
-    ro.observe(el)
-    return () => ro.disconnect()
-    // The map remounts when it moves in and out of full screen, so watch the new element.
-  }, [full])
-
-  const base = Math.min(size.w / (focus.x1 - focus.x0), size.h / (focus.y1 - focus.y0))
-  const s = base * zoom
-  const cx = (focus.x0 + focus.x1) / 2 + pan.x
-  const cy = (focus.y0 + focus.y1) / 2 + pan.y
-  const vw = size.w / s
-  const vh = size.h / s
-  const vx = cx - vw / 2
-  const vy = cy - vh / 2
-  const toScreen = (p: LatLng) => {
-    if (street) {
-      const { x, y } = street.project([p[1], p[0]])
-      return { x, y }
-    }
-    const [x, y] = px(p)
-    return { x: (x - vx) * s, y: (y - vy) * s }
-  }
-  // On the street map the overlay is drawn in screen pixels; on the drawing, in map units.
-  const at: Project = street
-    ? (p) => {
-        const { x, y } = toScreen(p)
-        return [x, y] as const
-      }
-    : px
-  const unit = street ? 1 : 1 / s
-  // One drawing unit is about eleven metres; the street map works in metres per pixel.
-  const perPixel = street ? 40075016.686 * COS / (512 * 2 ** street.getZoom()) / 11.1 : 1
   // Fill the screen: browser fullscreen where allowed, and a fixed overlay either way (embedded pages often block the API).
   const toggleFull = () => {
     if (full) {
@@ -235,227 +185,173 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
       document.removeEventListener('fullscreenchange', onExit)
     }
   }, [full])
-  const zoomBy = (f: number) => {
-    if (street) street.easeTo({ zoom: street.getZoom() + Math.log2(f), duration: 250 })
-    else setZoom((z) => Math.min(4, Math.max(0.8, z * f)))
-  }
-
-  const onDown = (e: RPointerEvent) => {
-    if (street) return
-    drag.current = { x: e.clientX, y: e.clientY }
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }
-  const onMove = (e: RPointerEvent) => {
-    if (!drag.current) return
-    const dx = e.clientX - drag.current.x
-    const dy = e.clientY - drag.current.y
-    drag.current = { x: e.clientX, y: e.clientY }
-    setPan((p) => ({ x: p.x - dx / s, y: p.y - dy / s }))
-  }
-  const onUp = () => (drag.current = null)
-
-  const yard = toScreen(places.yard)
-  const label = view === 'routes' ? '#2c2c2c' : '#3a3a3a'
 
   const map = (
-    <div
-      ref={box}
-      className={cn('h-full w-full cursor-grab touch-none overflow-hidden bg-black select-none active:cursor-grabbing', full ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative', className)}
-      onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
-      onWheel={(e) => !street && zoomBy(Math.exp(-e.deltaY * 0.0015))}
-    >
+    <div ref={box} className={cn('h-full w-full overflow-hidden bg-[#030303] select-none', full ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative', className)}>
       {/* MapLibre adds its own classes to the inner element, so React only styles the outer one. */}
       <div className={cn('absolute inset-0 transition-opacity duration-500', street ? 'opacity-100' : 'opacity-0')}>
         <div ref={streetBox} className="size-full" />
       </div>
-      {/* Routes and Work quieten the streets so the crew stand out. */}
-      {street && view !== 'streets' && <div className={cn('pointer-events-none absolute inset-0 bg-black', view === 'routes' ? 'opacity-60' : 'opacity-35')} />}
-
-      <svg className="pointer-events-none absolute inset-0 size-full" viewBox={street ? `0 0 ${size.w} ${size.h}` : `${vx} ${vy} ${vw} ${vh}`} preserveAspectRatio="none" aria-label="Map of south Manchester with crew positions">
-        <defs>
-          <radialGradient id="heat">
-            <stop offset="0" stopColor="var(--ember)" stopOpacity="0.55" />
-            <stop offset="0.45" stopColor="var(--ember)" stopOpacity="0.18" />
-            <stop offset="1" stopColor="var(--ember)" stopOpacity="0" />
-          </radialGradient>
-          <filter id="map-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {!street &&
-          view !== 'routes' &&
-          lines.map((l, i) => {
-            const st = roadStyle(l, view)
-            return (
-              <path
-                key={i}
-                d={path(l.points)}
-                fill="none"
-                stroke={st.stroke}
-                strokeWidth={st.width}
-                strokeOpacity={st.opacity ?? 1}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            )
-          })}
-
-        {view === 'heat' &&
-          workload.map((w, i) => {
-            const [x, y] = at(w.at)
-            return <circle key={i} cx={x} cy={y} r={(w.jobs * 3.4) / perPixel} fill="url(#heat)" />
-          })}
-
-        {/* Lines back to the yard */}
-        {operators.map((op, i) => {
-          if (op.state === 'on_call' || op.state === 'off_shift') return null
-          const d = arc(at, places.yard, vanAt[op.id], i % 2 ? -0.16 : 0.16)
-          const colour = stateColour[op.state]
-          const job = jobOf(op)
-          const dest = job && siteAt(find(sites, job.siteId))
-          const moving = op.state === 'en_route' || op.state === 'delayed'
-          return (
-            <g key={op.id}>
-              <path d={d} fill="none" stroke={colour} strokeOpacity={0.18} strokeWidth={5} vectorEffect="non-scaling-stroke" />
-              <path
-                d={d}
-                fill="none"
-                stroke={colour}
-                strokeWidth={1.5}
-                strokeDasharray={op.state === 'delayed' ? '5 5' : undefined}
-                vectorEffect="non-scaling-stroke"
-              />
-              {moving && dest && (
-                <>
-                  <path d={arc(at, vanAt[op.id], dest, 0.1)} fill="none" stroke={colour} strokeOpacity={0.6} strokeWidth={1} strokeDasharray="2 4" vectorEffect="non-scaling-stroke" />
-                  <circle cx={at(dest)[0]} cy={at(dest)[1]} r={6 * unit} fill="none" stroke={colour} strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
-                </>
-              )}
-              <circle r={3 * unit} fill={colour} filter="url(#map-glow)">
-                <animateMotion dur={moving ? '5s' : '7s'} repeatCount="indefinite" path={d} begin={`${i * 0.6}s`} />
-              </circle>
-            </g>
-          )
-        })}
-
-        {/* Booked sites still to visit today */}
-        {booked.map((j) => {
-            const [x, y] = at(siteAt(find(sites, j.siteId)))
-            return <circle key={j.id} cx={x} cy={y} r={4 * unit} fill="#000" stroke="#777" strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
-          })}
-      </svg>
-
-      {/* District names stay a fixed size whatever the zoom */}
-      {!street &&
-        districts.map((d) => {
-        const p = toScreen(d.at)
-        return (
-          <span key={d.name} className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 font-mono text-[9px] tracking-[0.16em] uppercase" style={{ left: p.x, top: p.y, color: label }}>
-            {d.name}
-          </span>
-        )
-      })}
-
-      {booked.map((j) => {
-          const p = toScreen(siteAt(find(sites, j.siteId)))
-          return (
-            <span key={j.id} className="pointer-events-none absolute font-mono text-[10px] text-muted" style={{ left: p.x + 8, top: p.y - 7 }}>
-              {j.ref} · {clock(j.start)}
-            </span>
-          )
-        })}
-
-      {/* Yard */}
-      <div className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center" style={{ left: yard.x, top: yard.y }}>
-        <span className="size-3 rotate-45 rounded-[2px] bg-white shadow-[0_0_16px_#ffffff80]" />
-        <span className="caps mt-2 text-[9px] text-foreground">Yard</span>
-      </div>
-
-      {operators.map((op) => {
-        const p = toScreen(vanAt[op.id])
-        return <Marker key={op.id} op={op} job={jobOf(op)} x={p.x} y={p.y} onSelect={onSelect} />
-      })}
-
-      {full && (
+      {!street && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className={cn('cap text-[10px]', !failed && 'animate-pulse')}>{failed ? 'The map could not load' : 'Loading the map'}</span>
+        </div>
+      )}
+      {street && overlay(street)}
+      {street && full && (
         <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-3 rounded-md bg-[#0d0d0d]/90 px-3 py-2 backdrop-blur">
           <span className="caps text-foreground">Crew on the road</span>
           <span className="font-mono text-[11px] text-faint">Esc to close</span>
         </div>
       )}
+    </div>
+  )
 
-      {/* View types */}
-      <div className="absolute top-3 right-3 flex gap-1 rounded-lg bg-[#0d0d0d]/90 p-1 backdrop-blur" onPointerDown={(e) => e.stopPropagation()}>
-        {views.map((v) => (
-          <button
-            key={v.key}
-            onClick={() => setView(v.key)}
-            className={cn('h-7 rounded-md px-2.5 text-[12px] transition-colors', view === v.key ? 'bg-white text-black' : 'text-muted hover:text-foreground')}
-          >
-            {v.label}
-          </button>
-        ))}
-      </div>
+  /** Everything drawn over the streets, placed by the street map's own projection. Called, not mounted, so markers keep their place between frames. */
+  function overlay(street: StreetMap) {
+    const at = (p: LatLng): Point => {
+      const { x, y } = street.project([p[1], p[0]])
+      return [x, y]
+    }
+    const yard = at(places.yard)
+    const perPixel = metresPerPixel(street.getZoom(), places.yard[0])
+    const zoomBy = (steps: number) => street.easeTo({ zoom: street.getZoom() + steps, duration: 250 })
+    return (
+      <>
+        {/* Routes and Work quieten the streets so the crew stand out. */}
+        {view !== 'streets' && <div className={cn('pointer-events-none absolute inset-0 bg-black', view === 'routes' ? 'opacity-60' : 'opacity-35')} />}
 
-      {/* Zoom */}
-      <div className="absolute right-3 bottom-3 flex flex-col gap-1 rounded-lg bg-[#0d0d0d]/90 p-1 backdrop-blur" onPointerDown={(e) => e.stopPropagation()}>
-        <button aria-label="Zoom in" onClick={() => zoomBy(1.3)} className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground">
-          <Plus className="size-4" />
-        </button>
-        <button aria-label="Zoom out" onClick={() => zoomBy(1 / 1.3)} className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground">
-          <Minus className="size-4" />
-        </button>
-        <button
-          aria-label={full ? 'Exit full screen' : 'Full screen'}
-          onClick={toggleFull}
-          className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground"
-        >
-          {full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-        </button>
-        <button
-          aria-label="Fit everyone"
-          onClick={() => {
-            if (street) return fitAll(street)
-            setZoom(1)
-            setPan({ x: 0, y: 0 })
-          }}
-          className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground"
-        >
-          <Crosshair className="size-4" />
-        </button>
-      </div>
+        <svg className="pointer-events-none absolute inset-0 size-full" viewBox={`0 0 ${size.w} ${size.h}`} aria-label="Map of south Manchester with crew positions">
+          <defs>
+            <radialGradient id="heat">
+              <stop offset="0" stopColor="var(--ember)" stopOpacity="0.55" />
+              <stop offset="0.45" stopColor="var(--ember)" stopOpacity="0.18" />
+              <stop offset="1" stopColor="var(--ember)" stopOpacity="0" />
+            </radialGradient>
+            <filter id="map-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-      {/* Legend; on phones the markers say their state, so only the map credit stays. */}
-      <div className={cn('absolute bottom-3 left-3 flex items-center gap-3 rounded-md bg-[#0d0d0d]/90 px-2.5 py-1.5 text-[11px] whitespace-nowrap text-muted backdrop-blur', !street && 'max-sm:hidden')} onPointerDown={(e) => e.stopPropagation()}>
-        {view === 'heat' ? (
-          <span className="hidden items-center gap-1.5 sm:flex">
-            <span className="size-2.5 rounded-full bg-[radial-gradient(var(--ember),transparent_70%)]" />
-            Jobs by site
-          </span>
-        ) : (
-          (['on_site', 'en_route', 'delayed'] as const).map((st) => (
-            <span key={st} className="hidden items-center gap-1.5 sm:flex">
-              <span className="h-[2px] w-3 rounded-full" style={{ background: stateColour[st] }} />
-              {stateLabel[st]}
+          {/* Each job at a site spreads the glow about 340 metres. */}
+          {view === 'heat' &&
+            workload.map((w, i) => {
+              const [x, y] = at(w.at)
+              return <circle key={i} cx={x} cy={y} r={(w.jobs * 340) / perPixel} fill="url(#heat)" />
+            })}
+
+          {/* Lines back to the yard */}
+          {operators.map((op, i) => {
+            if (op.state === 'on_call' || op.state === 'off_shift') return null
+            const d = arc(yard, at(vanAt[op.id]), i % 2 ? -0.16 : 0.16)
+            const colour = stateColour[op.state]
+            const job = jobOf(op)
+            const dest = job && at(siteAt(find(sites, job.siteId)))
+            const moving = op.state === 'en_route' || op.state === 'delayed'
+            return (
+              <g key={op.id}>
+                <path d={d} fill="none" stroke={colour} strokeOpacity={0.18} strokeWidth={5} />
+                <path d={d} fill="none" stroke={colour} strokeWidth={1.5} strokeDasharray={op.state === 'delayed' ? '5 5' : undefined} />
+                {moving && dest && (
+                  <>
+                    <path d={arc(at(vanAt[op.id]), dest, 0.1)} fill="none" stroke={colour} strokeOpacity={0.6} strokeWidth={1} strokeDasharray="2 4" />
+                    <circle cx={dest[0]} cy={dest[1]} r={6} fill="none" stroke={colour} strokeWidth={1.25} />
+                  </>
+                )}
+                <circle r={3} fill={colour} filter="url(#map-glow)">
+                  <animateMotion dur={moving ? '5s' : '7s'} repeatCount="indefinite" path={d} begin={`${i * 0.6}s`} />
+                </circle>
+              </g>
+            )
+          })}
+
+          {/* Booked sites still to visit today */}
+          {booked.map((j) => {
+            const [x, y] = at(siteAt(find(sites, j.siteId)))
+            return <circle key={j.id} cx={x} cy={y} r={4} fill="#000" stroke="#777" strokeWidth={1.25} />
+          })}
+        </svg>
+
+        {booked.map((j) => {
+          const [x, y] = at(siteAt(find(sites, j.siteId)))
+          return (
+            <span key={j.id} className="pointer-events-none absolute font-mono text-[10px] text-muted" style={{ left: x + 8, top: y - 7 }}>
+              {j.ref} · {clock(j.start)}
             </span>
-          ))
-        )}
-        {street && (
+          )
+        })}
+
+        {/* Yard */}
+        <div className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center" style={{ left: yard[0], top: yard[1] }}>
+          <span className="size-3 rotate-45 rounded-[2px] bg-white shadow-[0_0_16px_#ffffff80]" />
+          <span className="caps mt-2 text-[9px] text-foreground">Yard</span>
+        </div>
+
+        {operators.map((op) => {
+          const [x, y] = at(vanAt[op.id])
+          return <Marker key={op.id} op={op} job={jobOf(op)} x={x} y={y} onSelect={onSelect} />
+        })}
+
+        {/* View types */}
+        <div className="absolute top-3 right-3 flex gap-1 rounded-lg bg-[#0d0d0d]/90 p-1 backdrop-blur">
+          {views.map((v) => (
+            <button
+              key={v.key}
+              onClick={() => setView(v.key)}
+              className={cn('h-7 rounded-md px-2.5 text-[12px] transition-colors', view === v.key ? 'bg-white text-black' : 'text-muted hover:text-foreground')}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Zoom */}
+        <div className="absolute right-3 bottom-3 flex flex-col gap-1 rounded-lg bg-[#0d0d0d]/90 p-1 backdrop-blur">
+          <button aria-label="Zoom in" onClick={() => zoomBy(0.6)} className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground">
+            <Plus className="size-4" />
+          </button>
+          <button aria-label="Zoom out" onClick={() => zoomBy(-0.6)} className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground">
+            <Minus className="size-4" />
+          </button>
+          <button
+            aria-label={full ? 'Exit full screen' : 'Full screen'}
+            onClick={toggleFull}
+            className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground"
+          >
+            {full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </button>
+          <button aria-label="Fit everyone" onClick={() => fitAll(street)} className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground">
+            <Crosshair className="size-4" />
+          </button>
+        </div>
+
+        {/* Legend; on phones the markers say their state, so only the map credit stays. */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-3 rounded-md bg-[#0d0d0d]/90 px-2.5 py-1.5 text-[11px] whitespace-nowrap text-muted backdrop-blur">
+          {view === 'heat' ? (
+            <span className="hidden items-center gap-1.5 sm:flex">
+              <span className="size-2.5 rounded-full bg-[radial-gradient(var(--ember),transparent_70%)]" />
+              Jobs by site
+            </span>
+          ) : (
+            (['on_site', 'en_route', 'delayed'] as const).map((st) => (
+              <span key={st} className="hidden items-center gap-1.5 sm:flex">
+                <span className="h-[2px] w-3 rounded-full" style={{ background: stateColour[st] }} />
+                {stateLabel[st]}
+              </span>
+            ))
+          )}
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="text-[10px] text-faint hover:text-muted">
             © OpenStreetMap
           </a>
-        )}
-      </div>
-    </div>
-  )
+        </div>
+      </>
+    )
+  }
+
   // Panels use transforms, which trap fixed elements, so the full-screen map moves to the body.
   return full ? createPortal(map, document.body) : map
 }

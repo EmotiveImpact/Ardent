@@ -112,7 +112,7 @@ export function Settings() {
                         <select
                           value={m.role}
                           onChange={(e) => void act(admin('setRole', m.userId, e.target.value), `${m.name} is now ${roleWord[e.target.value as Role].toLowerCase()}`)}
-                          className="cap h-[30px] cursor-pointer appearance-none rounded-full bg-raised pr-7 pl-3 text-foreground outline-none hover:bg-[#262626] focus-visible:ring-2 focus-visible:ring-ring/60"
+                          className="cap h-[30px] cursor-pointer rounded-full bg-raised pl-3.5 [--chevron-inset:12px] text-foreground outline-none hover:bg-[#262626] focus-visible:ring-2 focus-visible:ring-ring/60"
                         >
                           {roles.map((r) => (
                             <option key={r} value={r}>

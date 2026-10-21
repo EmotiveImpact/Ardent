@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { clock, dayDate, duration, invoiceStatus, pounds, quoteStatus, totals, trade as tradeWord, ukDay, ukToIso, window as timeWindow, type Tone } from '@kit'
 import { PageBar } from '@/components/layout/bar'
+import { fieldClass } from '@/components/ui/field'
 import { barButton } from '@/components/layout/topbar'
 import { Card, ChecksRow, RowButton, SectionHead, StageTrack, StateDot, StepRings } from '@/components/ardent/parts'
 import { BookedTime, OnSiteClock, jobSteps, useJobField, type JobField } from '@/components/ardent/job-live'
@@ -12,7 +13,7 @@ import { act } from '@/lib/act'
 import { find, invoiceOwed, invoiceTotal, jobContext, onDay, today } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 
-const inputCls = 'h-10 w-full min-w-0 rounded-[10px] bg-inset px-3 text-[14px] text-foreground outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-ring/60'
+const inputCls = fieldClass
 /** "Tue 20 Oct" */
 const dd = (iso: string) => dayDate(iso).replace(',', '')
 const past = (s: JobStatus) => ['complete', 'invoiced', 'paid'].includes(s)
@@ -440,8 +441,8 @@ function Money({ job, book, field }: { job: Job; book: Book; field?: JobField })
               </option>
             ))}
           </select>
-          <input aria-label="Quantity" type="number" min={0.25} step={0.25} className={cn(inputCls, 'px-2 font-mono')} value={quantity} onChange={(e) => setQuantity(Number(e.target.value) || 1)} />
-          <input aria-label="Price each in pounds, before VAT" placeholder="£ each" inputMode="decimal" className={cn(inputCls, 'px-2 font-mono')} value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ''))} />
+          <input aria-label="Quantity" type="number" min={0.25} step={0.25} className={cn(inputCls, 'font-mono')} value={quantity} onChange={(e) => setQuantity(Number(e.target.value) || 1)} />
+          <input aria-label="Price each in pounds, before VAT" placeholder="£ each" inputMode="decimal" className={cn(inputCls, 'font-mono')} value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ''))} />
           <button
             type="submit"
             disabled={!description.trim() || !(pence > 0)}

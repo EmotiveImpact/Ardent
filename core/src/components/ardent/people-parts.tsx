@@ -24,7 +24,7 @@ export function Monogram({ children, size = 'md', tone, className }: { children:
   )
 }
 
-/** A dialog laid out the operator way: a cap eyebrow, a title, one line, then the form on an inset well. */
+/** A dialog laid out the operator way: a cap eyebrow, a title, one line, then the form, its fields sunk into the panel. */
 export function FormDialog({ eyebrow, title, line, children, wide }: { eyebrow?: string; title: string; line: ReactNode; children: ReactNode; wide?: boolean }) {
   return (
     <DialogContent className={cn('p-2', wide ? 'max-w-xl' : 'max-w-lg')}>
@@ -33,7 +33,7 @@ export function FormDialog({ eyebrow, title, line, children, wide }: { eyebrow?:
         <DialogTitle className="op-title text-[17px] font-normal tracking-[.14em]">{title}</DialogTitle>
         <DialogDescription className="mt-2.5 text-[13px] text-muted">{line}</DialogDescription>
       </div>
-      <div className="flex flex-col gap-4 rounded-[10px] bg-inset p-4">{children}</div>
+      <div className="flex flex-col gap-4 px-4 pt-2 pb-4">{children}</div>
     </DialogContent>
   )
 }

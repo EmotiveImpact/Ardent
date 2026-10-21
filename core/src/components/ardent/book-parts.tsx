@@ -6,14 +6,14 @@ import type { Customer, Site } from '@/data/model'
 import { act } from '@/lib/act'
 import { find } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
+import { fieldClass } from '@/components/ui/field'
 
 /*
  * The parts the booking screens share: the call sheet's inputs and chips, and
  * the who-and-where block that finds a customer already on the books or adds one.
  */
 
-export const fieldClass =
-  'h-[42px] w-full min-w-0 rounded-[10px] bg-inset px-3.5 text-[14px] text-foreground outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-ring/60'
+export { fieldClass }
 
 /** A labelled part of the call sheet. Parts are split by hairlines, never boxes. */
 export function Block({ label, aside, children, className }: { label: ReactNode; aside?: ReactNode; children: ReactNode; className?: string }) {
