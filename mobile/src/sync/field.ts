@@ -82,11 +82,15 @@ export interface Snapshot {
 
 const initial: FieldState = { phase: 'starting', mode: ENGINE_URL ? 'live' : 'demo', outbox: [], setAside: [], online: true, noSignal: false, sending: false, loading: false };
 
-/** Any local id still in the change means the record it needs was never saved. */
+/**
+ * Any local id still in the change means the record it needs was never saved.
+ * A change may carry its own local id (an invoice raised offline names itself
+ * so the engine can match its pay code), which isn't waiting on anything.
+ */
 function needsUnsaved(op: Op): boolean {
   if (op.kind === 'upload') return isLocal(op.photoId);
   const scan = (v: unknown): boolean =>
-    typeof v === 'string' ? isLocal(v) : Array.isArray(v) ? v.some(scan) : v && typeof v === 'object' ? Object.values(v).some(scan) : false;
+    typeof v === 'string' ? isLocal(v) && v !== op.localId : Array.isArray(v) ? v.some(scan) : v && typeof v === 'object' ? Object.values(v).some(scan) : false;
   return scan(op.args);
 }
 
@@ -429,7 +433,9 @@ class FieldStore {
     this.wantPull = false;
     this.set({ loading: true });
     try {
-      const day = await pullDay(this.conn.client);
+      const read = await pullDay(this.conn.client);
+      // Payments couldn't be read this time: keep what the phone knew.
+      const day = read.pay || !this.state.base?.pay ? read : { ...read, pay: this.state.base.pay };
       // A change made while reading goes on top of the next read instead.
       if (this.state.outbox.length) this.wantPull = true;
       else this.set({ base: day, loadError: undefined });

@@ -1,5 +1,5 @@
 import type { ArdentClient } from '@/data/core/client';
-import type { Day, Job } from '@/data/types';
+import type { Day, FieldPay, Job } from '@/data/types';
 
 const DAY_MS = 86_400_000;
 /** How far back and ahead the phone keeps jobs. A job still in hand is always kept. */
@@ -21,13 +21,18 @@ export async function pullDay(client: ArdentClient): Promise<Day> {
 
   // Last year's gas record is where this year's starts, so keep every record at those sites.
   const gasSites = [...new Set(jobs.filter((j) => GAS_TRADES.has(j.trade)).map((j) => j.siteId))];
-  const [customers, sites, priceList, stock, gasRecords, followUps, perJob] = await Promise.all([
+  const [customers, sites, priceList, stock, gasRecords, followUps, pay, perJob] = await Promise.all([
     client.customers.list(),
     client.sites.list(),
     client.priceList.list(),
     client.stock.list({ operatorId: operator.id }),
     Promise.all(gasSites.map((siteId) => client.gasRecords.list({ siteId }))).then((r) => r.flat()),
     client.followUps.get(),
+    // The firm's payments and this engineer's key for offline pay codes. A miss keeps the copy from last time.
+    client.payments.get().then(
+      (p): FieldPay => ({ status: p.account.status, test: p.account.test, ...(p.offlineKey ? { offlineKey: p.offlineKey } : {}), at: new Date().toISOString() }),
+      () => undefined,
+    ),
     Promise.all(
       jobs.map((j) =>
         Promise.all([client.time.forJob(j.id), client.photos.forJob(j.id), client.notes.forJob(j.id), client.signatures.forJob(j.id), client.invoices.forJob(j.id), client.reports.forJob(j.id)]),
@@ -51,6 +56,7 @@ export async function pullDay(client: ArdentClient): Promise<Day> {
     stock,
     gasRecords,
     followUps,
+    ...(pay ? { pay } : {}),
     pulledAt: new Date(now).toISOString(),
   };
 }

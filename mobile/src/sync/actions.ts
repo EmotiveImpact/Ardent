@@ -147,16 +147,26 @@ export function signOff(job: Job, signedBy: string, svg: string) {
   return field.enqueue(...ops);
 }
 
-/** A draft invoice from the job's lines, VAT at 20%. Returns its id (local until the engine numbers it). */
+/**
+ * A draft invoice from the job's lines, VAT at 20%. Returns its id (local
+ * until the engine numbers it). The local id goes too: if the customer paid
+ * through the offline pay code first, the engine already raised this invoice
+ * from the code and hands that one back.
+ */
 export async function raiseInvoice(job: Job) {
   const id = localId('inv');
-  await field.enqueue(callOp('invoices.create', [job.id, { vatRate: 2000 }], `Invoice for ${job.ref}`, { localId: id }));
+  await field.enqueue(callOp('invoices.create', [job.id, { vatRate: 2000, offlineId: id }], `Invoice for ${job.ref}`, { localId: id }));
   return id;
 }
 
 /** They'll pay later: the invoice is issued and due in 14 days. */
 export function payLater(invoiceId: string, ref: string) {
   return field.enqueue(callOp('invoices.send', [invoiceId, 'email'], `Invoice issued for ${ref}`));
+}
+
+/** Text them the invoice with its Pay now link. With no signal it waits on the phone and goes the moment there is. */
+export function textPayLink(invoiceId: string, ref: string) {
+  return field.enqueue(callOp('invoices.send', [invoiceId, 'sms'], `Texted the pay link for ${ref}`));
 }
 
 /** Paid on the doorstep: what's still owed, by how they paid. */

@@ -10,11 +10,13 @@ import { Atmosphere } from '@/components/Atmosphere';
 import { HoldToCommit } from '@/components/HoldToCommit';
 import { Icon } from '@/components/Icon';
 import { SignaturePad } from '@/components/SignaturePad';
+import { type Settled, TakePayment } from '@/components/TakePayment';
 import { Back, Dock, Input } from '@/components/ui';
 import type { LineItem, PaymentMethod } from '@/data/types';
 import { copy } from '@/kit/copy';
 import { clock, duration, longDate, pounds, totals } from '@/kit/format';
 import { checkState, jobStatus, toneColor } from '@/kit/states';
+import { takesPayments } from '@/payments/pay';
 import * as act from '@/sync/actions';
 import { card, elapsed, jobInvoice, nextUp, today, useField } from '@/sync/hooks';
 import { color, font, radius, space } from '@/theme/tokens';
@@ -51,7 +53,7 @@ export default function WrapUp() {
   const [signedBy, setSignedBy] = useState('');
   const [method, setMethod] = useState<How>();
   const [busy, setBusy] = useState(false);
-  const [how, setHow] = useState<{ label: string; at: string }>();
+  const [how, setHow] = useState<{ label: string; at: string; paid?: boolean; amount?: number }>();
   const [warn, setWarn] = useState('');
 
   if (!day || !job) return <View style={styles.root} />;
@@ -118,6 +120,31 @@ export default function WrapUp() {
   const paid = invoice?.status === 'paid';
   const owed = invoice ? sums.total - invoice.paidAmount : sums.total;
   const methods = METHODS.filter((m) => m.id !== 'later' || invoice?.status === 'draft');
+  // The firm takes payments through Ardent: Tap to Pay, the QR code and the text link come first.
+  const takes = takesPayments(day);
+  const testMode = takes && day.pay?.test;
+  const settled = (r: Settled) => {
+    setHow({ label: r.label, at: new Date().toISOString(), paid: r.paid, amount: r.amount });
+    setStep('done');
+  };
+  // Paid on the phone straight away, or by Stripe a moment later: the end screen shows it either way.
+  const paidNow = paid || (step === 'done' && !!how?.paid);
+  const invoiceCard = invoice && (
+    <Animated.View entering={FadeInDown.duration(400)}>
+      <Card style={styles.list}>
+        {invoice.lines.map((l, i) => (
+          <Line key={l.id} first={i === 0} left={lineText(l)} right={pounds(l.quantity * l.unitPrice)} />
+        ))}
+        <Line left={`VAT ${invoice.vatRate / 100}%`} right={pounds(sums.vat)} tint={color.fgFaint} />
+        {invoice.paidAmount > 0 && <Line left="Paid so far" right={`-${pounds(invoice.paidAmount)}`} tint={color.fgFaint} />}
+        <View style={styles.toPay}>
+          <Cap>To pay</Cap>
+          <Num size={34}>{pounds(owed)}</Num>
+        </View>
+      </Card>
+    </Animated.View>
+  );
+  const ref = step === 'invoice' && invoice?.ref ? invoice.ref : `${job.ref}   ${clock(new Date(now).toISOString())}`;
 
   return (
     <View style={styles.root}>
@@ -125,8 +152,20 @@ export default function WrapUp() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={styles.pad}>
           <TopRow
-            left={step === 'review' || step === 'sign' ? <Back label={step === 'sign' ? 'Check' : job.ref} onPress={step === 'sign' ? () => setStep('review') : undefined} /> : <Chip label={step === 'done' ? (paid ? 'Paid' : 'Invoiced') : s.label} tint={step === 'done' && paid ? toneColor.ok : toneColor[s.tone]} />}
-            right={step === 'invoice' && invoice?.ref ? invoice.ref : `${job.ref}   ${clock(new Date(now).toISOString())}`}
+            left={step === 'review' || step === 'sign' ? <Back label={step === 'sign' ? 'Check' : job.ref} onPress={step === 'sign' ? () => setStep('review') : undefined} /> : <Chip label={step === 'done' ? (paidNow ? 'Paid' : 'Invoiced') : s.label} tint={step === 'done' && paidNow ? toneColor.ok : toneColor[s.tone]} />}
+            right={
+              testMode && step === 'invoice' ? (
+                <View style={styles.topRight}>
+                  <View style={styles.test} accessibilityLabel="Stripe test mode: no real money moves">
+                    <View style={styles.testDot} />
+                    <Text style={styles.testText}>TEST MODE</Text>
+                  </View>
+                  <Text style={styles.ref}>{ref}</Text>
+                </View>
+              ) : (
+                ref
+              )
+            }
           />
         </View>
 
@@ -190,27 +229,19 @@ export default function WrapUp() {
           </ScrollView>
         )}
 
-        {step === 'invoice' && invoice && (
+        {step === 'invoice' && invoice && takes && (
+          <TakePayment day={day} job={job} invoice={invoice} owed={owed} customer={customer} summary={invoiceCard} onDone={settled} onBackToToday={() => router.dismissTo('/today')} />
+        )}
+
+        {step === 'invoice' && invoice && !takes && (
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-            <Animated.View entering={FadeInDown.duration(400)}>
-              <Card style={styles.list}>
-                {invoice.lines.map((l, i) => (
-                  <Line key={l.id} first={i === 0} left={lineText(l)} right={pounds(l.quantity * l.unitPrice)} />
-                ))}
-                <Line left={`VAT ${invoice.vatRate / 100}%`} right={pounds(sums.vat)} tint={color.fgFaint} />
-                {invoice.paidAmount > 0 && <Line left="Paid so far" right={`-${pounds(invoice.paidAmount)}`} tint={color.fgFaint} />}
-                <View style={styles.toPay}>
-                  <Cap>To pay</Cap>
-                  <Num size={34}>{pounds(owed)}</Num>
-                </View>
-              </Card>
-            </Animated.View>
+            {invoiceCard}
             <View style={styles.methods} accessibilityRole="radiogroup">
               {methods.map((m) => (
                 <Radio key={m.id} label={m.label} on={method === m.id} onPress={() => setMethod(m.id)} style={styles.method} />
               ))}
             </View>
-            <Text style={styles.hint}>This records how they paid. Taking cards through Ardent comes later.</Text>
+            <Text style={styles.hint}>This records how they paid. Card payments through Ardent start once the office switches them on.</Text>
             {!!warn && <Text style={[styles.hint, { color: color.warn }]}>{warn}</Text>}
           </ScrollView>
         )}
@@ -230,7 +261,7 @@ export default function WrapUp() {
                 {customer ? ` for ${customer.name}` : ''}
               </Text>
             </Animated.View>
-            {paid ? (
+            {paidNow ? (
               <Animated.View entering={ZoomIn.springify().damping(14).delay(120)} style={styles.paid}>
                 <Icon name="check" size={16} tint={color.bg} strokeWidth={2.2} />
                 <Text style={styles.paidText}>PAID</Text>
@@ -241,12 +272,14 @@ export default function WrapUp() {
               </Animated.View>
             )}
             <Animated.View entering={FadeIn.delay(220).duration(500)} style={{ alignItems: 'center', marginTop: 16 }}>
-              <Num size={40}>{pounds(paid ? invoice.paidAmount : owed)}</Num>
-              <Cap tint={color.fgFaint} style={{ marginTop: 10 }}>
-                {paid ? [invoice.ref, how?.label, how ? clock(how.at) : undefined].filter(Boolean).join('   ') : invoice.dueAt ? `Due ${longDate(invoice.dueAt)}` : 'The office follows it up'}
+              <Num size={40}>{pounds(paid ? invoice.paidAmount : paidNow ? (how?.amount ?? invoice.paidAmount) : owed)}</Num>
+              <Cap tint={color.fgFaint} style={{ marginTop: 10, textAlign: 'center' }}>
+                {paidNow
+                  ? [invoice.ref, how?.label, how ? clock(how.at) : undefined].filter(Boolean).join('   ')
+                  : [how?.label, invoice.dueAt ? `Due ${longDate(invoice.dueAt)}` : 'The office follows it up'].filter(Boolean).join('   ')}
               </Cap>
             </Animated.View>
-            <StageTrack at={paid ? 4 : 3} style={{ marginTop: 28 }} />
+            <StageTrack at={paidNow ? 4 : 3} style={{ marginTop: 28 }} />
             <View style={styles.grid}>
               <Stat label="On site" value={onSite} />
               <Stat label="Checks" value={job.checks.length ? `${answered} of ${job.checks.length}` : 'None'} />
@@ -258,6 +291,7 @@ export default function WrapUp() {
           </ScrollView>
         )}
 
+        {!(step === 'invoice' && invoice && takes) && (
         <Dock>
           {step === 'done' && nextJob && (
             <View style={styles.nextRow}>
@@ -289,6 +323,7 @@ export default function WrapUp() {
               <Go label="Back to today" tone="grey" onPress={() => router.dismissTo('/today')} />
             ))}
         </Dock>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -314,4 +349,9 @@ const styles = StyleSheet.create({
   nextRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 },
   nextText: { flex: 1, color: color.fgMuted, fontFamily: font.sans, fontSize: 14 },
   nextMeta: { color: color.fgFaint, fontFamily: font.mono, fontSize: 12 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 1 },
+  ref: { color: color.fgMuted, fontFamily: font.mono, fontSize: 13, letterSpacing: 1 },
+  test: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  testDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: color.warn },
+  testText: { color: color.warn, fontFamily: font.mono, fontSize: 11, letterSpacing: 1.6 },
 });

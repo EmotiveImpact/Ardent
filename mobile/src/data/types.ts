@@ -1,6 +1,6 @@
 // Mobile-only shapes layered on Ardent Core's shared model (./core/model.ts).
 // Anything that also belongs in Core is proposed there first.
-import type { Customer, FollowUpSet, GasSafetyRecord, Invoice, Job, JobReport, Note, Operator, OperatorState, Photo, PriceItem, Signature, Site, StockLevel, TimeEntry } from './core/model';
+import type { Customer, FollowUpSet, GasSafetyRecord, Invoice, Job, JobReport, Note, Operator, OperatorState, PaymentAccount, Photo, PriceItem, Signature, Site, StockLevel, TimeEntry } from './core/model';
 
 export type * from './core/model';
 
@@ -33,8 +33,23 @@ export interface Day {
   reports: JobReport[];
   /** The follow-up questions the firm's reports ask: Ardent's playbook and the firm's own. Older saved days have none. */
   followUps?: FollowUpSet;
+  /** Whether the firm takes payments through Ardent, kept from the last time there was signal. Older saved days have none. */
+  pay?: FieldPay;
   /** When this copy last came from the engine. */
   pulledAt: string;
+}
+
+/**
+ * What the phone keeps about the firm's payments so the doorstep works with
+ * no signal: whether the firm takes payments, Stripe test mode, and the key
+ * this engineer signs "Pay on your own phone" codes with.
+ */
+export interface FieldPay {
+  status: PaymentAccount['status'];
+  test: boolean;
+  offlineKey?: string;
+  /** When the phone last heard. */
+  at: string;
 }
 
 /** A job joined with the records the field screens always need beside it. */

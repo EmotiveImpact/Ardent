@@ -41,7 +41,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "While you're on shift, Ardent shows your office where your van is, so emergencies go to whoever's nearest. Nothing is shared off shift."
+          "locationWhenInUsePermission": "While you're on shift, Ardent shows your office where your van is, so emergencies go to whoever's nearest. Taking a card payment on your phone also needs your location, as the card networks ask for it. Nothing is shared off shift."
         }
       ],
       [
@@ -53,6 +53,18 @@
             "com.google.android.as",
             "com.google.android.googlequicksearchbox"
           ]
+        }
+      ],
+      [
+        "@stripe/stripe-terminal-react-native",
+        {
+          "locationWhenInUsePermission": "While you're on shift, Ardent shows your office where your van is, so emergencies go to whoever's nearest. Taking a card payment on your phone also needs your location, as the card networks ask for it. Nothing is shared off shift.",
+          "bluetoothBackgroundMode": false,
+          "bluetoothPeripheralPermission": "Ardent uses Bluetooth only to connect a card reader, if your firm uses one.",
+          "bluetoothAlwaysUsagePermission": "Ardent uses Bluetooth only to connect a card reader, if your firm uses one.",
+          "localNetworkUsagePermission": "Ardent uses your local network only to reach a card reader, if your firm uses one.",
+          "tapToPayCheck": false,
+          "appDelegate": true
         }
       ]
     ],

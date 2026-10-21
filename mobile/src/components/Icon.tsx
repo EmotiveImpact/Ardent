@@ -26,6 +26,10 @@ const paths = {
   plus: 'M12 5v14M5 12h14',
   minus: 'M5 12h14',
   note: 'M6 3.5h12a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5zM8 9h8M8 13h8M8 17h5',
+  // Taking payment: the contactless mark, a QR code and a text message.
+  tap: 'M5 10.2a2.5 2.5 0 0 1 0 3.6M8.5 8a5.5 5.5 0 0 1 0 8M12 5.8a8.5 8.5 0 0 1 0 12.4M15.5 3.5a11.5 11.5 0 0 1 0 17',
+  qr: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 19.5h1M19.5 14v1',
+  message: 'M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-9l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5z',
 } as const;
 
 export type IconName = keyof typeof paths;
