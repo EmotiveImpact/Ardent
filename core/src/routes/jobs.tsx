@@ -13,6 +13,15 @@ import { cn } from '@/lib/utils'
 const live: JobStatus[] = ['en_route', 'on_site', 'paused']
 const closed: JobStatus[] = ['invoiced', 'paid', 'cancelled']
 
+const isOpen = (j: Job) => !closed.includes(j.status)
+
+/** The head's figures filter the list too; they don't get their own pill. */
+const figureFilters: { key: string; label: string; test: (j: Job, day: string) => boolean }[] = [
+  { key: 'emergency', label: 'Emergency', test: (j) => j.priority === 'emergency' && isOpen(j) && j.status !== 'complete' },
+  { key: 'open', label: 'Open', test: isOpen },
+  { key: 'nocrew', label: 'No crew yet', test: (j) => isOpen(j) && j.status !== 'complete' && !j.operatorIds.length },
+]
+
 const filters: { key: string; label: string; test: (j: Job, day: string) => boolean }[] = [
   { key: 'all', label: 'All', test: () => true },
   { key: 'today', label: 'Today', test: (j, day) => onDay(j.start, day) && j.status !== 'cancelled' },
@@ -35,11 +44,11 @@ export function Jobs() {
   const { data: book } = useBook()
   const day = today()
 
-  const counts = useMemo(() => Object.fromEntries(filters.map((f) => [f.key, book?.jobs.filter((j) => f.test(j, day)).length ?? 0])), [book, day])
+  const counts = useMemo(() => Object.fromEntries([...filters, ...figureFilters].map((f) => [f.key, book?.jobs.filter((j) => f.test(j, day)).length ?? 0])), [book, day])
 
   const rows = useMemo(() => {
     if (!book) return []
-    const test = filters.find((f) => f.key === filter)!.test
+    const test = [...filters, ...figureFilters].find((f) => f.key === filter)!.test
     const term = q.trim().toLowerCase()
     return [...book.jobs]
       .sort((a, b) => b.start.localeCompare(a.start))
@@ -51,8 +60,9 @@ export function Jobs() {
       })
   }, [filter, q, book, day])
 
-  const open = book?.jobs.filter((j) => !closed.includes(j.status)) ?? []
-  const noCrew = open.filter((j) => !j.operatorIds.length).length
+  // Tap a figure to filter by it; tap it again to show everything.
+  const pick = (key: string) => () => setFilter((f) => (f === key ? 'all' : key))
+  const fig = (key: string, label: string, tone?: 'warn' | 'danger') => ({ label, value: counts[key], tone: counts[key] ? tone : undefined, onClick: pick(key), on: filter === key })
 
   return (
     <div className="flex flex-col gap-10 pb-6">
@@ -64,10 +74,11 @@ export function Jobs() {
         className="pb-0"
         figures={
           book && [
-            { label: 'Open', value: open.length },
-            { label: 'Live now', value: book.jobs.filter((j) => live.includes(j.status)).length },
-            { label: 'To invoice', value: counts.done },
-            { label: 'No crew yet', value: noCrew, tone: noCrew ? 'warn' : undefined },
+            ...(counts.emergency ? [fig('emergency', 'Emergency', 'danger')] : []),
+            fig('open', 'Open'),
+            fig('live', 'Live now'),
+            fig('done', 'To invoice'),
+            fig('nocrew', 'No crew yet', 'warn'),
           ]
         }
       />

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { clock, pounds } from '@kit'
+import { useSearchParams } from 'react-router'
+import { clock, dayDate, pounds, shortDate } from '@kit'
 import { PageBar, useShell } from '@/components/layout/bar'
 import { barButton } from '@/components/layout/topbar'
 import { Icon } from '@/components/layout/icons'
@@ -11,6 +12,7 @@ import { useArdent, useBook, type Book } from '@/data/ardent'
 import { useNeeds, useVanFeed, type Need } from '@/lib/needs'
 import { addDays, find, focusJob, invoiceOwed, invoiceTotal, isDone, onDay, today, weekStart } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
+import { useNow } from '@/hooks/use-now'
 
 const greeting = (hour: number) => (hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening')
 const ukHour = () => Number(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Europe/London' }))
@@ -36,6 +38,10 @@ export function Dashboard() {
   const { setWall, wall } = useShell()
   const [picked, setPicked] = useState<string>()
   const live = book && (find(book.jobs, picked) ?? focusJob(book.jobs))
+  const [params, setParams] = useSearchParams()
+  const view = (views.some((v) => v.key === params.get('view')) ? params.get('view') : 'overview') as View
+  const setView = (v: View) => setParams(v === 'overview' ? {} : { view: v }, { replace: true })
+  const sheet = live ? <LiveJobSheet job={live} book={book} /> : <Card className="py-12 text-center text-[13px] text-muted">No jobs booked today.</Card>
 
   return (
     <div className="flex flex-col gap-10 pb-6">
@@ -47,46 +53,130 @@ export function Dashboard() {
           </button>
         }
       />
-      <PageHead title="Today" book={book} sub={book && needs ? summary(book, needs.length, me?.user.name.split(' ')[0]) : ' '} className="pb-0" />
+      <PageHead title="Today" book={book} sub={book && needs ? summary(book, needs.length, me?.user.name.split(' ')[0]) : ' '} className="pb-0">
+        <ViewSwitch view={view} onChange={setView} />
+      </PageHead>
 
       {!book ? (
         <Loading />
       ) : (
         <>
-          <Readouts book={book} />
+          {view === 'overview' && <Readouts book={book} />}
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <NeedsYou needs={needs} />
-            <FromTheVans book={book} />
-          </div>
-
-          <section>
-            <SectionHead title="The crew" aside={!wall && 'Pick someone on the map or the list to open their job'} />
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="flex min-w-0 flex-col gap-3">
-                <div className="relative hidden h-[420px] overflow-hidden rounded-[14px] bg-inset sm:block">
-                  <CrewMap operators={book.operators} jobs={book.jobs} sites={book.sites} onSelect={setPicked} />
-                </div>
-                <CrewTiles book={book} onPick={setPicked} picked={live?.id} />
+          {view === 'overview' && (
+            <>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <NeedsYou needs={needs} />
+                <FromTheVans book={book} />
               </div>
-              <div className="min-w-0">{live ? <LiveJobSheet job={live} book={book} /> : <Card className="py-12 text-center text-[13px] text-muted">No jobs booked today.</Card>}</div>
+
+              <section>
+                <SectionHead title="The crew" aside={!wall && 'Pick someone on the map or the list to open their job'} />
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="flex min-w-0 flex-col gap-3">
+                    <MapWell book={book} onSelect={setPicked} className="h-[420px]" />
+                    <CrewTiles book={book} onPick={setPicked} picked={live?.id} />
+                  </div>
+                  <div className="min-w-0">{sheet}</div>
+                </div>
+              </section>
+
+              <section>
+                <SectionHead title="Today's jobs" aside="Drag a job across, or click one with nobody on it to hand it to someone" />
+                <Card className="p-2">
+                  <JobBoard book={book} layout="full" onSelect={setPicked} selectedId={live?.id} />
+                </Card>
+              </section>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+                <TheLine book={book} />
+                <ThisWeek book={book} />
+              </div>
+            </>
+          )}
+
+          {view === 'dispatch' && (
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(380px,1fr)]">
+              <section className="min-w-0">
+                <SectionHead title="Today's jobs" aside="Drag a job across, or click one with nobody on it to hand it to someone" />
+                <Card className="p-2">
+                  <JobBoard book={book} layout="full" onSelect={setPicked} selectedId={live?.id} className="xl:grid-cols-3 2xl:grid-cols-5" />
+                </Card>
+              </section>
+              <section className="min-w-0">
+                <SectionHead title="Job sheet" />
+                {sheet}
+              </section>
             </div>
-          </section>
+          )}
 
-          <section>
-            <SectionHead title="Today's jobs" aside="Drag a job across, or click one with nobody on it to hand it to someone" />
-            <Card className="p-2">
-              <JobBoard book={book} layout="full" onSelect={setPicked} selectedId={live?.id} />
-            </Card>
-          </section>
-
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-            <TheLine book={book} />
-            <ThisWeek book={book} />
-          </div>
+          {view === 'map' && (
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(380px,1fr)]">
+              <section className="flex min-w-0 flex-col gap-3">
+                <SectionHead title="The crew" aside={!wall && 'Pick someone on the map or the list to open their job'} />
+                <MapWell book={book} onSelect={setPicked} className="h-[620px]" />
+                <CrewTiles book={book} onPick={setPicked} picked={live?.id} />
+              </section>
+              <section className="min-w-0">
+                <SectionHead title="Job sheet" />
+                {sheet}
+              </section>
+            </div>
+          )}
         </>
       )}
     </div>
+  )
+}
+
+const views = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'dispatch', label: 'Dispatch' },
+  { key: 'map', label: 'Map' },
+] as const
+type View = (typeof views)[number]['key']
+
+/** Three ways to look at the day. Kept in the address, so back and forward and wall mode keep it. */
+function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+  return (
+    <div role="tablist" aria-label="View" className="mt-6 inline-flex gap-1 rounded-[11px] bg-surface p-1">
+      {views.map((v) => (
+        <button
+          key={v.key}
+          type="button"
+          role="tab"
+          aria-selected={view === v.key}
+          onClick={() => onChange(v.key)}
+          className={cn('h-8 rounded-[8px] px-3.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60', view === v.key ? 'bg-raised text-foreground' : 'text-muted hover:text-foreground')}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** The crew map in its well, with a live clock in the corner. */
+function MapWell({ book, onSelect, className }: { book: Book; onSelect: (id: string) => void; className?: string }) {
+  return (
+    <div className={cn('relative hidden overflow-hidden rounded-[14px] bg-inset sm:block', className)}>
+      <LiveClock />
+      <CrewMap operators={book.operators} jobs={book.jobs} sites={book.sites} onSelect={onSelect} />
+    </div>
+  )
+}
+
+function LiveClock() {
+  const now = useNow()
+  return (
+    <span className="pointer-events-none absolute top-3 left-3 z-10 flex items-center gap-2 rounded-[8px] bg-surface/90 px-2.5 py-1.5 backdrop-blur">
+      <span className="relative flex size-1.5">
+        <span className="absolute inset-0 animate-pulse-ring rounded-full bg-ok" />
+        <span className="relative size-1.5 rounded-full bg-ok" />
+      </span>
+      <span className="cap text-[9.5px]">Live</span>
+      <span className="font-mono text-[12px] text-foreground tabular">{clock(new Date(now).toISOString(), true)}</span>
+    </span>
   )
 }
 
@@ -143,11 +233,11 @@ function Readouts({ book }: { book: Book }) {
 
   return (
     <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-      <Readout index={0} label="Jobs done today" value={done} unit={`of ${todays.length}`} bars={days.map((d) => book.jobs.filter((j) => onDay(j.start, d) && isDone(j)).length)} note={`${onSite} on site, ${onRoad} on the road`} action={{ label: 'Jobs', to: '/jobs' }} />
-      <Readout index={1} label="Hours booked" value={(Math.round(hoursOf(book, day) * 2) / 2).toString()} unit="h" bars={days.map((d) => hoursOf(book, d))} note={`${crewToday === crew.length ? 'All' : crewToday} of the ${crew.length} crew`} action={{ label: 'Diary', to: '/schedule' }} />
-      <Readout index={2} label="Owed to you" value={pounds(owed)} bars={weeks.map(invoicedIn)} note={late ? `${pounds(late)} late` : 'Nothing late'} action={{ label: 'Record payment', to: '/money' }} />
-      <Readout index={3} label="Certs run out" value={lapsed} tone={lapsed ? 'danger' : undefined} bars={ahead.map(lapsedBy)} note={`${dueSoon} more in 30 days`} action={{ label: 'Book', to: '/certificates' }} />
-      <Readout index={4} label="Crew booked, week" value={bookedPct(mon)} unit="%" bars={weeks.map(bookedPct)} note={`${free} free ${free === 1 ? 'slot' : 'slots'}`} action={{ label: 'Diary', to: '/schedule' }} />
+      <Readout index={0} label="Jobs done today" count={done} unit={`of ${todays.length}`} bars={days.map((d) => book.jobs.filter((j) => onDay(j.start, d) && isDone(j)).length)} labels={days.map((d) => dayDate(d).replace(',', ''))} note={`${onSite} on site, ${onRoad} on the road`} action={{ label: 'Jobs', to: '/jobs' }} />
+      <Readout index={1} label="Hours booked" count={hoursOf(book, day)} format={(n) => (Math.round(n * 2) / 2).toString()} unit="h" bars={days.map((d) => hoursOf(book, d))} labels={days.map((d) => dayDate(d).replace(',', ''))} barFormat={(n) => `${Math.round(n * 2) / 2}h`} note={`${crewToday === crew.length ? 'All' : crewToday} of the ${crew.length} crew`} action={{ label: 'Diary', to: '/schedule' }} />
+      <Readout index={2} label="Owed to you" count={owed} format={(n) => pounds(Math.round(n / 100) * 100)} bars={weeks.map(invoicedIn)} labels={weeks.map((w) => `w/c ${shortDate(w)}`)} barFormat={(n) => `${pounds(Math.round(n / 100) * 100)} invoiced`} note={late ? `${pounds(late)} late` : 'Nothing late'} action={{ label: 'Record payment', to: '/money' }} />
+      <Readout index={3} label="Certs run out" count={lapsed} tone={lapsed ? 'danger' : undefined} bars={ahead.map(lapsedBy)} labels={ahead.map((w) => `by ${shortDate(addDays(w, 6))}`)} barFormat={(n) => `${n} out`} note={`${dueSoon} more in 30 days`} action={{ label: 'Book', to: '/certificates' }} />
+      <Readout index={4} label="Crew booked, week" count={bookedPct(mon)} unit="%" bars={weeks.map(bookedPct)} labels={weeks.map((w) => `w/c ${shortDate(w)}`)} barFormat={(n) => `${n}%`} note={`${free} free ${free === 1 ? 'slot' : 'slots'}`} action={{ label: 'Diary', to: '/schedule' }} />
     </div>
   )
 }

@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { pounds } from '@kit'
 import { useArdent, type Book } from '@/data/ardent'
 import type { ComplianceCheck, Job, JobStatus } from '@/data/model'
-import { useNow } from '@/hooks/use-now'
+import { useCountUp, useNow } from '@/hooks/use-now'
 import { act } from '@/lib/act'
 import { jobNet } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
@@ -46,6 +46,9 @@ export interface Figure {
   value: ReactNode
   unit?: string
   tone?: 'warn' | 'danger' | 'ok' | 'ember'
+  /** Makes the figure a filter: tap it to show just those. */
+  onClick?: () => void
+  on?: boolean
 }
 
 const toneText = { warn: 'text-warn', danger: 'text-danger', ok: 'text-ok', ember: 'text-ember' } as const
@@ -54,25 +57,46 @@ const toneText = { warn: 'text-warn', danger: 'text-danger', ok: 'text-ok', embe
  * A screen's head: the op line (main pages) or a small eyebrow (detail pages),
  * the Michroma title, one plain sentence, and optional big figures on the right.
  */
-export function PageHead({ title, sub, book, eyebrow, figures, className }: { title: string; sub?: ReactNode; book?: Book; eyebrow?: ReactNode; figures?: Figure[]; className?: string }) {
+export function PageHead({ title, sub, book, eyebrow, figures, className, children }: { title: string; sub?: ReactNode; book?: Book; eyebrow?: ReactNode; figures?: Figure[]; className?: string; children?: ReactNode }) {
   return (
     <div className={cn('animate-rise flex flex-wrap items-end justify-between gap-x-10 gap-y-6 pt-8 pb-8', className)}>
       <div className="min-w-0">
         {eyebrow ? <div className="cap flex flex-wrap items-center gap-x-2.5 gap-y-1">{eyebrow}</div> : <OpLine book={book} />}
         <h1 className="op-title mt-4 text-[28px] text-foreground sm:text-[38px]">{title}</h1>
         {sub && <p className="mt-3.5 max-w-[68ch] text-[15px] text-foreground/90">{sub}</p>}
+        {children}
       </div>
       {figures && figures.length > 0 && (
         <dl className="flex flex-wrap gap-x-12 gap-y-5">
-          {figures.map((f) => (
-            <div key={f.label} className="flex flex-col gap-3">
-              <dt className="cap">{f.label}</dt>
-              <dd className={cn('op-number text-[30px]', f.tone && toneText[f.tone])}>
-                {f.value}
-                {f.unit && <span className="ml-2 font-mono text-[13px] text-muted">{f.unit}</span>}
-              </dd>
-            </div>
-          ))}
+          {figures.map((f) => {
+            const body = (
+              <>
+                <dt className={cn('cap', f.on && 'text-foreground')}>{f.label}</dt>
+                <dd className={cn('op-number text-[30px]', f.tone && toneText[f.tone])}>
+                  {f.value}
+                  {f.unit && <span className="ml-2 font-mono text-[13px] text-muted">{f.unit}</span>}
+                </dd>
+              </>
+            )
+            return f.onClick ? (
+              <button
+                key={f.label}
+                type="button"
+                onClick={f.onClick}
+                aria-pressed={!!f.on}
+                className={cn(
+                  '-mx-3 -my-2 flex flex-col gap-3 rounded-[12px] px-3 py-2 text-left outline-none transition-colors hover:bg-surface focus-visible:ring-2 focus-visible:ring-ring/60',
+                  f.on && 'bg-surface',
+                )}
+              >
+                {body}
+              </button>
+            ) : (
+              <div key={f.label} className="flex flex-col gap-3">
+                {body}
+              </div>
+            )
+          })}
         </dl>
       )}
     </div>
@@ -112,34 +136,65 @@ export function RowButton({ to, onClick, children, className }: { to?: string; o
 export function Readout({
   label,
   value,
+  count,
+  format = (n) => String(Math.round(n)),
   unit,
   bars,
+  labels,
+  barFormat = (n) => String(Math.round(n * 10) / 10),
   tone,
   note,
   action,
   index = 0,
 }: {
   label: string
-  value: ReactNode
+  /** Shown as is, unless `count` is given. */
+  value?: ReactNode
+  /** A number to count up to when the page opens, shown through `format`. */
+  count?: number
+  format?: (n: number) => string
   unit?: string
   bars: number[]
+  /** What each bar is, for the hover readout: "Mon 19 Oct". */
+  labels?: string[]
+  barFormat?: (n: number) => string
   tone?: 'danger' | 'warn'
   note: ReactNode
   action?: { label: string; to: string }
   index?: number
 }) {
   const max = Math.max(1, ...bars)
+  const shown = useCountUp(count ?? 0)
+  const [hover, setHover] = useState<number | null>(null)
   return (
     <Card className="flex flex-col gap-4 p-4 sm:p-5" style={{ '--i': index } as React.CSSProperties}>
-      <p className="cap">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="cap truncate">{label}</p>
+        {hover !== null && labels && (
+          <span className="shrink-0 font-mono text-[10.5px] text-foreground">
+            {labels[hover]} <span className="text-muted">·</span> {barFormat(bars[hover])}
+          </span>
+        )}
+      </div>
       <p className={cn('op-number text-[32px]', tone && toneText[tone])}>
-        {value}
+        {count !== undefined ? format(shown) : value}
         {unit && <span className="ml-2.5 font-mono text-[13px] text-muted">{unit}</span>}
       </p>
-      <div aria-hidden className="flex h-[22px] items-end gap-[3px]">
+      <div aria-hidden className="flex h-[22px] items-end gap-[3px]" onMouseLeave={() => setHover(null)}>
         {bars.map((b, i) => {
           const last = i === bars.length - 1
-          return <span key={i} className={cn('flex-1 rounded-[1px]', last ? (tone === 'danger' ? 'bg-danger' : tone === 'warn' ? 'bg-warn' : 'bg-foreground') : 'bg-[#2a2a2a]')} style={{ height: `${Math.max(8, (b / max) * 100)}%` }} />
+          return (
+            <span key={i} onMouseEnter={() => setHover(i)} className="flex h-full flex-1 items-end">
+              <span
+                className={cn(
+                  'animate-grow w-full rounded-[1px] transition-[filter]',
+                  last ? (tone === 'danger' ? 'bg-danger' : tone === 'warn' ? 'bg-warn' : 'bg-foreground') : 'bg-[#2a2a2a]',
+                  hover === i && (last ? 'brightness-125' : 'bg-[#4a4a4a]'),
+                )}
+                style={{ '--i': i, height: `${Math.max(8, (b / max) * 100)}%` } as React.CSSProperties}
+              />
+            </span>
+          )
         })}
       </div>
       <div className="flex items-center justify-between gap-3 text-[12.5px]">

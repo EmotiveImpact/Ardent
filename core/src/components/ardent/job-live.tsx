@@ -62,6 +62,25 @@ export function OnSiteClock({ job, field, className }: { job: Job; field?: JobFi
   )
 }
 
+/** How far through the booked time they are, and when the booking ends. */
+export function BookedTime({ job, field }: { job: Job; field?: JobField }) {
+  const now = useNow(15_000)
+  const labour = field?.time.filter((t) => t.kind === 'labour').sort((a, b) => a.start.localeCompare(b.start))[0]
+  const from = Date.parse(labour?.start ?? job.start)
+  const planned = Math.max(1, Date.parse(job.end) - Date.parse(job.start))
+  const pct = Math.round((Math.max(0, now - from) / planned) * 100)
+  return (
+    <div className="flex items-center gap-4">
+      <div aria-hidden className="h-[3px] flex-1 overflow-hidden rounded-full bg-line-strong">
+        <div className={cn('h-full rounded-full transition-[width] duration-1000', pct > 100 ? 'bg-warn' : 'bg-foreground')} style={{ width: `${Math.min(100, pct)}%` }} />
+      </div>
+      <span className="shrink-0 font-mono text-[12px] text-muted">
+        <span className={pct > 100 ? 'text-warn' : 'text-foreground'}>{pct}%</span> of booked time <span className="text-faint">·</span> ends {clock(job.end)}
+      </span>
+    </div>
+  )
+}
+
 /** Today's job sheet: whose job, where, the clock, the line, the steps and the checks. */
 export function LiveJobSheet({ job, book }: { job: Job; book: Book }) {
   const { data: field } = useJobField(job.id)
@@ -81,10 +100,13 @@ export function LiveJobSheet({ job, book }: { job: Job; book: Book }) {
         </p>
       </div>
       {onSite ? (
-        <p className="flex items-baseline gap-3">
-          <OnSiteClock job={job} field={field} className="text-[44px] sm:text-[52px]" />
-          <span className="cap">{job.status === 'paused' ? 'On hold' : 'On site'}</span>
-        </p>
+        <div className="flex flex-col gap-3">
+          <p className="flex items-baseline gap-3">
+            <OnSiteClock job={job} field={field} className="text-[44px] sm:text-[52px]" />
+            <span className="cap">{job.status === 'paused' ? 'On hold' : 'On site'}</span>
+          </p>
+          <BookedTime job={job} field={field} />
+        </div>
       ) : (
         <p className="flex items-baseline gap-3">
           <span className="op-number text-[44px]">{clock(job.start)}</span>

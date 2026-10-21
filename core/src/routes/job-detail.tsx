@@ -4,7 +4,7 @@ import { clock, dayDate, duration, invoiceStatus, pounds, quoteStatus, totals, t
 import { PageBar } from '@/components/layout/bar'
 import { barButton } from '@/components/layout/topbar'
 import { Card, ChecksRow, RowButton, SectionHead, StageTrack, StateDot, StepRings } from '@/components/ardent/parts'
-import { OnSiteClock, jobSteps, useJobField, type JobField } from '@/components/ardent/job-live'
+import { BookedTime, OnSiteClock, jobSteps, useJobField, type JobField } from '@/components/ardent/job-live'
 import { Fact, OverrideHold, StageTimes } from '@/components/ardent/jobs-parts'
 import { useArdent, useBook, type Book } from '@/data/ardent'
 import type { Invoice, Job, JobStatus, LineItem, Priority, Quote } from '@/data/model'
@@ -229,6 +229,11 @@ function JobHead({ job, book, field }: { job: Job; book: Book; field?: JobField 
           <span className="op-number text-[48px] tracking-[-.02em] sm:text-[72px]">{big}</span>
         )}
         <p className="text-[14px] text-muted">{sentence}</p>
+        {onSite && (
+          <div className="max-w-[460px]">
+            <BookedTime job={job} field={field} />
+          </div>
+        )}
       </div>
       <dl className="grid grid-cols-2 content-start gap-x-8 gap-y-6 sm:gap-x-14">
         <Fact label="Job">
