@@ -3,7 +3,7 @@
  * in the log, and the owner's morning brief from the day's numbers. Code does
  * the sums and the sentences here; nothing is guessed.
  */
-import type { Customer, Exception, Invoice, Job, JobStatus, MorningBrief, Operator, Quote } from '../../core/src/data/model.ts'
+import type { Automation, AutomationArea, AutomationJob, Customer, Exception, Invoice, Job, JobStatus, MorningBrief, Operator, Quote, Usage, UsageLine, Level } from '../../core/src/data/model.ts'
 import { pounds, ukDay } from '../kit/format.ts'
 
 export interface Look {
@@ -165,4 +165,119 @@ export function composeBrief(input: { day: string; now: string; jobs: Job[]; inv
     items,
     waiting,
   }
+}
+
+/* ---------- The firm's rules for Ardent ---------- */
+
+type JobDef = Omit<AutomationJob, 'level'>
+const all: Level[] = [0, 1, 2, 3]
+const upTo = (max: Level): Level[] => all.filter((l) => l <= max)
+const fixed = (l: Level): Level[] => [l]
+const AI = 'Waits for the AI key'
+const PHONE = 'Waits for a phone provider and the AI key'
+const MESSAGES = 'Waits for texts and email'
+const BUILD = 'Being built'
+
+/**
+ * The back office jobs Ardent can take on, from the agreed office manager
+ * plan, with the level each starts at and the levels a firm may pick.
+ * Anything touching regulated work or other people's money is fixed.
+ */
+export const AUTOMATION_JOBS: JobDef[] = [
+  { key: 'answer', area: 'calls', name: 'Answer and identify', does: "Picks up in the firm's name and matches the caller to a customer only when number and address agree.", approves: "Within the firm's script", standard: 3, allowed: [0, 3], live: false, waitsFor: PHONE },
+  { key: 'triage', area: 'calls', name: 'Triage', does: 'Sorts emergency from routine with fixed rules. A smell of gas gets the fixed script and the on-call engineer is paged.', approves: 'Fixed script, reviewed by the owner', standard: 3, allowed: fixed(3), live: false, waitsFor: PHONE },
+  { key: 'quote_callout', area: 'calls', name: 'Quote the call-out', does: 'Reads the call-out fee and hourly rate from the price list. Anything else becomes "the office will confirm".', approves: 'Price list only', standard: 3, allowed: [0, 3], live: false, waitsFor: PHONE },
+  { key: 'book_slot', area: 'calls', name: 'Book a slot', does: 'Offers only slots the diary really has free for a qualified engineer, and confirms once the booking has saved.', approves: 'Office taps to confirm at first', standard: 2, allowed: [1, 2, 3], live: false, waitsFor: PHONE },
+  { key: 'emergency_request', area: 'calls', name: 'Emergency to job request', does: 'Sends an emergency to the nearest qualified engineer on standby with the 45 second offer.', approves: 'The engineer accepts', standard: 2, allowed: fixed(2), live: true },
+  { key: 'take_message', area: 'calls', name: 'Take a message', does: 'For complaints, disputes, vulnerable callers or anything unclear: a summary, the transcript and a callback task.', approves: 'Office calls back', standard: 1, allowed: fixed(1), live: false, waitsFor: PHONE },
+
+  { key: 'overnight_plan', area: 'dispatch', name: 'Overnight plan', does: "Drafts tomorrow for every engineer from skills, papers, drive times, van stock and customers' windows.", approves: 'Office approves the day in one go', standard: 1, allowed: upTo(2), live: false, waitsFor: BUILD },
+  { key: 'confirm_windows', area: 'dispatch', name: 'Confirm windows', does: 'Texts each customer their arrival window once the day is approved, and "on my way" when the engineer sets off.', approves: 'Approved message wording', standard: 3, allowed: all, live: false, waitsFor: MESSAGES },
+  { key: 'running_late', area: 'dispatch', name: 'Running late', does: "Spots a van that can't make the next window and proposes a new order or a swap, with the customer texts.", approves: 'Office taps to accept', standard: 2, allowed: upTo(2), live: false, waitsFor: BUILD },
+  { key: 'fit_emergency', area: 'dispatch', name: 'Fit in an emergency', does: 'Shows which engineer to pull and what it does to the rest of their day, or offers it as a job request.', approves: 'Office, or the engineer accepts', standard: 2, allowed: upTo(2), live: true },
+  { key: 'parts_check', area: 'dispatch', name: 'Parts check', does: "Flags a job whose parts aren't on that van and suggests a merchant stop or a swap.", approves: 'Office or engineer', standard: 1, allowed: upTo(1), live: false, waitsFor: BUILD },
+  { key: 'hard_rules', area: 'dispatch', name: 'Hard rules', does: "Never gives gas work to someone whose Gas Safe card has lapsed, and never double books.", approves: 'Blocked in the engine', standard: 4, allowed: fixed(4), live: true },
+
+  { key: 'voice_report', area: 'paperwork', name: 'Voice job report', does: "Tidies what the engineer said into the job type's template. Never adds anything. Keeps the original audio.", approves: 'Engineer reads and signs it off', standard: 1, allowed: fixed(1), live: false, waitsFor: AI },
+  { key: 'materials', area: 'paperwork', name: 'Materials', does: "Pulls parts out of the report, matches them to the price list and van stock, and flags anything it can't match.", approves: 'Engineer confirms', standard: 1, allowed: fixed(1), live: false, waitsFor: AI },
+  { key: 'cert_prefill', area: 'paperwork', name: 'Certificate pre-fill', does: 'Puts dictated readings into the CP12 fields for the engineer to check.', approves: 'Only the registered engineer issues', standard: 4, allowed: fixed(4), live: false, waitsFor: AI },
+  { key: 'draft_invoice', area: 'paperwork', name: 'Draft invoice', does: 'Builds the invoice when a job is finished, from the parts and time on site, with VAT done in code.', approves: 'Office approves sending', standard: 2, allowed: upTo(2), live: true },
+  { key: 'customer_summary', area: 'paperwork', name: 'Customer summary', does: 'A short write-up of the visit with photos, sent with the invoice.', approves: 'Goes with the approved invoice', standard: 1, allowed: upTo(1), live: false, waitsFor: AI },
+  { key: 'van_stock', area: 'paperwork', name: 'Van stock', does: "Takes used parts off that van's stock and shows what's running low.", approves: 'Internal record, easy to undo', standard: 3, allowed: fixed(3), live: true },
+
+  { key: 'quote_drafts', area: 'money', name: 'Quotes', does: 'Asks before each drafted quote goes to the customer. Drafting quotes from survey reports comes with the AI.', approves: 'Office approves and sends', standard: 2, allowed: upTo(2), live: true },
+  { key: 'quote_followup', area: 'money', name: 'Quote follow-up', does: "Nudges customers who haven't answered after a set number of days, and stops when they reply.", approves: 'Owner sets timing and wording', standard: 3, allowed: all, live: false, waitsFor: MESSAGES },
+  { key: 'invoice_chasing', area: 'money', name: 'Invoice chasing', does: 'A friendly reminder when due, a firmer one later and a statement after that, in the firm\'s tone. Stops on payment or a no.', approves: 'First two steps alone, firmer ones on a yes', standard: 3, allowed: all, live: true },
+  { key: 'accounts_sync', area: 'money', name: 'Xero and QuickBooks', does: 'Sends invoices and customers across and matches exact payments from the bank feed.', approves: 'Exact matches alone, near ones to the office', standard: 3, allowed: all, live: false, waitsFor: 'Waits for a Xero developer app' },
+  { key: 'job_profit', area: 'money', name: 'Job profit', does: 'Labour and parts against the price charged. Flags jobs that lost money.', approves: 'Owner reads it', standard: 0, allowed: fixed(0), live: false, waitsFor: BUILD },
+  { key: 'pay_link', area: 'money', name: 'Pay on the doorstep', does: 'A card or bank payment link sent with the invoice.', approves: 'The customer pays, nobody else moves money', standard: 4, allowed: fixed(4), live: false, waitsFor: 'Waits for a payments account' },
+
+  { key: 'renewal_reminders', area: 'compliance', name: 'Renewal reminders', does: 'Six to eight weeks before a certificate runs out, contacts the customer or landlord with slots to pick.', approves: 'Service messages, firm sets wording', standard: 3, allowed: all, live: false, waitsFor: MESSAGES },
+  { key: 'quiet_weeks', area: 'compliance', name: 'Fill the quiet weeks', does: 'Offers renewals and services into gaps in the diary, grouped by area.', approves: 'Office approves the batch', standard: 2, allowed: upTo(2), live: false, waitsFor: BUILD },
+  { key: 'landlord_packs', area: 'compliance', name: 'Landlord packs', does: "Every certificate for a landlord's properties in one place, with what's due next.", approves: 'Read only', standard: 0, allowed: fixed(0), live: false, waitsFor: BUILD },
+  { key: 'engineer_cards', area: 'compliance', name: 'Engineer cards', does: 'Watches Gas Safe and other expiry dates, warns the owner early and blocks regulated work when one lapses.', approves: 'Read, plus a hard rule', standard: 0, allowed: fixed(0), live: true },
+
+  { key: 'morning_brief', area: 'brief', name: 'Morning brief', does: "Yesterday's numbers, what's late, what's on and what waits for a yes, worked out from the records.", approves: 'Owner reads it', standard: 0, allowed: fixed(0), live: true },
+]
+
+export const AREAS: AutomationArea[] = ['calls', 'dispatch', 'paperwork', 'money', 'compliance', 'brief']
+
+export const defaultAutomation = (): Automation => ({
+  areas: { calls: true, dispatch: true, paperwork: true, money: true, compliance: true, brief: true },
+  levels: {},
+  chase: { first: 0, firmer: 14, statement: 30, gap: 7 },
+  tone: 'friendly',
+  officeHours: { from: '08:00', to: '17:30', days: [1, 2, 3, 4, 5] },
+  limits: { aiPence: 5000, messagesPerCustomerWeek: 2 },
+  voice: false,
+})
+
+/** The firm's level for a job: its own pick if allowed, otherwise the standard one; nothing when the area is off. */
+export function levelOf(a: Automation, key: string): Level | undefined {
+  const def = AUTOMATION_JOBS.find((j) => j.key === key)
+  if (!def || !a.areas[def.area]) return undefined
+  const own = a.levels[key]
+  return own !== undefined && def.allowed.includes(own) ? own : def.standard
+}
+
+export const automationJobs = (a: Automation): AutomationJob[] => AUTOMATION_JOBS.map((j) => ({ ...j, level: levelOf(a, j.key) ?? j.standard }))
+
+/**
+ * What the plan includes, agreed with Edem on 21 October 2026. Base plan:
+ * 150 after-hours AI call minutes and 1,500 texts a month, extra texts at
+ * cost. Ardent Voice at £99 a month: 250 minutes of all-day answering, then
+ * 35p a minute.
+ */
+export const PLAN = {
+  afterHoursMinutes: 150,
+  texts: 1500,
+  /** Rough cost of one text past the 1,500, passed on at cost. Check against the provider before billing. */
+  textPence: 4,
+  voiceMinutes: 250,
+  voiceOverPence: 35,
+}
+
+/** This month's use against the plan, and whether each thing may carry on. */
+export function usageFor(a: Automation, m: { month: string; ai: number; afterHours: number; voice: number; texts: number }): Usage {
+  const overTexts = Math.max(0, m.texts - PLAN.texts)
+  const overVoice = Math.max(0, m.voice - PLAN.voiceMinutes)
+  const lines: UsageLine[] = [
+    {
+      key: 'ai', label: 'AI spend', used: m.ai, unit: 'pence', cap: a.limits.aiPence, over: 0, overCost: 0,
+      note: m.ai >= a.limits.aiPence ? 'Cap reached. Ardent is working without AI and the owner has been told.' : `Cap ${pounds(a.limits.aiPence)} a month, set by the owner`,
+    },
+    {
+      key: 'after_hours', label: 'After-hours calls', used: m.afterHours, unit: 'minutes', included: PLAN.afterHoursMinutes, cap: a.voice ? undefined : PLAN.afterHoursMinutes, over: 0, overCost: 0,
+      note: a.voice ? 'Included minutes first, then Ardent Voice minutes' : m.afterHours >= PLAN.afterHoursMinutes ? 'All used. Calls go to voicemail until next month, or add Ardent Voice' : 'Included in the plan',
+    },
+    {
+      key: 'voice', label: 'Ardent Voice calls', used: m.voice, unit: 'minutes', included: a.voice ? PLAN.voiceMinutes : 0, over: a.voice ? overVoice : 0, overCost: a.voice ? overVoice * PLAN.voiceOverPence : 0,
+      note: a.voice ? `£99 a month with ${PLAN.voiceMinutes} minutes, then ${PLAN.voiceOverPence}p a minute` : 'Not added. All-day answering is the Ardent Voice add-on',
+    },
+    {
+      key: 'texts', label: 'Texts', used: m.texts, unit: 'texts', included: PLAN.texts, over: overTexts, overCost: overTexts * PLAN.textPence,
+      note: overTexts ? `${overTexts} past the ${PLAN.texts.toLocaleString('en-GB')} included, charged at cost` : `${PLAN.texts.toLocaleString('en-GB')} a month included`,
+    },
+  ]
+  return { month: m.month, lines, extraCost: lines.reduce((s, l) => s + l.overCost, 0), aiPaused: m.ai >= a.limits.aiPence }
 }

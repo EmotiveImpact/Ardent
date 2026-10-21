@@ -8,7 +8,7 @@ import { Card, PageHead, Readout, RowButton, SectionHead, TheLine } from '@/comp
 import { CrewTiles, LiveJobSheet } from '@/components/ardent/job-live'
 import { CrewMap } from '@/components/dashboard/crew-map'
 import { JobBoard } from '@/components/dashboard/job-board'
-import { MorningBriefCard } from '@/components/ardent/office'
+import { BriefOnToday } from '@/components/ardent/brief'
 import { useArdent, useBook, type Book } from '@/data/ardent'
 import { useNeeds, useVanFeed, type Need } from '@/lib/needs'
 import { addDays, find, focusJob, invoiceOwed, invoiceTotal, isDone, onDay, today, weekStart } from '@/lib/jobs'
@@ -60,7 +60,7 @@ export function Dashboard() {
         <Loading />
       ) : (
         <>
-          {view === 'overview' && <MorningBriefCard />}
+          {view === 'overview' && <BriefOnToday />}
           {view === 'overview' && <Readouts book={book} />}
 
           {view === 'overview' && (

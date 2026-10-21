@@ -1,4 +1,4 @@
-import type { ActionEntry, Approval, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobRequest, JobStatus, LineItem, MorningBrief, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, Standby, StockLevel, TimeEntry, VanFix, Verdict } from './model'
+import type { ActionEntry, Approval, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobRequest, JobStatus, LineItem, MorningBrief, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, Standby, StockLevel, TimeEntry, VanFix, Level, Usage, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -126,6 +126,13 @@ export interface ArdentClient {
     approve(id: string, version: string): Promise<Approval>
     reject(id: string, note?: string): Promise<Approval>
   }
+  /** The firm's rules for Ardent: a level for each back office job, area switches, timings and limits. Owners change them. */
+  automation: {
+    get(): Promise<{ settings: Automation; jobs: AutomationJob[] }>
+    set(patch: Partial<Omit<Automation, 'areas' | 'levels' | 'chase' | 'limits'>> & { areas?: Partial<Automation['areas']>; levels?: Record<string, Level>; chase?: Partial<Automation['chase']>; limits?: Partial<Automation['limits']> }): Promise<{ settings: Automation; jobs: AutomationJob[] }>
+  }
+  /** This month's AI spend, call minutes and texts against the plan. Office only. */
+  usage: { get(opts?: { month?: string }): Promise<Usage> }
   /** Everything done in the firm, newest first: by whom, and whether Ardent drafted it. Office only. */
   log: { list(filter?: { jobId?: string; limit?: number }): Promise<ActionEntry[]> }
   /** The owner's morning brief for a UK day (today unless given). Office only. */

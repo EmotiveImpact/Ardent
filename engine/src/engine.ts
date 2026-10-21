@@ -22,9 +22,9 @@
  * rules checked in one place) and its customer, site and job records.
  */
 import type { ArdentClient } from '../../core/src/data/client.ts'
-import type { ActionEntry, Approval, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, StockLevel, Trade, VanFix, Verdict } from '../../core/src/data/model.ts'
+import type { ActionEntry, Approval, Automation, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, StockLevel, Trade, Usage, VanFix, Verdict } from '../../core/src/data/model.ts'
 import { pounds, shortDate, ukDay } from '../kit/format.ts'
-import { composeBrief, describe, type Look } from './office.ts'
+import { AREAS, AUTOMATION_JOBS, automationJobs, composeBrief, defaultAutomation, describe, levelOf, PLAN, usageFor, type Look } from './office.ts'
 import type { Platform } from './platform.ts'
 import type { Data, Membership, OperatorRow, Organisation, Owned, Role, Store, User } from './store.ts'
 
@@ -343,6 +343,89 @@ export function createEngine(store: Store, platform: Platform) {
       })
   }
 
+  /* ---------- The firm's rules for Ardent, and what it uses ---------- */
+
+  /** A firm's rules, the standard ones filled in wherever it hasn't chosen. */
+  function rulesFor(orgId: string): Automation {
+    const d = defaultAutomation()
+    const row = db.automation.find((a) => a.orgId === orgId)
+    if (!row) return d
+    return {
+      ...d,
+      ...row,
+      areas: { ...d.areas, ...row.areas },
+      levels: { ...row.levels },
+      chase: { ...d.chase, ...row.chase },
+      officeHours: { ...d.officeHours, ...row.officeHours },
+      limits: { ...d.limits, ...row.limits },
+    }
+  }
+
+  const ukMonth = (iso: string) => ukDay(iso).slice(0, 7)
+  function monthRow(orgId: string, month: string) {
+    let row = db.usage.find((u) => u.orgId === orgId && u.month === month)
+    if (!row) db.usage.push((row = { orgId, month, ai: 0, afterHours: 0, voice: 0, texts: 0 }))
+    return row
+  }
+  const usageOf = (orgId: string, month: string): Usage =>
+    usageFor(rulesFor(orgId), db.usage.find((u) => u.orgId === orgId && u.month === month) ?? { month, ai: 0, afterHours: 0, voice: 0, texts: 0 })
+
+  /** Outside the firm's office hours, UK time. */
+  function isAfterHours(rules: Automation, at: string) {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date(at))
+        .map((p) => [p.type, p.value]),
+    )
+    const day = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(parts.weekday) + 1
+    const hhmm = `${parts.hour}:${parts.minute}`
+    const { from, to, days } = rules.officeHours
+    return !(days.includes(day) && hhmm >= from && hhmm < to)
+  }
+
+  /**
+   * Before Ardent does something that costs: may it go ahead under the firm's
+   * plan and caps? AI stops at the owner's cap; calls need included
+   * after-hours minutes or Ardent Voice; texts always go, extra ones at cost.
+   */
+  function allowance(orgId: string, kind: 'ai' | 'call' | 'text', at = new Date().toISOString()): { allowed: boolean; why?: string } {
+    const rules = rulesFor(orgId)
+    const u = usageOf(orgId, ukMonth(at))
+    if (kind === 'ai') return u.aiPaused ? { allowed: false, why: "this month's AI cap is reached" } : { allowed: true }
+    if (kind === 'text') return { allowed: true }
+    if (!rules.areas.calls) return { allowed: false, why: 'answering is switched off' }
+    if (rules.voice) return { allowed: true }
+    if (!isAfterHours(rules, at)) return { allowed: false, why: 'answering in office hours is Ardent Voice' }
+    const used = u.lines.find((l) => l.key === 'after_hours')!.used
+    return used < (u.lines.find((l) => l.key === 'after_hours')!.included ?? 0) ? { allowed: true } : { allowed: false, why: "this month's after-hours minutes are used" }
+  }
+
+  /**
+   * Count what Ardent used: AI in pence, calls in minutes, texts by the
+   * message. After-hours calls use the included minutes first, then Ardent
+   * Voice minutes. The owner is told in the log when the AI cap is reached.
+   */
+  function meter(orgId: string, kind: 'ai' | 'call' | 'text', amount: number, at = new Date().toISOString()): Usage {
+    if (!(amount >= 0) || !Number.isFinite(amount)) throw invalid('usage is a number, zero or more')
+    const rules = rulesFor(orgId)
+    const month = ukMonth(at)
+    const row = monthRow(orgId, month)
+    const pausedBefore = row.ai >= rules.limits.aiPence
+    if (kind === 'ai') row.ai += Math.round(amount)
+    else if (kind === 'text') row.texts += Math.round(amount)
+    else {
+      const after = isAfterHours(rules, at)
+      const fromIncluded = !after ? 0 : rules.voice ? Math.min(Math.max(0, PLAN.afterHoursMinutes - row.afterHours), amount) : amount
+      row.afterHours += fromIncluded
+      row.voice += amount - fromIncluded
+    }
+    if (kind === 'ai' && !pausedBefore && row.ai >= rules.limits.aiPence) {
+      db.actions.push({ id: newId('act'), at, by: { kind: 'ardent' }, action: 'usage.aiPaused', summary: `AI paused: this month's ${pounds(rules.limits.aiPence)} cap is reached. Everything else carries on without it.`, orgId })
+    }
+    store.commit()
+    return usageOf(orgId, month)
+  }
+
   /** The client for one person in one firm. Rules are checked on every call. */
   function as(session: Session) {
     const { orgId, userId } = session
@@ -605,6 +688,85 @@ export function createEngine(store: Store, platform: Platform) {
             if (note?.trim()) row.note = note.trim()
             return row
           }).then((a) => done(out(a) as Approval)),
+      },
+
+      automation: {
+        get: () =>
+          run(() => {
+            requireOffice("see Ardent's rules")
+            const settings = rulesFor(orgId)
+            return { settings, jobs: automationJobs(settings) }
+          }),
+        set: (patch) =>
+          run(() => {
+            if (!isOwner()) throw forbidden("only the owner changes Ardent's rules")
+            const next = rulesFor(orgId)
+            const whole = (n: unknown, lo: number, hi: number, what: string) => {
+              if (!Number.isInteger(n) || (n as number) < lo || (n as number) > hi) throw invalid(`${what} is a whole number from ${lo} to ${hi}`)
+              return n as number
+            }
+            for (const [k, on] of Object.entries(patch.areas ?? {})) {
+              if (!AREAS.includes(k as never) || typeof on !== 'boolean') throw invalid(`unknown area ${k}`)
+              next.areas[k as keyof Automation['areas']] = on
+            }
+            for (const [k, level] of Object.entries(patch.levels ?? {})) {
+              const def = AUTOMATION_JOBS.find((j) => j.key === k)
+              if (!def) throw invalid(`unknown job ${k}`)
+              if (!def.allowed.includes(level)) throw invalid(`${def.name} can only be set to ${def.allowed.map((l) => `L${l}`).join(' or ')}`)
+              if (level === def.standard) delete next.levels[k]
+              else next.levels[k] = level
+            }
+            if (patch.chase) {
+              const c = { ...next.chase, ...patch.chase }
+              c.first = whole(c.first, 0, 60, 'the first reminder')
+              c.firmer = whole(c.firmer, 1, 90, 'the firmer reminder')
+              c.statement = whole(c.statement, 2, 120, 'the statement')
+              c.gap = whole(c.gap, 1, 30, 'the gap between reminders')
+              if (!(c.first < c.firmer && c.firmer < c.statement)) throw invalid('reminders go first, then firmer, then the statement')
+              next.chase = c
+            }
+            if (patch.tone !== undefined) {
+              if (!['friendly', 'plain', 'formal'].includes(patch.tone)) throw invalid('tone is friendly, plain or formal')
+              next.tone = patch.tone
+            }
+            if (patch.signOff !== undefined) {
+              const t = patch.signOff?.trim()
+              if (t && t.length > 80) throw invalid('the sign-off is 80 characters at most')
+              if (t) next.signOff = t
+              else delete next.signOff
+            }
+            if (patch.officeHours) {
+              const h = { ...next.officeHours, ...patch.officeHours }
+              const time = /^([01]\d|2[0-3]):[0-5]\d$/
+              if (!time.test(h.from) || !time.test(h.to) || h.from >= h.to) throw invalid('office hours are HH:MM, opening before closing')
+              if (!Array.isArray(h.days) || !h.days.every((d) => Number.isInteger(d) && d >= 1 && d <= 7)) throw invalid('office days are 1 (Monday) to 7')
+              next.officeHours = { ...h, days: [...new Set(h.days)].sort() }
+            }
+            if (patch.limits) {
+              const l = { ...next.limits, ...patch.limits }
+              l.aiPence = whole(l.aiPence, 0, 100_000, 'the AI cap in pence')
+              l.messagesPerCustomerWeek = whole(l.messagesPerCustomerWeek, 1, 7, 'messages to one customer a week')
+              next.limits = l
+            }
+            if (patch.voice !== undefined) {
+              if (typeof patch.voice !== 'boolean') throw invalid('Ardent Voice is on or off')
+              next.voice = patch.voice
+            }
+            db.automation = db.automation.filter((a) => a.orgId !== orgId)
+            db.automation.push({ ...next, orgId })
+            syncApprovals()
+            return { settings: next, jobs: automationJobs(next) }
+          }).then(done),
+      },
+
+      usage: {
+        get: (opts = {}) =>
+          run(() => {
+            requireOffice('see what Ardent has used')
+            const month = opts.month ?? ukMonth(new Date().toISOString())
+            if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw invalid('month is YYYY-MM')
+            return usageOf(orgId, month)
+          }),
       },
 
       log: {
@@ -1256,18 +1418,31 @@ export function createEngine(store: Store, platform: Platform) {
     function syncApprovals() {
       const now = new Date()
       const iso = now.toISOString()
-      const firm = db.orgs.find((o) => o.id === orgId)?.name ?? 'us'
+      const rules = rulesFor(orgId)
+      const firm = rules.signOff ?? db.orgs.find((o) => o.id === orgId)?.name ?? 'us'
+      const sends = levelOf(rules, 'draft_invoice') ?? 0
+      const chases = levelOf(rules, 'invoice_chasing') ?? 0
+      const quoting = levelOf(rules, 'quote_drafts') ?? 0
       const wanted: Omit<Approval, 'id' | 'status' | 'createdAt'>[] = []
       const customer = (id: string) => db.customers.find((c) => c.id === id && c.orgId === orgId)
       const hello = (id: string) => {
         const c = customer(id)
-        return c && (c.kind === 'homeowner' || c.kind === 'landlord') ? `Hi ${c.name.split(' ')[0]}` : 'Hello'
+        const person = c && (c.kind === 'homeowner' || c.kind === 'landlord')
+        if (rules.tone === 'formal') return person ? `Dear ${c.name}` : 'Dear Sir or Madam'
+        if (!person) return 'Hello'
+        return `${rules.tone === 'plain' ? 'Hello' : 'Hi'} ${c.name.split(' ')[0]}`
       }
+      // Reminders already sent to a customer this week, across all their invoices.
+      const lately = (customerId: string) =>
+        db.invoices
+          .filter((i) => i.orgId === orgId && i.customerId === customerId)
+          .flatMap((i) => i.reminders ?? [])
+          .filter((at) => now.getTime() - Date.parse(at) < 7 * DAY).length
       for (const inv of db.invoices.filter((i) => i.orgId === orgId)) {
         const job = db.jobs.find((j) => j.id === inv.jobId)
         const c = customer(inv.customerId)
         const total = invoiceTotals(inv).total
-        if (inv.status === 'draft' && inv.lines.length && job && job.status !== 'cancelled') {
+        if (sends && inv.status === 'draft' && inv.lines.length && job && job.status !== 'cancelled') {
           const site = db.sites.find((x) => x.id === job.siteId)
           wanted.push({
             kind: 'send_invoice',
@@ -1280,24 +1455,35 @@ export function createEngine(store: Store, platform: Platform) {
           })
         }
         const last = inv.reminders?.at(-1)
-        if (OWING.includes(inv.status) && inv.dueAt && inv.dueAt < iso && (!last || now.getTime() - Date.parse(last) > 7 * DAY)) {
-          const late = Math.floor((now.getTime() - Date.parse(inv.dueAt)) / DAY)
+        const late = inv.dueAt ? Math.floor((now.getTime() - Date.parse(inv.dueAt)) / DAY) : -1
+        if (
+          chases &&
+          OWING.includes(inv.status) &&
+          inv.dueAt &&
+          inv.dueAt < iso &&
+          late >= rules.chase.first &&
+          (!last || now.getTime() - Date.parse(last) > rules.chase.gap * DAY) &&
+          lately(inv.customerId) < rules.limits.messagesPerCustomerWeek
+        ) {
           const owed = total - inv.paidAmount
-          const firmer = late >= 14
+          const step = late >= rules.chase.statement ? 'statement' : late >= rules.chase.firmer ? 'firmer' : 'friendly'
           wanted.push({
             kind: 'chase_invoice',
-            title: `Remind ${c?.name ?? 'the customer'} about ${inv.ref}`,
+            title: `${step === 'statement' ? 'Send a statement to' : 'Remind'} ${c?.name ?? 'the customer'}${step === 'statement' ? ' for' : ' about'} ${inv.ref}`,
             why: `${pounds(owed)} owed, ${late} ${late === 1 ? 'day' : 'days'} past due${inv.reminders?.length ? `, ${inv.reminders.length} reminder${inv.reminders.length === 1 ? '' : 's'} so far` : ', no reminder yet'}.`,
-            preview: firmer
-              ? `${hello(inv.customerId)}, invoice ${inv.ref} for ${pounds(owed)} is now ${late} days overdue. Please pay it this week, or reply if something's wrong with it. ${firm}`
-              : `${hello(inv.customerId)}, a friendly reminder that invoice ${inv.ref} for ${pounds(owed)} was due on ${shortDate(inv.dueAt)}. If you've already paid, thank you and please ignore this. ${firm}`,
-            version: `${owed}.${inv.reminders?.length ?? 0}`,
+            preview:
+              step === 'statement'
+                ? `${hello(inv.customerId)}, this is a statement for invoice ${inv.ref}: ${pounds(owed)} is still owed and it is ${late} days overdue. Please pay it now, or ring us so we can sort it out. ${firm}`
+                : step === 'firmer'
+                  ? `${hello(inv.customerId)}, invoice ${inv.ref} for ${pounds(owed)} is now ${late} days overdue. Please pay it this week, or reply if something's wrong with it. ${firm}`
+                  : `${hello(inv.customerId)}, a friendly reminder that invoice ${inv.ref} for ${pounds(owed)} was due on ${shortDate(inv.dueAt)}. If you've already paid, thank you and please ignore this. ${firm}`,
+            version: `${owed}.${inv.reminders?.length ?? 0}.${step}`,
             jobId: inv.jobId,
             invoiceId: inv.id,
           })
         }
       }
-      for (const q of db.quotes.filter((x) => x.orgId === orgId && x.status === 'draft' && x.lines.length)) {
+      for (const q of db.quotes.filter((x) => quoting && x.orgId === orgId && x.status === 'draft' && x.lines.length)) {
         const job = db.jobs.find((j) => j.id === q.jobId)
         const net = q.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
         wanted.push({
@@ -1343,6 +1529,7 @@ export function createEngine(store: Store, platform: Platform) {
      * priced yet, at the firm's hourly rate. It waits for a yes before it goes.
      */
     function draftInvoice(job: Owned<Job>) {
+      if (!levelOf(rulesFor(orgId), 'draft_invoice')) return
       if (db.invoices.some((i) => i.jobId === job.id && i.orgId === orgId && i.status !== 'void')) return
       const lines = structuredClone(job.lines)
       let hours = 0
@@ -1673,7 +1860,7 @@ export function createEngine(store: Store, platform: Platform) {
     return { client: logged, admin }
   }
 
-  return { addUser, createOrganisation, organisationsFor, signUp, login, logout, userForToken, recall, remember, photoForLink, as, data: db }
+  return { addUser, createOrganisation, organisationsFor, signUp, login, logout, userForToken, recall, remember, photoForLink, as, allowance, meter, data: db }
 }
 
 export type Engine = ReturnType<typeof createEngine>

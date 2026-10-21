@@ -7,6 +7,7 @@ import { useBook } from '@/data/ardent'
 import { useNeeds, useVanFeed } from '@/lib/needs'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { BriefButton } from '@/components/ardent/brief'
 import { useShell, type Crumb } from './bar'
 import { Icon } from './icons'
 import { ArdentMark } from './logo'
@@ -196,6 +197,7 @@ export function Topbar() {
           </button>
         )}
         {!bar.noNew && <NewMenu />}
+        <BriefButton />
         <Bell />
       </div>
     </header>

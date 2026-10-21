@@ -424,3 +424,85 @@ export interface MorningBrief {
   /** Approvals waiting. */
   waiting: number
 }
+
+/* ---------- How Ardent works for a firm ---------- */
+
+/**
+ * How far Ardent goes on its own with one back office job.
+ * 0 read: looks, adds up, tells you
+ * 1 draft: prepares it for a person to check
+ * 2 approve: ready to go, waits for one tap
+ * 3 auto: runs alone inside the firm's rules
+ * 4 never: off limits to the AI
+ */
+export type Level = 0 | 1 | 2 | 3 | 4
+
+export type AutomationArea = 'calls' | 'dispatch' | 'paperwork' | 'money' | 'compliance' | 'brief'
+
+/** One back office job Ardent can take on, with the level it runs at for this firm. */
+export interface AutomationJob {
+  key: string
+  area: AutomationArea
+  name: string
+  does: string
+  /** Who says yes, in a few words. */
+  approves: string
+  level: Level
+  /** Where Ardent starts it. */
+  standard: Level
+  /** The levels the firm may pick from; one level means it is fixed. */
+  allowed: Level[]
+  /** Running now, or what it waits for (an account, a key, the build). */
+  live: boolean
+  waitsFor?: string
+}
+
+/** A firm's rules for Ardent. Owners change them; the office can read them. */
+export interface Automation {
+  /** An off switch for each area. Off means Ardent does nothing there, not even drafts. */
+  areas: Record<AutomationArea, boolean>
+  /** The firm's own level for a job, where it differs from the standard one. */
+  levels: Record<string, Level>
+  /** Days after an invoice is due: first reminder, firmer one, statement; and the least gap between reminders. */
+  chase: { first: number; firmer: number; statement: number; gap: number }
+  tone: 'friendly' | 'plain' | 'formal'
+  /** How messages end. The firm's name when not set. */
+  signOff?: string
+  /** UK time. Calls outside these hours are after hours. Days are 1 (Monday) to 7. */
+  officeHours: { from: string; to: string; days: number[] }
+  limits: {
+    /** Monthly AI spend cap in pence. When it's reached, Ardent carries on without AI and tells the owner. */
+    aiPence: number
+    /** Most reminders and notices one customer gets in a week. */
+    messagesPerCustomerWeek: number
+  }
+  /** The Ardent Voice add-on: all-day answering. */
+  voice: boolean
+}
+
+/** One kind of use this month against what the plan includes. */
+export interface UsageLine {
+  key: 'ai' | 'after_hours' | 'voice' | 'texts'
+  label: string
+  used: number
+  unit: 'pence' | 'minutes' | 'texts'
+  /** In the plan at no extra cost. */
+  included?: number
+  /** A hard stop: past it, that thing stops. */
+  cap?: number
+  /** Past what's included. */
+  over: number
+  /** What the part past included costs the firm, in pence. */
+  overCost: number
+  note: string
+}
+
+export interface Usage {
+  /** YYYY-MM, UK time. */
+  month: string
+  lines: UsageLine[]
+  /** Everything over included this month, in pence. */
+  extraCost: number
+  /** The AI cap is reached: Ardent is working without AI until the month ends or the cap goes up. */
+  aiPaused: boolean
+}

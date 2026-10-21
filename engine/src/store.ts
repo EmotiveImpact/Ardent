@@ -7,7 +7,7 @@
  * strips orgId and userId before anything leaves it, so callers only ever see
  * the shapes in core/src/data/model.ts.
  */
-import type { ActionEntry, Approval, Certificate, Customer, GasSafetyRecord, Invoice, Job, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
+import type { ActionEntry, Approval, Automation, Certificate, Customer, GasSafetyRecord, Invoice, Job, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
 
 /** A person who can sign in. */
 export interface User {
@@ -35,6 +35,15 @@ export interface DoneRequest {
   key: string
   at: string
   result: unknown
+}
+
+/** What one firm used in one UK month. AI in pence, calls in minutes. */
+export interface UsageMonth {
+  month: string
+  ai: number
+  afterHours: number
+  voice: number
+  texts: number
 }
 
 /** A firm on Ardent. The engine is set up per industry; trades is the first. */
@@ -85,6 +94,10 @@ export interface Data {
   gasRecords: Owned<GasSafetyRecord>[]
   jobRequests: Owned<JobRequest>[]
   approvals: Owned<Approval>[]
+  /** Each firm's rules for Ardent, once changed from the standard ones. */
+  automation: Owned<Automation>[]
+  /** Use per firm per month, against the plan. */
+  usage: Owned<UsageMonth>[]
   /** Everything done in each firm, oldest first, capped. */
   actions: Owned<ActionEntry>[]
   /** Last number used per firm and kind, e.g. "org_demo:job" -> 1052. */
@@ -122,6 +135,8 @@ export const emptyData = (): Data => ({
   gasRecords: [],
   jobRequests: [],
   approvals: [],
+  automation: [],
+  usage: [],
   actions: [],
   counters: {},
   sessions: [],

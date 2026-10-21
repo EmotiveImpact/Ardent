@@ -40,6 +40,8 @@ export const METHODS = {
   approvals: ['list', 'approve', 'reject'],
   log: ['list'],
   brief: ['get'],
+  automation: ['get', 'set'],
+  usage: ['get'],
   signatures: ['add', 'forJob'],
   invoices: ['list', 'forJob', 'create', 'send', 'recordPayment'],
 } as const satisfies { [K in keyof ArdentClient]: readonly (keyof ArdentClient[K])[] }
