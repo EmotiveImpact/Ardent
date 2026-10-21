@@ -7,7 +7,7 @@
  * strips orgId and userId before anything leaves it, so callers only ever see
  * the shapes in core/src/data/model.ts.
  */
-import type { ActionEntry, Approval, Automation, Certificate, Customer, FirmFollowUp, FollowUp, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
+import type { Trade, ActionEntry, Approval, Automation, Certificate, Customer, FirmFollowUp, FollowUp, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
 
 /** A person who can sign in. */
 export interface User {
@@ -53,6 +53,36 @@ export interface Organisation {
   slug: string
   industry: string
   createdAt: string
+  /** Where the firm is based and what it does, for Ardent HQ. */
+  town?: string
+  trades?: Trade[]
+  /** setting_up until the firm goes live on Ardent. */
+  stage?: 'live' | 'setting_up'
+  /** Middle of the firm's patch. */
+  centre?: { lat: number; lng: number }
+}
+
+/**
+ * Ardent's own team, for Ardent HQ. Staff aren't members of any firm: they
+ * look after every firm, and every account they open is logged in that firm.
+ * admin also changes the playbook every firm gets.
+ */
+export interface StaffRow {
+  userId: string
+  role: 'admin' | 'support'
+}
+
+/** One published playbook. */
+export interface PlaybookRow {
+  rules: FollowUp[]
+  /** Rules switched off for every firm. */
+  off?: string[]
+  version: number
+  publishedAt: string
+  by: string
+  note?: string
+  /** Where adopted rules came from, by rule id. */
+  from?: Record<string, { firmId: string; firmName: string; ownId?: string }>
 }
 
 /**
@@ -101,7 +131,12 @@ export interface Data {
   /** Each firm's own follow-up questions and the ones it switched off. */
   followUps: Owned<{ own: FirmFollowUp[]; off: string[] }>[]
   /** Ardent's playbook of follow-ups every firm gets; the one in the code until Ardent HQ publishes its own. */
-  playbook: { rules: FollowUp[]; version: number; publishedAt: string; by: string } | null
+  playbook: PlaybookRow | null
+  /** Changes Ardent HQ has made to the playbook and not yet published. */
+  playbookDraft: (Omit<PlaybookRow, 'version' | 'publishedAt'> & { changes: string[]; updatedAt: string }) | null
+  /** Every publish, newest last. */
+  playbookHistory: { version: number; publishedAt: string; by: string; note: string }[]
+  staff: StaffRow[]
   /** Use per firm per month, against the plan. */
   usage: Owned<UsageMonth>[]
   /** Everything done in each firm, oldest first, capped. */
@@ -145,6 +180,9 @@ export const emptyData = (): Data => ({
   automation: [],
   followUps: [],
   playbook: null,
+  playbookDraft: null,
+  playbookHistory: [],
+  staff: [],
   usage: [],
   actions: [],
   counters: {},

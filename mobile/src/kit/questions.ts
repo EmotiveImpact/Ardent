@@ -430,3 +430,26 @@ export const ownId = (name: string, taken: string[]) => {
   for (let n = 2; taken.includes(id); n++) id = `${base}-${n}`
   return id
 }
+
+const TOPIC_NAME: Record<ReportTopic, string> = { work: 'What you did', parts: 'Parts used', tests: 'Tests and readings', left: 'Left or wrong', next: 'More work wanted' }
+/** A question's short name, for lists. */
+export const topicName = (t: ReportTopic) => TOPIC_NAME[t]
+
+/** A check in plain words, for anyone reading the rule. */
+export function describeCheck(c: FollowUp['when'][number]): string {
+  if ('says' in c) return `The answer says ${c.says.join(', ')}`
+  if ('unless' in c) return `That sentence doesn't say ${c.unless.join(', ')}`
+  if ('nowhere' in c) return `The report doesn't already say ${c.nowhere.join(', ')}`
+  if ('ticked' in c) return `“${tickLabel(c.ticked)}” is ticked`
+  if ('notTicked' in c) return `“${tickLabel(c.notTicked)}” isn't ticked`
+  if ('noReadings' in c) return 'No readings yet'
+  return 'No parts yet'
+}
+
+/** What a button does, in plain words. */
+export function describeReply(b: Reply): string {
+  if (b.does === 'talk') return `opens the mic, the words go under ${topicName(b.topic)}`
+  if (b.does === 'note') return `writes “${b.note}” under ${topicName(b.topic)}`
+  if (b.does === 'tick') return `ticks “${tickLabel(b.tick)}”${b.move ? ' and moves that sentence there' : ''}`
+  return 'adds nothing'
+}

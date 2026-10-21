@@ -28,6 +28,7 @@ import { pounds, shortDate, ukDay } from '../kit/format'
 import { FOLLOW_UPS, ownId, ruleProblem } from '../kit/questions'
 import { buildReport, cantSign, partLines, TICKS, withTicks } from '../kit/report'
 import { AREAS, AUTOMATION_JOBS, automationJobs, composeBrief, defaultAutomation, describe, levelOf, PLAN, usageFor, type Look } from './office'
+import { hqFor } from './hq'
 import type { Platform } from './platform'
 import type { Data, Membership, OperatorRow, Organisation, Owned, Role, Store, User } from './store'
 
@@ -349,7 +350,8 @@ export function createEngine(store: Store, platform: Platform) {
   /* ---------- The firm's rules for Ardent, and what it uses ---------- */
 
   /** Ardent's playbook as published from Ardent HQ, or the one in the code until then. */
-  const playbook = (): FollowUp[] => db.playbook?.rules ?? FOLLOW_UPS
+  /** Ardent's published playbook, less any rules Ardent switched off for everyone. */
+  const playbook = (): FollowUp[] => (db.playbook ? db.playbook.rules.filter((r) => !db.playbook!.off?.includes(r.id)) : FOLLOW_UPS)
 
   /** The follow-ups a firm's phones ask. */
   function followUpsFor(orgId: string): FollowUpSet {
@@ -2029,7 +2031,12 @@ export function createEngine(store: Store, platform: Platform) {
     return { client: logged, admin }
   }
 
-  return { addUser, createOrganisation, organisationsFor, signUp, login, logout, userForToken, recall, remember, photoForLink, as, allowance, meter, data: db }
+  /** Ardent HQ, for Ardent's own team: every firm, read across. */
+  const hq = (userId: string) => hqFor({ db, store, usageOf, rulesFor, followUpsFor, newId, forbidden, notFound, invalid }, userId)
+  /** Ardent staff, for the sign-in to Ardent HQ. */
+  const isStaff = (userId: string) => db.staff.some((s) => s.userId === userId)
+
+  return { addUser, createOrganisation, organisationsFor, signUp, login, logout, userForToken, recall, remember, photoForLink, as, hq, isStaff, allowance, meter, data: db }
 }
 
 export type Engine = ReturnType<typeof createEngine>

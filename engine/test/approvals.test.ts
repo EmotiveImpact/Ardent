@@ -98,7 +98,7 @@ test('finishing a job drafts the invoice from its parts and the time on site', a
   await jo.jobs.setStatus(job.id, 'on_site')
   await jo.jobs.setStatus(job.id, 'complete')
   assert.equal((await jo.invoices.forJob(job.id)).length, 1, 'never a second draft')
-  assert.equal(engine.data.actions.filter((a) => a.by.kind === 'ardent').length, 1)
+  assert.equal(engine.data.actions.filter((a) => a.by.kind === 'ardent' && a.orgId === 'org_demo').length, 1)
 })
 
 test('the morning brief adds up yesterday, what is late and what is on today', async () => {

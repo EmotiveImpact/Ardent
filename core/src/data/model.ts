@@ -478,6 +478,8 @@ export interface FirmFollowUp extends FollowUp {
   /** Who last changed it, and when. */
   by: string
   updatedAt: string
+  /** What Ardent's team decided about a shared question. */
+  review?: { state: 'adopted' | 'declined'; note?: string; at: string; by: string }
 }
 
 /**

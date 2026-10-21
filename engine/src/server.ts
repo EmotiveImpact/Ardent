@@ -6,6 +6,7 @@
  *   POST /api/auth/logout
  *   GET  /api/me
  *   POST /api/rpc           { method: "jobs.setStatus", args: [...], requestId? }
+ *   POST /api/hq            { method: "overview", args: [...] }   Ardent HQ, staff only
  *   PUT  /api/photos/:id/file   the image for a photo record (JPEG, PNG, WebP or HEIC, up to 12MB)
  *   GET  /files/photos/:id?exp&sig   a photo, through a signed link from admin.photoLink
  *
@@ -22,6 +23,7 @@ import { createServer as createHttpServer, type IncomingMessage, type Server, ty
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createEngine, type Engine, EngineError } from './engine.ts'
+import { HQ_METHODS } from './hq.ts'
 import { isRead } from './http-client.ts'
 import { nodePlatform } from './platform-node.ts'
 import { tomtomDriveMinutes } from './tomtom.ts'
@@ -138,6 +140,19 @@ export function createServer(engine: Engine, opts: ServerOptions): Server {
         return send(res, 200, { result })
       }
 
+      if (route === 'POST /api/hq') {
+        const user = userFor(req)
+        if (!engine.isStaff(user.id)) throw new EngineError('forbidden', 'only Ardent staff can use Ardent HQ')
+        const body = await readJson(req)
+        const method = typeof body.method === 'string' ? body.method : ''
+        if (!(HQ_METHODS as readonly string[]).includes(method)) throw new EngineError('not_found', `no method ${method}`)
+        const [area, name] = method.includes('.') ? method.split('.') : [undefined, method]
+        const hq = engine.hq(user.id) as unknown as Record<string, unknown>
+        const fn = (area ? (hq[area] as Record<string, unknown>)[name] : hq[name]) as (...a: unknown[]) => Promise<unknown>
+        const args = Array.isArray(body.args) ? body.args : []
+        return send(res, 200, { result: (await fn(...args)) ?? null })
+      }
+
       const upload = /^\/api\/photos\/([\w-]+)\/file$/.exec(path)
       if (upload && req.method === 'PUT') {
         const { session } = sessionFor(req)
@@ -191,5 +206,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (open) console.log('Open to the local network: plain HTTP, so only on a network you trust.')
     console.log(tomtom ? 'Drive times: TomTom, by road' : 'Drive times: as the crow flies (set TOMTOM_API_KEY for road times)')
     console.log('Demo sign-ins: dan@ / jo@ / kofi@ / ryan@ / tom@demo.ardent.local, password ardent-demo')
+    console.log('Ardent HQ: edem@ardent.local, password ardent-demo')
   })
 }

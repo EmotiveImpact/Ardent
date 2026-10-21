@@ -9,6 +9,7 @@
 import * as mock from '../../core/src/data/mock.ts'
 import { buildReport } from '../kit/report.ts'
 import type { Platform } from './platform.ts'
+import { withOtherFirms } from './seed-firms.ts'
 import { type Data, emptyData, type Role } from './store.ts'
 
 /** Local development only. */
@@ -29,7 +30,7 @@ export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {
   const orgId = DEMO_ORG
   const own = <T extends object>(rows: T[]) => structuredClone(rows).map((r) => ({ ...r, orgId }))
   const maxRef = (refs: string[]) => Math.max(...refs.map((r) => Number(r.replace(/\D/g, ''))))
-  return {
+  return withOtherFirms({
     ...emptyData(),
     users: demoUsers.map(({ id, email, name }) => ({ id, email, name, passwordHash: platform.hashPassword(DEMO_PASSWORD) })),
     orgs: [{ id: orgId, name: 'Mercer Heating & Electrical', slug: 'mercer-heating', industry: 'trades', createdAt: '2026-10-01T00:00:00Z' }],
@@ -56,7 +57,7 @@ export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {
       [`${orgId}:quote`]: maxRef(mock.quotes.map((q) => q.ref)),
       [`${orgId}:cp12`]: maxRef(mock.gasRecords.map((r) => r.ref)),
     },
-  }
+  }, platform.hashPassword)
 }
 
 /** The day the demo firm's records were written around. */
@@ -87,6 +88,7 @@ function fromLondon(y: number, mo: number, d: number, h: number, mi: number, s: 
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
+const MONTH = /^\d{4}-\d{2}$/
 const STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?Z$/
 
 /**
@@ -98,8 +100,14 @@ const STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?Z$/
 export function shiftDemo<T>(value: T, today: string, from = DEMO_DAY): T {
   const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS)
   if (!days) return value
+  const monthOf = (day: string) => Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7)) - 1
+  const months = monthOf(today) - monthOf(from)
   const move = (v: unknown): unknown => {
     if (typeof v === 'string') {
+      if (MONTH.test(v)) {
+        const m = monthOf(`${v}-01`) + months
+        return `${Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, '0')}`
+      }
       if (DATE.test(v)) return new Date(Date.parse(`${v}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10)
       if (STAMP.test(v)) {
         const p = londonParts(Date.parse(v))

@@ -160,8 +160,12 @@ const DEMO_DATA = 'ardent.demo.v1'
 /** The demo firm's sign-ins, for a "try it as" picker. */
 export const demoPeople = demoUsers.map(({ email, name, role }) => ({ email, name, role, password: DEMO_PASSWORD }))
 
-/** The engine running inside the app on the demo firm. */
-export async function connectDemo(storage: KeyValue, opts: { today?: string } = {}): Promise<Connection> {
+/**
+ * The demo's records, kept in the browser or phone. Ardent Core, Field and HQ
+ * share them when they run in the same browser, so a change in one shows in
+ * the others.
+ */
+export async function demoStore(storage: KeyValue, opts: { today?: string } = {}) {
   // The demo's busy day is today, in UK time.
   const today = opts.today ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const fresh = () => shiftDemo(demoData(demoPlatform), today)
@@ -182,6 +186,13 @@ export async function connectDemo(storage: KeyValue, opts: { today?: string } = 
       timer = setTimeout(() => void storage.set(DEMO_DATA, JSON.stringify(store.data)), 150)
     },
   }
+  const save = () => storage.set(DEMO_DATA, JSON.stringify(store.data))
+  return { store, fresh, save, platform: demoPlatform }
+}
+
+/** The engine running inside the app on the demo firm. */
+export async function connectDemo(storage: KeyValue, opts: { today?: string } = {}): Promise<Connection> {
+  const { store, fresh } = await demoStore(storage, opts)
   let engine = createEngine(store, demoPlatform)
   let session: { me: Me; client: ArdentClient; admin: Record<string, (...a: unknown[]) => Promise<unknown>> } | undefined
 
