@@ -407,6 +407,16 @@ export function withOtherFirms(data: Data, hash: (p: string) => string): Data {
   // Mercer: who it is, for Ardent HQ.
   const mercer = data.orgs.find((o) => o.id === 'org_demo')
   if (mercer) Object.assign(mercer, { town: 'Manchester', trades: ['gas', 'heating', 'plumbing', 'electrical'], stage: 'live', centre: { lat: 53.452, lng: -2.24 }, createdAt: '2026-08-26T09:00:00Z' })
+  // Mercer's morning so far, so its log isn't empty.
+  const people: Record<string, string> = { 'Dan Mercer': 'usr_dan', 'Jo Pickering': 'usr_jo', 'Kofi Asante': 'usr_kofi', 'Ryan Holt': 'usr_ryan' }
+  const mercerLog: [string, string, string][] = [
+    ['07:52', 'Dan Mercer', 'Signed the RAMS on J-1042'],
+    ['08:01', 'Dan Mercer', 'On site at J-1042'],
+    ['08:40', 'Jo Pickering', 'Booked J-1048 for Dan'],
+    ['09:12', 'Jo Pickering', 'Sent Ryan to J-1047, emergency'],
+    ['09:44', 'Kofi Asante', 'On the road to J-1045'],
+  ]
+  data.actions.push(...mercerLog.map(([time, who, summary], i) => ({ orgId: 'org_demo', id: `act_m${i}`, at: at(time), by: { kind: 'person' as const, name: who, userId: people[who] }, action: 'demo', summary })))
   // Last month only: this month's use starts at nothing, as Core's usage page shows it.
   data.usage.push({ orgId: 'org_demo', month: daysBefore(25).slice(0, 7), ai: 3020, afterHours: 120, voice: 0, texts: 1240 })
   for (const s of staffUsers) {

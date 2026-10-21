@@ -20,8 +20,10 @@ import { Callout } from '@/routes/callout'
 import { NewJob } from '@/routes/new-job'
 import { QuoteDetail } from '@/routes/quote'
 import { InvoiceDetail, NewInvoice } from '@/routes/invoice'
+import { CoreWall } from '@/routes/wall'
 
 const router = createHashRouter([
+  { path: 'wall', element: <CoreWall /> },
   {
     element: <AppShell />,
     children: [

@@ -219,8 +219,8 @@ export function hqFor(d: Deps, userId: string): HqClient {
   function needs(firms: FirmSummary[], live: LiveBoard): HqNeed[] {
     const out: HqNeed[] = []
     for (const f of firms) {
-      if (f.health.tone === 'bad') out.push({ id: `health-${f.id}`, firmId: f.id, firmName: f.name, tone: 'bad', title: `${f.name}: ${f.health.label.toLowerCase()}`, note: f.health.note, go: 'firm' })
-      else if (f.health.tone === 'warn') out.push({ id: `health-${f.id}`, firmId: f.id, firmName: f.name, tone: 'warn', title: `${f.name}: ${f.health.label.toLowerCase()}`, note: f.health.note, go: 'usage' })
+      if (f.health.tone === 'bad') out.push({ id: `health-${f.id}`, firmId: f.id, firmName: f.name, tone: 'bad', title: `${f.name}: ${f.health.label}`, note: f.health.note, go: 'firm' })
+      else if (f.health.tone === 'warn') out.push({ id: `health-${f.id}`, firmId: f.id, firmName: f.name, tone: 'warn', title: `${f.name}: ${f.health.label}`, note: f.health.note, go: 'usage' })
     }
     for (const j of live.jobs.filter((x) => x.priority === 'emergency' && x.flag)) {
       out.push({ id: `job-${j.id}`, firmId: j.firmId, firmName: j.firmName, tone: 'warn', title: `${j.firmName}: ${j.title}`, note: `${j.flag}. ${j.area}.`, go: 'live', jobId: j.id })

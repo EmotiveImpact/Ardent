@@ -7,6 +7,7 @@ import type { Job, Operator, OperatorState, Site } from '@/data/model'
 import { places, type LatLng } from '@/data/manchester'
 import { find, onDay, today } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
+import { SendToScreen } from '@/components/send-to-screen'
 import { clock } from '@kit'
 import { startStreetMap } from './street-map'
 
@@ -93,7 +94,7 @@ function vanFor(op: Operator, site: Site | undefined): LatLng {
   return places.yard
 }
 
-export function CrewMap({ operators, jobs, sites, onSelect, className }: { operators: Operator[]; jobs: Job[]; sites: Site[]; onSelect?: (id: string) => void; className?: string }) {
+export function CrewMap({ operators, jobs, sites, onSelect, className, wall }: { operators: Operator[]; jobs: Job[]; sites: Site[]; onSelect?: (id: string) => void; className?: string; /** On the wall itself: no Send to screen. */ wall?: boolean }) {
   const day = today()
   const jobOf = (op: Operator) => find(jobs, op.currentJobId)
   const vanAt = Object.fromEntries(operators.map((op) => [op.id, vanFor(op, find(sites, jobOf(op)?.siteId))])) as Record<string, LatLng>
@@ -327,6 +328,7 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
           <button aria-label="Fit everyone" onClick={() => fitAll(street)} className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-foreground">
             <Crosshair className="size-4" />
           </button>
+          {!wall && <SendToScreen variant="icon" />}
         </div>
 
         {/* Legend; on phones the markers say their state, so only the map credit stays. */}
