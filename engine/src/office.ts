@@ -96,7 +96,29 @@ export function describe(method: string, args: unknown[], result: unknown, look:
     case 'invoices.send':
       return { summary: `Marked ${r.ref} as sent`, jobId: r.jobId }
     case 'invoices.recordPayment':
-      return { summary: `${pounds(args[1] as number)} paid on ${r.ref} by ${String(args[2]).replace('_', ' ')}`, jobId: r.jobId }
+      return { summary: `${pounds(args[1] as number)} paid on ${r.ref} by ${String(args[2]).replace(/_/g, ' ')}`, jobId: r.jobId }
+    case 'payments.setUp':
+      return { summary: 'Opened the Stripe sign-up for card payments' }
+    case 'payments.settings': {
+      const p = (result ?? {}) as { depositPercent?: number; depositFrom?: number }
+      return { summary: p.depositPercent ? `Deposits set to ${p.depositPercent}%${p.depositFrom ? ` on quotes from ${pounds(p.depositFrom)}` : ''}` : 'Stopped asking for deposits on quotes' }
+    }
+    case 'payments.link': {
+      const inv = look.invoice(a0)
+      return { summary: `Made the Pay now link for ${inv?.ref ?? 'an invoice'}`, jobId: inv?.jobId }
+    }
+    case 'payments.refund':
+      return { summary: `Asked to refund ${pounds(args[1] as number)}: ${String(args[2] ?? '')}. Waiting for a yes in Approvals` }
+    case 'disputes.send':
+      return { summary: `Sent the evidence for a ${pounds((r as { amount?: number }).amount ?? 0)} dispute to Stripe` }
+    case 'plans.create':
+      return { summary: `Set up ${r.ref}, ${(r as { name?: string }).name}, for ${look.customer((r as { customerId?: string }).customerId)?.name ?? 'a customer'}: waiting for them to sign the Direct Debit` }
+    case 'plans.cancel':
+      return { summary: `Cancelled the service plan ${r.ref}` }
+    case 'payments.refresh':
+    case 'payments.tap':
+    case 'payments.simulate':
+      return { summary: '' }
     case 'followUps.switch': {
       const r = result as FollowUpSet
       const rule = [...r.playbook, ...r.own].find((x) => x.id === a0)

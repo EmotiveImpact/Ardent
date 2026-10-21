@@ -45,6 +45,11 @@ export const METHODS = {
   usage: ['get'],
   signatures: ['add', 'forJob'],
   invoices: ['list', 'forJob', 'create', 'send', 'recordPayment'],
+  payments: ['get', 'setUp', 'refresh', 'settings', 'link', 'tap', 'refund', 'simulate'],
+  payouts: ['list'],
+  disputes: ['list', 'get', 'send'],
+  plans: ['list', 'create', 'cancel'],
+  ledger: ['get'],
 } as const satisfies { [K in keyof ArdentClient]: readonly (keyof ArdentClient[K])[] }
 
 // Fails to compile if the client gains a method this list doesn't carry.

@@ -16,6 +16,7 @@ const KIND: Record<Approval['kind'], { label: string; yes: string; open: (a: App
   send_invoice: { label: 'Invoice to send', yes: 'Yes, send it', open: (a) => a.invoiceId && `/invoices/${a.invoiceId}` },
   chase_invoice: { label: 'Reminder', yes: 'Yes, remind them', open: (a) => a.invoiceId && `/invoices/${a.invoiceId}` },
   send_quote: { label: 'Quote to send', yes: 'Yes, send it', open: (a) => a.quoteId && `/quotes/${a.quoteId}` },
+  refund: { label: 'Refund', yes: 'Yes, refund it', open: (a) => a.invoiceId && `/invoices/${a.invoiceId}` },
 }
 
 /** The owner's morning brief: yesterday, what's late, what's on, what waits. */

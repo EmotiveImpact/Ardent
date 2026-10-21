@@ -1,4 +1,4 @@
-import type { ActionEntry, Approval, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, FollowUp, FollowUpSet, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, JobStatus, Level, LineItem, MorningBrief, Note, Operator, OperatorState, OptionKey, PaymentMethod, Photo, PriceItem, Quote, ReportPart, ReportSegment, ReportTick, Signature, Site, Standby, StockLevel, TimeEntry, Usage, VanFix, Verdict } from './model'
+import type { ActionEntry, Approval, DemoPayment, Dispute, EvidencePack, Ledger, PayLink, PaymentAccount, PaymentsOverview, Payout, Refund, ServicePlan, TapToPay, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, FollowUp, FollowUpSet, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, JobStatus, Level, LineItem, MorningBrief, Note, Operator, OperatorState, OptionKey, PaymentMethod, Photo, PriceItem, Quote, ReportPart, ReportSegment, ReportTick, Signature, Site, Standby, StockLevel, TimeEntry, Usage, VanFix, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -169,10 +169,50 @@ export interface ArdentClient {
     list(): Promise<Invoice[]>
     forJob(jobId: string): Promise<Invoice[]>
     /** Draft invoice copying the job's lines, or the draft already there. vatRate in basis points, default 2000. */
-    create(jobId: string, opts?: { vatRate?: number }): Promise<Invoice>
+    create(jobId: string, opts?: { vatRate?: number; offlineId?: string }): Promise<Invoice>
     /** Marks it sent, stamps issuedAt, sets dueAt 14 days on. */
     send(id: string, via: 'email' | 'sms'): Promise<Invoice>
     /** Adds to paidAmount, sets part_paid or paid, and moves the job to invoiced or paid. Amount in pence. */
     recordPayment(id: string, amount: number, method: PaymentMethod): Promise<Invoice>
   }
+  /**
+   * Taking payments through the firm's own Stripe account. Customers pay into
+   * it and Stripe pays the firm's bank; Ardent's fee (0.2%, capped at £5)
+   * comes off each payment. Office, except where it says.
+   */
+  payments: {
+    get(): Promise<PaymentsOverview>
+    /** Owner: open the firm's Stripe account, or carry on the sign-up. Hands back Stripe's sign-up page. */
+    setUp(returnUrl: string): Promise<{ url: string }>
+    /** Ask Stripe where the sign-up stands. */
+    refresh(): Promise<PaymentAccount>
+    /** Owner: the deposit asked for when a customer accepts a quote. */
+    settings(patch: { depositPercent?: number; depositFrom?: number }): Promise<PaymentAccount>
+    /** The Pay now link for what's left on an invoice. Field can on their own jobs. */
+    link(invoiceId: string): Promise<PayLink>
+    /** Tap to Pay on the engineer's phone, for what's left on an invoice. Needs signal. */
+    tap(invoiceId: string): Promise<TapToPay>
+    /** Ask to give money back. It waits in Approvals for a yes. */
+    refund(chargeId: string, amount: number, reason: string): Promise<Refund>
+    /** Test mode in the demo only: what Stripe would tell Ardent. */
+    simulate(event: DemoPayment): Promise<{ chargeId?: string }>
+  }
+  /** Money on its way to the firm's bank. Office only. */
+  payouts: { list(): Promise<Payout[]> }
+  /** Card payments a customer has disputed with their bank. Office only. */
+  disputes: {
+    list(): Promise<Dispute[]>
+    /** The evidence Ardent has gathered from the job. */
+    get(id: string): Promise<EvidencePack>
+    /** Owner: send the evidence to Stripe. */
+    send(id: string, note?: string): Promise<Dispute>
+  }
+  /** Monthly Direct Debit service plans. Office only. */
+  plans: {
+    list(): Promise<ServicePlan[]>
+    create(input: { customerId: string; siteId?: string; name: string; monthly: number; includes: string[]; firstService?: string }): Promise<ServicePlan>
+    cancel(id: string): Promise<ServicePlan>
+  }
+  /** The Stripe clearing account for Xero, a month at a time. Office only. */
+  ledger: { get(opts?: { month?: string }): Promise<Ledger> }
 }

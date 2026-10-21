@@ -250,10 +250,41 @@ export interface HqClient {
     /** Send the draft to every firm. Phones pick it up next time they have signal. */
     publish(note: string): Promise<HqPlaybook>
   }
+  /** Money through Ardent, Ardent's fee, each firm's payments and problems to act on. */
+  payments(month?: string): Promise<HqPayments>
   shared: {
     list(): Promise<SharedRule[]>
     /** Put a firm's question in the playbook draft. */
     adopt(firmId: string, ruleId: string): Promise<HqPlaybook>
     decline(firmId: string, ruleId: string, note: string): Promise<SharedRule[]>
   }
+}
+
+/** Payments across every firm, for one month (YYYY-MM). */
+export interface HqPayments {
+  month: string
+  totals: {
+    /** Money customers paid through Ardent, less refunds. */
+    volume: number
+    count: number
+    /** Ardent's 0.2% fee earned, less fee given back on refunds. */
+    fee: number
+    byMethod: Record<'card' | 'tap' | 'pay_by_bank' | 'direct_debit', { amount: number; count: number }>
+  }
+  firms: {
+    firmId: string
+    firmName: string
+    status: 'not_started' | 'onboarding' | 'needs_info' | 'active' | 'paused'
+    /** Why the sign-up or the account is stuck, in words. */
+    stuck?: string
+    volume: number
+    count: number
+    fee: number
+    depositPercent: number
+    /** Active Direct Debit service plans. */
+    plans: number
+  }[]
+  problems: { kind: 'dispute' | 'dd_failed' | 'payouts_paused'; firmId: string; firmName: string; title: string; detail: string }[]
+  /** Ardent's income for the month: payments fee at today's pace, plus subscriptions, against the £1m a month goal. */
+  forecast: { payments: number; subscriptions: number; total: number; goal: number }
 }

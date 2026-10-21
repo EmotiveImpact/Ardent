@@ -29,6 +29,7 @@ import { FOLLOW_UPS, ownId, ruleProblem } from '../kit/questions'
 import { buildReport, cantSign, partLines, TICKS, withTicks } from '../kit/report'
 import { AREAS, AUTOMATION_JOBS, automationJobs, composeBrief, defaultAutomation, describe, levelOf, PLAN, usageFor, type Look } from './office'
 import { hqFor } from './hq'
+import { createPayments } from './payments'
 import type { Platform } from './platform'
 import type { Data, Membership, OperatorRow, Organisation, Owned, Role, Store, User } from './store'
 
@@ -297,6 +298,7 @@ export function createEngine(store: Store, platform: Platform) {
 
   db.secret ??= platform.randomSecret()
   const sign = (text: string) => platform.sign(db.secret!, text)
+  const payments = createPayments({ db, store, platform, newId, nextNumber, invoiceTotals, sign, invalid, forbidden, notFound })
   /** The photo a signed link points at, if the link is genuine and in date. */
   function photoForLink(photoId: string, exp: string, sig: string) {
     if (!(Number(exp) > Date.now())) return undefined
@@ -693,7 +695,7 @@ export function createEngine(store: Store, platform: Platform) {
           else if (a.kind === 'chase_invoice') {
             const inv = db.invoices.find((i) => i.id === a.invoiceId && i.orgId === orgId)
             if (inv) (inv.reminders ??= []).push(new Date().toISOString())
-          }
+          } else if (a.kind === 'refund') await payments.refundNow(orgId, a.refundId!)
           a.status = 'approved'
           a.decidedAt = new Date().toISOString()
           a.decidedBy = me().name
@@ -709,6 +711,8 @@ export function createEngine(store: Store, platform: Platform) {
             row.decidedAt = new Date().toISOString()
             row.decidedBy = me().name
             if (note?.trim()) row.note = note.trim()
+            const refund = row.kind === 'refund' && db.refunds.find((r) => r.id === row.refundId && r.orgId === orgId)
+            if (refund) refund.status = 'turned_down'
             return row
           }).then((a) => done(out(a) as Approval)),
       },
@@ -922,6 +926,14 @@ export function createEngine(store: Store, platform: Platform) {
               const job = db.jobs.find((j) => j.id === r.jobId)
               if (!job || job.operatorIds.length) continue
               items.push({ id: `att_req_${r.id}`, at: r.createdAt, who: r.brief.ref, rule: 'No one took it', detail: `${r.brief.title}, ${r.brief.area}: ${r.offers.length ? `${r.offers.length} asked, no one free` : 'no one could be asked'}`, outcome: 'blocked' })
+            }
+            const payer = (customerId: string) => db.customers.find((c) => c.id === customerId)?.name ?? 'Customer'
+            for (const d of db.disputes.filter((x) => x.orgId === orgId && x.status === 'needs_reply')) {
+              const c = db.charges.find((x) => x.id === d.chargeId)
+              items.push({ id: `att_dsp_${d.id}`, at: d.openedAt, who: payer(c?.customerId ?? ''), rule: 'Card dispute', detail: `${pounds(d.amount)} on ${c?.label ?? 'a payment'}: ${d.reason}. Evidence ready, reply by ${shortDate(d.replyBy)}`, outcome: 'blocked' })
+            }
+            for (const p of db.plans.filter((x) => x.orgId === orgId && x.status === 'payment_failed')) {
+              items.push({ id: `att_dd_${p.id}`, at: p.lastFailedAt ?? p.createdAt, who: payer(p.customerId), rule: 'Direct Debit failed', detail: `${p.ref}, ${pounds(p.monthly)} a month: give them a ring`, outcome: 'chasing' })
             }
             return items.sort((a, b) => b.at.localeCompare(a.at))
           }),
@@ -1452,6 +1464,7 @@ export function createEngine(store: Store, platform: Platform) {
               job.status = 'booked'
               job.lines = structuredClone(q.lines)
             }
+            if (answer === 'accepted') payments.askDeposit(q)
             return q
           }).then((q) => done(out(q))),
       },
@@ -1479,6 +1492,9 @@ export function createEngine(store: Store, platform: Platform) {
             // Ardent drafts one when the job is finished; asking again hands that one over.
             const drafted = db.invoices.find((i) => i.jobId === jobId && i.orgId === orgId && i.status === 'draft')
             if (drafted) return drafted
+            // One raised on a phone with no signal may already be here through its pay code.
+            const viaCode = opts.offlineId && db.invoices.find((i) => i.jobId === jobId && i.orgId === orgId && i.offlineId === opts.offlineId)
+            if (viaCode) return viaCode
             const inv: Owned<Invoice> = {
               id: newId('inv'),
               ref: `INV-${nextNumber(orgId, 'invoice')}`,
@@ -1488,9 +1504,11 @@ export function createEngine(store: Store, platform: Platform) {
               vatRate: opts.vatRate ?? 2000,
               status: 'draft',
               paidAmount: 0,
+              ...(opts.offlineId ? { offlineId: opts.offlineId } : {}),
               orgId,
             }
             db.invoices.push(inv)
+            payments.applyDeposits(inv)
             return inv
           }).then((i) => done(out(i))),
         send: (id) =>
@@ -1498,10 +1516,13 @@ export function createEngine(store: Store, platform: Platform) {
             const inv = findInvoice(id)
             if (inv.status === 'void' || inv.status === 'paid') throw invalid(`invoice is ${inv.status}`)
             const now = Date.now()
-            inv.status = 'sent'
+            const total = invoiceTotals(inv).total
+            inv.status = inv.paidAmount >= total ? 'paid' : inv.paidAmount > 0 ? 'part_paid' : 'sent'
             inv.issuedAt = new Date(now).toISOString()
             inv.dueAt = new Date(now + 14 * DAY).toISOString()
-            findJob(inv.jobId).status = 'invoiced'
+            findJob(inv.jobId).status = inv.status === 'paid' ? 'paid' : 'invoiced'
+            // Every invoice carries a Pay now link once the firm takes payments.
+            payments.invoiceLink(inv)
             return inv
           }).then((i) => done(out(i))),
         recordPayment: (id, amount, method) =>
@@ -1519,6 +1540,9 @@ export function createEngine(store: Store, platform: Platform) {
             return inv
           }).then((i) => done(out(i))),
       },
+
+      // Taking payments through the firm's own Stripe account: see payments.ts.
+      ...payments.client({ orgId, isOffice, isOwner, requireOffice, myOperatorId: () => myOperator()?.id, findInvoice, me: () => me(), run, done, out }),
     }
 
     const me = () => db.users.find((u) => u.id === userId) ?? { id: userId, name: 'Someone' }
@@ -1562,7 +1586,7 @@ export function createEngine(store: Store, platform: Platform) {
             kind: 'send_invoice',
             title: `Send ${inv.ref} to ${c?.name ?? 'the customer'}`,
             why: `${job.ref} ${job.title}${DONE_JOB.includes(job.status) ? ', finished' : ''}. ${inv.lines.length} ${inv.lines.length === 1 ? 'line' : 'lines'}, ${pounds(total)} with VAT.`,
-            preview: `${hello(inv.customerId)}, thanks for having us${site ? ` at ${site.line1}` : ''}. Your invoice ${inv.ref} for ${pounds(total)} is attached, due within 14 days. ${firm}`,
+            preview: `${hello(inv.customerId)}, thanks for having us${site ? ` at ${site.line1}` : ''}. Your invoice ${inv.ref} for ${pounds(total)} is attached, due within 14 days.${payments.active(orgId) ? ' It has a Pay now link: pay by bank or card.' : ''} ${firm}`,
             version: `${total}.${inv.lines.length}.${inv.customerId}`,
             jobId: job.id,
             invoiceId: inv.id,
@@ -1587,10 +1611,10 @@ export function createEngine(store: Store, platform: Platform) {
             why: `${pounds(owed)} owed, ${late} ${late === 1 ? 'day' : 'days'} past due${inv.reminders?.length ? `, ${inv.reminders.length} reminder${inv.reminders.length === 1 ? '' : 's'} so far` : ', no reminder yet'}.`,
             preview:
               step === 'statement'
-                ? `${hello(inv.customerId)}, this is a statement for invoice ${inv.ref}: ${pounds(owed)} is still owed and it is ${late} days overdue. Please pay it now, or ring us so we can sort it out. ${firm}`
+                ? `${hello(inv.customerId)}, this is a statement for invoice ${inv.ref}: ${pounds(owed)} is still owed and it is ${late} days overdue. Please pay it now, or ring us so we can sort it out.${payments.payLine(inv)} ${firm}`
                 : step === 'firmer'
-                  ? `${hello(inv.customerId)}, invoice ${inv.ref} for ${pounds(owed)} is now ${late} days overdue. Please pay it this week, or reply if something's wrong with it. ${firm}`
-                  : `${hello(inv.customerId)}, a friendly reminder that invoice ${inv.ref} for ${pounds(owed)} was due on ${shortDate(inv.dueAt)}. If you've already paid, thank you and please ignore this. ${firm}`,
+                  ? `${hello(inv.customerId)}, invoice ${inv.ref} for ${pounds(owed)} is now ${late} days overdue. Please pay it this week, or reply if something's wrong with it.${payments.payLine(inv)} ${firm}`
+                  : `${hello(inv.customerId)}, a friendly reminder that invoice ${inv.ref} for ${pounds(owed)} was due on ${shortDate(inv.dueAt)}. If you've already paid, thank you and please ignore this.${payments.payLine(inv)} ${firm}`,
             version: `${owed}.${inv.reminders?.length ?? 0}.${step}`,
             jobId: inv.jobId,
             invoiceId: inv.id,
@@ -1611,12 +1635,15 @@ export function createEngine(store: Store, platform: Platform) {
         })
       }
 
+      // Money going back out always waits for a person's yes.
+      wanted.push(...payments.refundApprovals(orgId))
+
       let changed = false
-      const target = (a: Pick<Approval, 'kind' | 'invoiceId' | 'quoteId'>) => `${a.kind}:${a.invoiceId ?? a.quoteId}`
+      const target = (a: Pick<Approval, 'kind' | 'invoiceId' | 'quoteId' | 'refundId'>) => `${a.kind}:${a.refundId ?? a.invoiceId ?? a.quoteId}`
       const keys = new Set(wanted.map(target))
       for (const a of db.approvals.filter((x) => x.orgId === orgId && x.status === 'waiting' && !keys.has(target(x)))) {
         a.status = 'stale'
-        const off = !(a.kind === 'send_invoice' ? sends : a.kind === 'chase_invoice' ? chases : quoting)
+        const off = a.kind !== 'refund' && !(a.kind === 'send_invoice' ? sends : a.kind === 'chase_invoice' ? chases : quoting)
         a.note = off ? "switched off in Ardent's rules" : 'done another way, or no longer needed'
         a.decidedAt = iso
         changed = true
@@ -1660,6 +1687,7 @@ export function createEngine(store: Store, platform: Platform) {
       if (!lines.length) return
       const inv: Owned<Invoice> = { id: newId('inv'), ref: `INV-${nextNumber(orgId, 'invoice')}`, jobId: job.id, customerId: job.customerId, lines, vatRate: 2000, status: 'draft', paidAmount: 0, orgId }
       db.invoices.push(inv)
+      payments.applyDeposits(inv)
       const parts = lines.filter((l) => l.kind === 'material').length
       const from = [parts ? `${parts} ${parts === 1 ? 'part' : 'parts'}` : '', hours ? `${hours} ${hours === 1 ? 'hour' : 'hours'} on site` : ''].filter(Boolean).join(' and ')
       db.actions.push({ id: newId('act'), at: new Date().toISOString(), by: { kind: 'ardent' }, action: 'invoices.create', summary: `Drafted ${inv.ref} for ${job.ref}${from ? ` from ${from}` : ''}, waiting for a yes`, level: 'draft', jobId: job.id, orgId })
@@ -2032,11 +2060,16 @@ export function createEngine(store: Store, platform: Platform) {
   }
 
   /** Ardent HQ, for Ardent's own team: every firm, read across. */
-  const hq = (userId: string) => hqFor({ db, store, usageOf, rulesFor, followUpsFor, newId, forbidden, notFound, invalid }, userId)
+  const hq = (userId: string) => hqFor({ db, store, usageOf, rulesFor, followUpsFor, newId, forbidden, notFound, invalid, paymentsAcross: payments.acrossFirms }, userId)
   /** Ardent staff, for the sign-in to Ardent HQ. */
   const isStaff = (userId: string) => db.staff.some((s) => s.userId === userId)
 
-  return { addUser, createOrganisation, organisationsFor, signUp, login, logout, userForToken, recall, remember, photoForLink, as, hq, isStaff, allowance, meter, data: db }
+  /** Stripe told the engine something (the webhook), or a customer opened a pay link. */
+  const paymentEvent = payments.event
+  const stripeWebhook = payments.webhook
+  const openPayLink = payments.open
+
+  return { addUser, createOrganisation, organisationsFor, signUp, login, logout, userForToken, recall, remember, photoForLink, as, hq, isStaff, allowance, meter, paymentEvent, stripeWebhook, openPayLink, data: db }
 }
 
 export type Engine = ReturnType<typeof createEngine>

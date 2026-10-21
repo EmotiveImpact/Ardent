@@ -331,6 +331,22 @@ export interface Quote {
   status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
   validUntil: string
   sentAt?: string
+  /** The deposit asked for when the customer said yes, if the firm takes deposits. */
+  deposit?: Deposit
+}
+
+/** Part of a quote paid up front; it comes off the final invoice. */
+export interface Deposit {
+  /** Pence, with VAT. */
+  amount: number
+  /** The firm's percentage when it was asked for. */
+  percent: number
+  status: 'requested' | 'paid' | 'deducted'
+  link?: PayLink
+  paidAt?: string
+  chargeId?: string
+  /** The invoice it came off. */
+  invoiceId?: string
 }
 
 export interface Invoice {
@@ -345,10 +361,25 @@ export interface Invoice {
   issuedAt?: string
   dueAt?: string
   paidAmount: number
-  /** Each payment as it came in. */
-  payments?: { amount: number; method: PaymentMethod; at: string }[]
+  /** Each payment as it came in. A refund is a negative amount. */
+  payments?: InvoicePayment[]
   /** Reminders sent about it, newest last. */
   reminders?: string[]
+  /** The customer's Pay now link, while the firm takes payments through Ardent. */
+  payLink?: PayLink
+  /** The phone's own id, when the engineer raised it with no signal. */
+  offlineId?: string
+}
+
+export interface InvoicePayment {
+  amount: number
+  method: PaymentMethod
+  at: string
+  /** The payment through Stripe, for card, tap, pay by bank and Direct Debit. */
+  chargeId?: string
+  /** A deposit paid on the quote. */
+  deposit?: boolean
+  refund?: boolean
 }
 
 /** Customer sign-off captured on the phone. */
@@ -517,7 +548,12 @@ export interface JobReport {
   signedBy?: string
 }
 
-export type PaymentMethod = 'card' | 'bank_transfer' | 'cash'
+/**
+ * card: online by card, Apple Pay or Google Pay. tap: on the engineer's phone.
+ * pay_by_bank: from the customer's banking app. direct_debit: a service plan.
+ * bank_transfer and cash are recorded by hand.
+ */
+export type PaymentMethod = 'card' | 'tap' | 'pay_by_bank' | 'direct_debit' | 'bank_transfer' | 'cash'
 
 /**
  * How far Ardent goes on its own with an action. read: looks and tells you.
@@ -546,7 +582,7 @@ export interface ActionEntry {
 /** Something Ardent has ready that waits for a person's yes. */
 export interface Approval {
   id: string
-  kind: 'send_invoice' | 'chase_invoice' | 'send_quote'
+  kind: 'send_invoice' | 'chase_invoice' | 'send_quote' | 'refund'
   status: 'waiting' | 'approved' | 'rejected' | 'stale'
   /** "Send INV-2207 to Harlow Lettings" */
   title: string
@@ -559,6 +595,7 @@ export interface Approval {
   jobId?: string
   invoiceId?: string
   quoteId?: string
+  refundId?: string
   createdAt: string
   decidedAt?: string
   decidedBy?: string
@@ -660,3 +697,205 @@ export interface Usage {
   /** The AI cap is reached: Ardent is working without AI until the month ends or the cap goes up. */
   aiPaused: boolean
 }
+
+// Payments. Each firm has its own Stripe account; customers pay into it and
+// Stripe pays the firm's bank. Ardent never holds the money: on each payment
+// Stripe passes Ardent's own fee (0.2%, capped at £5) to Ardent.
+
+/** Where the firm's Stripe account stands. */
+export interface PaymentAccount {
+  status: 'not_started' | 'onboarding' | 'needs_info' | 'active' | 'paused'
+  /** Stripe test mode: nothing real moves until Ardent's live keys are in. */
+  test: boolean
+  chargesEnabled: boolean
+  payoutsEnabled: boolean
+  /** What Stripe still needs, in words: "A director's ID". */
+  due: string[]
+  /** Why Stripe paused payments or payouts, when it has. */
+  paused?: string
+  /** Deposit asked for when a customer accepts a quote, 0 for none. */
+  depositPercent: number
+  /** Only on quotes at or above this, in pence with VAT. */
+  depositFrom: number
+  /** When the first payment came in; Stripe holds the first payout 7 days. */
+  firstPaymentAt?: string
+  updatedAt?: string
+}
+
+/** A Pay now link the customer opens. */
+export interface PayLink {
+  url: string
+  amount: number
+  /** Ardent's fee on it, in pence. */
+  fee: number
+  createdAt: string
+}
+
+/** One payment through Stripe. */
+export interface Charge {
+  id: string
+  kind: 'invoice' | 'deposit' | 'plan'
+  method: Extract<PaymentMethod, 'card' | 'tap' | 'pay_by_bank' | 'direct_debit'>
+  /** Pence the customer paid. */
+  amount: number
+  /** Ardent's fee: 0.2%, capped at £5. */
+  fee: number
+  /** Stripe's own fee, once Stripe has said. */
+  stripeFee?: number
+  /** Pence given back so far. */
+  refunded: number
+  /** Ardent's fee handed back on refunds. */
+  feeRefunded: number
+  at: string
+  customerId: string
+  invoiceId?: string
+  quoteId?: string
+  planId?: string
+  jobId?: string
+  /** "INV-2207", "Deposit on Q-311", "Service plan, March". */
+  label: string
+  /** Stripe's id for the payment. */
+  ref: string
+  disputed?: boolean
+}
+
+export interface Refund {
+  id: string
+  chargeId: string
+  amount: number
+  reason: string
+  status: 'waiting' | 'done' | 'turned_down'
+  askedBy: string
+  askedAt: string
+  doneAt?: string
+  /** Ardent's fee handed back with it. */
+  feeBack?: number
+}
+
+/** A customer told their bank they didn't agree to a payment. */
+export interface Dispute {
+  id: string
+  chargeId: string
+  amount: number
+  /** In words: "Customer says the work wasn't done". */
+  reason: string
+  status: 'needs_reply' | 'sent' | 'won' | 'lost'
+  openedAt: string
+  /** Last day to send the evidence. */
+  replyBy: string
+  sentAt?: string
+  note?: string
+}
+
+/** What Ardent gathers from the job to answer a dispute. */
+export interface EvidencePack {
+  dispute: Dispute
+  charge: Charge
+  customer: { name: string; email?: string; phone?: string }
+  job?: { ref: string; title: string; address?: string; start: string }
+  quote?: { ref: string; sentAt?: string; acceptedOption?: string; total: number }
+  invoice?: { ref: string; issuedAt?: string; total: number; lines: string[] }
+  /** Time on site from the engineer's clock. */
+  onSite: { who: string; from: string; to?: string }[]
+  signOff?: { by: string; at?: string }
+  report?: string
+  photos: { id: string; stage: string; takenAt: string; caption?: string }[]
+  certificates: { kind: string; issued?: string }[]
+  /** Everything above in plain words, ready to send. */
+  summary: string
+}
+
+/** Money on its way to the firm's bank, or already there. */
+export interface Payout {
+  /** The UK day it lands. */
+  day: string
+  amount: number
+  status: 'on_its_way' | 'paid'
+  payments: number
+  /** The first payout waits 7 days. */
+  firstHold?: boolean
+}
+
+/** A monthly Direct Debit for servicing. Servicing and discounts only: a plan that pays for repairs can count as insurance. */
+export interface ServicePlan {
+  id: string
+  ref: string // SP-104
+  customerId: string
+  siteId?: string
+  name: string
+  /** Pence a month. */
+  monthly: number
+  /** What it covers, in words. */
+  includes: string[]
+  status: 'awaiting_signature' | 'active' | 'payment_failed' | 'cancelled'
+  /** The Direct Debit sign-up link for the customer. */
+  signLink?: string
+  createdAt: string
+  startedAt?: string
+  /** The next yearly service Ardent will book. */
+  nextService: string
+  /** The service job Ardent booked last. */
+  serviceJobId?: string
+  collected: number
+  lastPaidAt?: string
+  failures: number
+  lastFailedAt?: string
+}
+
+/** One line for Xero's Stripe clearing account. */
+export interface LedgerLine {
+  day: string
+  /** Positive into the clearing account, negative out. */
+  amount: number
+  kind: 'payment' | 'stripe_fee' | 'ardent_fee' | 'refund' | 'payout'
+  payee: string
+  description: string
+  reference: string
+}
+
+export interface Ledger {
+  month: string
+  lines: LedgerLine[]
+  /** In less out; what's still in the clearing account at month end. */
+  balance: number
+  /** A Xero bank statement import for the Stripe clearing account. */
+  csv: string
+}
+
+/** For the Money page and Settings > Payments. */
+export interface PaymentsOverview {
+  account: PaymentAccount
+  /** Payments through Stripe, newest first. */
+  charges: Charge[]
+  refunds: Refund[]
+  disputes: Dispute[]
+  month: { taken: number; fees: number; stripeFees: number; count: number }
+  /** For an engineer's phone: signs "Pay on your own phone" codes made with no signal. */
+  offlineKey?: string
+}
+
+/** What the phone needs to take a tap with Stripe Terminal. */
+export interface TapToPay {
+  /** Stripe's id for the payment the tap completes. */
+  intent: string
+  clientSecret: string
+  /** For connecting the phone as a reader to the firm's account. */
+  connectionToken: string
+  locationId?: string
+  amount: number
+  fee: number
+  test: boolean
+  /** The demo has no Stripe: the phone shows a pretend tap. */
+  demo: boolean
+}
+
+/** In the demo, what Stripe would tell Ardent. */
+export type DemoPayment =
+  | { kind: 'signed_up' }
+  | { kind: 'paid'; invoiceId?: string; quoteId?: string; method: 'card' | 'pay_by_bank' }
+  | { kind: 'tapped'; intent: string }
+  | { kind: 'dispute'; chargeId: string }
+  | { kind: 'dispute_result'; disputeId: string; won: boolean }
+  | { kind: 'plan_signed'; planId: string }
+  | { kind: 'plan_collected'; planId: string }
+  | { kind: 'plan_failed'; planId: string }

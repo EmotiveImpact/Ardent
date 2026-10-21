@@ -15,7 +15,7 @@ import type { ArdentClient } from '../data/core/client'
 import type { Photo } from '../data/core/model'
 import { createEngine, EngineError } from './engine'
 import { adminCall, callEngine, createHttpClient, isRead, photoLink, type SignedIn, signIn as httpSignIn, signOut as httpSignOut, uploadPhoto } from './http-client'
-import type { Platform } from './platform'
+import type { PaymentProvider, Platform } from './platform'
 import { DEMO_PASSWORD, demoData, demoUsers, shiftDemo } from './seed'
 import { type Data, emptyData, type Role, type Store } from './store'
 
@@ -142,6 +142,27 @@ export function connectLive(baseUrl: string, storage: KeyValue, doFetch?: typeof
  * A stand-in for the server's crypto, for the in-app demo only. It is not
  * secure and never runs on a server: the demo has no secrets to protect.
  */
+/**
+ * Stripe in the demo: nothing leaves the page. Its sign-up, pay pages and
+ * the customer's Direct Debit form are the apps' own test pages, which tell
+ * the engine what Stripe would have said (payments.simulate).
+ */
+const demoId = (prefix: string) => `${prefix}_test_${(globalThis.crypto?.randomUUID?.() ?? `${Math.random()}`).replace(/[-.]/g, '').slice(0, 16)}`
+const demoPayments: PaymentProvider = {
+  test: true,
+  demo: true,
+  createAccount: async () => ({ accountId: demoId('acct') }),
+  onboardingLink: async () => ({ url: '#/stripe-test/sign-up' }),
+  account: async () => ({ chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, due: [] }),
+  checkout: async (_a, p) => ({ id: demoId('cs'), url: `#/pay/${p.tags.invoiceId ?? p.tags.quoteId}` }),
+  tap: async () => ({ intent: demoId('pi'), clientSecret: 'demo', connectionToken: 'demo' }),
+  directDebit: async (_a, p) => ({ id: demoId('cs'), url: `#/plan/${p.tags.planId}` }),
+  cancelDirectDebit: async () => undefined,
+  refund: async () => ({ id: demoId('re') }),
+  disputeEvidence: async () => undefined,
+  event: async () => undefined,
+}
+
 const demoPlatform: Platform = {
   hashPassword: (p) => `demo$${p}`,
   verifyPassword: (p, stored) => stored === `demo$${p}`,
@@ -154,6 +175,7 @@ const demoPlatform: Platform = {
   },
   same: (a, b) => a === b,
   randomSecret: () => `${Math.random()}`.slice(2),
+  payments: demoPayments,
 }
 
 const DEMO_DATA = 'ardent.demo.v1'

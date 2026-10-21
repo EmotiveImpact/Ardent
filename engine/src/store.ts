@@ -7,7 +7,8 @@
  * strips orgId and userId before anything leaves it, so callers only ever see
  * the shapes in core/src/data/model.ts.
  */
-import type { Trade, ActionEntry, Approval, Automation, Certificate, Customer, FirmFollowUp, FollowUp, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
+import type { PaymentTags } from './platform.ts'
+import type { Trade, ActionEntry, Approval, Automation, Certificate, Charge, Dispute, PaymentAccount, Refund, ServicePlan, Customer, FirmFollowUp, FollowUp, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
 
 /** A person who can sign in. */
 export interface User {
@@ -139,6 +140,17 @@ export interface Data {
   staff: StaffRow[]
   /** Use per firm per month, against the plan. */
   usage: Owned<UsageMonth>[]
+  /** Each firm's Stripe account, once the owner starts setting up payments. */
+  paymentAccounts: Owned<PaymentAccount & { accountId?: string }>[]
+  /** Payments through Stripe. */
+  charges: Owned<Charge>[]
+  refunds: Owned<Refund>[]
+  disputes: Owned<Dispute & { ref: string }>[]
+  plans: Owned<ServicePlan & { providerRef?: string }>[]
+  /** Payments started and not yet finished (a tap waiting for the card), by Stripe's id. */
+  pendingPayments: Owned<{ ref: string; tags: PaymentTags; amount: number; fee: number; createdAt: string }>[]
+  /** Stripe events already acted on, newest last, capped. */
+  paymentEvents: string[]
   /** Everything done in each firm, oldest first, capped. */
   actions: Owned<ActionEntry>[]
   /** Last number used per firm and kind, e.g. "org_demo:job" -> 1052. */
@@ -184,6 +196,13 @@ export const emptyData = (): Data => ({
   playbookHistory: [],
   staff: [],
   usage: [],
+  paymentAccounts: [],
+  charges: [],
+  refunds: [],
+  disputes: [],
+  plans: [],
+  pendingPayments: [],
+  paymentEvents: [],
   actions: [],
   counters: {},
   sessions: [],

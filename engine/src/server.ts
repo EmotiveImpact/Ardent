@@ -8,6 +8,8 @@
  *   POST /api/rpc           { method: "jobs.setStatus", args: [...], requestId? }
  *   POST /api/hq            { method: "overview", args: [...] }   Ardent HQ, staff only
  *   PUT  /api/photos/:id/file   the image for a photo record (JPEG, PNG, WebP or HEIC, up to 12MB)
+ *   POST /api/stripe/webhook    what Stripe tells Ardent (checked with STRIPE_WEBHOOK_SECRET)
+ *   GET  /pay/:id               a customer's Pay now link: on to Stripe's page for what's owed
  *   GET  /files/photos/:id?exp&sig   a photo, through a signed link from admin.photoLink
  *
  * Everything except sign-in and signed photo links needs "Authorization:
@@ -26,6 +28,7 @@ import { createEngine, type Engine, EngineError } from './engine.ts'
 import { HQ_METHODS } from './hq.ts'
 import { isRead } from './http-client.ts'
 import { nodePlatform } from './platform-node.ts'
+import { stripeProvider } from './stripe.ts'
 import { tomtomDriveMinutes } from './tomtom.ts'
 import { demoData, shiftDemo } from './seed.ts'
 import { fileStore } from './store-file.ts'
@@ -39,6 +42,13 @@ const EXT_TYPES = Object.fromEntries(Object.entries(IMAGE_TYPES).map(([t, e]) =>
 function send(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
   res.end(JSON.stringify(body))
+}
+
+/** A plain page for customers, who see the engine only through pay links. */
+function page(res: ServerResponse, status: number, title: string, message: string) {
+  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+  res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+  res.end(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>${esc(title)}</title><body style="font:17px/1.5 system-ui,sans-serif;background:#0b0b0c;color:#ececec;margin:0;display:grid;place-items:center;min-height:100vh;padding:24px"><p style="max-width:28em">${esc(message)}</p>`)
 }
 
 async function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
@@ -153,6 +163,25 @@ export function createServer(engine: Engine, opts: ServerOptions): Server {
         return send(res, 200, { result: (await fn(...args)) ?? null })
       }
 
+      if (route === 'POST /api/stripe/webhook') {
+        const raw = (await readBody(req, MAX_JSON)).toString('utf8')
+        try {
+          await engine.stripeWebhook(raw, String(req.headers['stripe-signature'] ?? ''))
+        } catch (e) {
+          if (e instanceof EngineError) throw e
+          return send(res, 400, { error: { code: 'invalid', message: 'not a genuine Stripe event' } })
+        }
+        return send(res, 200, { received: true })
+      }
+
+      if (route === 'GET /pay/done') return page(res, 200, 'Thank you', 'Your payment has gone through. You can close this page.')
+      const pay = /^\/pay\/([\w-]+)$/.exec(path)
+      if (pay && req.method === 'GET') {
+        const r = await engine.openPayLink(pay[1], { o: url.searchParams.get('o') ?? undefined, s: url.searchParams.get('s') ?? undefined })
+        if ('url' in r) return void res.writeHead(303, { location: r.url, 'cache-control': 'no-store' }).end()
+        return page(res, 200, 'Payment', r.message)
+      }
+
       const upload = /^\/api\/photos\/([\w-]+)\/file$/.exec(path)
       if (upload && req.method === 'PUT') {
         const { session } = sessionFor(req)
@@ -198,13 +227,21 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   // Drive times by road need the firm's TomTom key; without one, distances are as the crow flies.
   const tomtom = process.env.TOMTOM_API_KEY
-  const platform = tomtom ? { ...nodePlatform, driveMinutes: tomtomDriveMinutes(tomtom) } : nodePlatform
+  // Card payments need Ardent's Stripe keys; a test key keeps everything in Stripe's test mode.
+  const stripeKey = process.env.STRIPE_SECRET_KEY
+  const publicUrl = process.env.ARDENT_PUBLIC_URL ?? `http://${host}:${port}`
+  const platform = {
+    ...nodePlatform,
+    ...(tomtom ? { driveMinutes: tomtomDriveMinutes(tomtom) } : {}),
+    ...(stripeKey ? { payments: stripeProvider({ secretKey: stripeKey, webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '', publicUrl }) } : {}),
+  }
   const engine = createEngine(fileStore(join(dataDir, 'ardent.json'), () => shiftDemo(demoData(nodePlatform), today)), platform)
   const allowOrigin = open ? () => true : undefined
   createServer(engine, { filesDir: join(dataDir, 'photos'), allowOrigin }).listen(port, host, () => {
     console.log(`Ardent engine on http://${host}:${port}  (data: ${dataDir})`)
     if (open) console.log('Open to the local network: plain HTTP, so only on a network you trust.')
     console.log(tomtom ? 'Drive times: TomTom, by road' : 'Drive times: as the crow flies (set TOMTOM_API_KEY for road times)')
+    console.log(stripeKey ? `Payments: Stripe${platform.payments?.test ? ' test mode' : ', LIVE'}; webhook at ${publicUrl}/api/stripe/webhook` : 'Payments: off (set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET)')
     console.log('Demo sign-ins: dan@ / jo@ / kofi@ / ryan@ / tom@demo.ardent.local, password ardent-demo')
     console.log('Ardent HQ: edem@ardent.local, password ardent-demo')
   })

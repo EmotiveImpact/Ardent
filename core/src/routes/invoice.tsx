@@ -12,7 +12,7 @@ import { act } from '@/lib/act'
 import { find, invoiceOwed, invoiceTotal, jobNet } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 
-const methodWord: Record<PaymentMethod, string> = { bank_transfer: 'Bank transfer', cash: 'Cash', card: 'Card' }
+const methodWord: Record<PaymentMethod, string> = { bank_transfer: 'Bank transfer', cash: 'Cash', card: 'Card', tap: 'Tap to Pay', pay_by_bank: 'Pay by bank', direct_debit: 'Direct Debit' }
 
 /** The invoice's head sentence. */
 function sentence(inv: Invoice, book: Book): ReactNode {

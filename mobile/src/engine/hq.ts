@@ -6,14 +6,14 @@
  *
  * Shapes are in core/src/data/hq.ts.
  */
-import type { FirmAccount, FirmBill, FirmHealth, FirmSummary, HqClient, HqLogEntry, HqNeed, HqOverview, HqPlaybook, LiveBoard, LiveJob, LiveVan, PlaybookRule, SharedRule, StaffMe } from '../data/core/hq'
+import type { FirmAccount, FirmBill, FirmHealth, FirmSummary, HqClient, HqLogEntry, HqNeed, HqOverview, HqPayments, HqPlaybook, LiveBoard, LiveJob, LiveVan, PlaybookRule, SharedRule, StaffMe } from '../data/core/hq'
 import type { Automation, FollowUp, FollowUpSet, Invoice, Job, JobStatus, Usage } from '../data/core/model'
 import { pounds, ukDay } from '../kit/format'
 import { FOLLOW_UPS, ruleProblem } from '../kit/questions'
 import type { Data, StaffRow, Store } from './store'
 
 /** Every HQ call, by name. */
-export const HQ_METHODS = ['me', 'overview', 'firms', 'firm', 'live', 'log', 'playbook.get', 'playbook.save', 'playbook.switch', 'playbook.discard', 'playbook.publish', 'shared.list', 'shared.adopt', 'shared.decline'] as const
+export const HQ_METHODS = ['me', 'overview', 'firms', 'firm', 'live', 'log', 'playbook.get', 'playbook.save', 'playbook.switch', 'playbook.discard', 'playbook.publish', 'payments', 'shared.list', 'shared.adopt', 'shared.decline'] as const
 
 /** The plan agreed with Edem on 21 October 2026, in pence. */
 export const PRICE = { base: 29900, included: 5, perEngineer: 3500, voice: 9900 }
@@ -35,6 +35,8 @@ interface Deps {
   forbidden(why: string): Error
   notFound(what: string): Error
   invalid(why: string): Error
+  /** Payments across every firm (payments.ts). */
+  paymentsAcross(month: string, monthlySubscriptions: number): HqPayments
 }
 
 export function hqFor(d: Deps, userId: string): HqClient {
@@ -329,6 +331,14 @@ export function hqFor(d: Deps, userId: string): HqClient {
             monthly: liveFirms.reduce((s, f) => s + f.bill.total, 0),
           },
         }
+      }),
+    payments: (month) =>
+      run(() => {
+        staff()
+        const m = month ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }).slice(0, 7)
+        if (!/^\d{4}-\d{2}$/.test(m)) throw d.invalid('month is YYYY-MM')
+        const subscriptions = db.orgs.map((o) => summary(o.id)).filter((f) => f.stage === 'live').reduce((t, f) => t + f.bill.total, 0)
+        return d.paymentsAcross(m, subscriptions)
       }),
     firms: () =>
       run(() => {

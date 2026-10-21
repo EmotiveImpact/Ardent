@@ -8,7 +8,8 @@
  * Written around the demo day like Mercer's records; shiftDemo moves them to
  * today. Made-up people and addresses throughout.
  */
-import type { ActionEntry, Automation, Customer, FirmFollowUp, Invoice, Job, JobReport, JobStatus, LineItem, Priority, ReportSegment, Site, Trade } from '../data/core/model'
+import type { ActionEntry, Automation, Charge, Customer, FirmFollowUp, Invoice, Job, JobReport, JobStatus, LineItem, Priority, ReportSegment, Site, Trade } from '../data/core/model'
+import { ardentFee, stripeFeeEstimate } from '../kit/pay'
 import { FOLLOW_UPS } from '../kit/questions'
 import { buildReport } from '../kit/report'
 import type { Data, Membership, OperatorRow, Organisation, Owned, Role, UsageMonth, User } from './store'
@@ -423,5 +424,50 @@ export function withOtherFirms(data: Data, hash: (p: string) => string): Data {
     data.users.push({ id: s.id, email: s.email, name: s.name, passwordHash: hash('ardent-demo') })
     data.staff.push({ userId: s.id, role: s.role })
   }
+  withPayments(data)
   return data
+}
+
+/**
+ * Payments in Stripe test mode: Mercer and Hollins take payments, Ashby is
+ * stuck on Stripe's sign-up, Calder hasn't started. Paid invoices were paid
+ * through Stripe, by card, pay by bank and Tap to Pay.
+ */
+function withPayments(data: Data) {
+  const methods: Charge['method'][] = ['card', 'pay_by_bank', 'tap', 'card', 'pay_by_bank']
+  const accounts: Data['paymentAccounts'] = [
+    { orgId: 'org_demo', accountId: 'acct_test_mercer', status: 'active', test: true, chargesEnabled: true, payoutsEnabled: true, due: [], depositPercent: 25, depositFrom: 100000, firstPaymentAt: '2026-09-24T10:12:00Z', updatedAt: '2026-09-17T15:00:00Z' },
+    { orgId: 'org_hollins', accountId: 'acct_test_hollins', status: 'active', test: true, chargesEnabled: true, payoutsEnabled: true, due: [], depositPercent: 0, depositFrom: 0, firstPaymentAt: `${daysBefore(21)}T15:00:00Z`, updatedAt: '2026-09-05T10:00:00Z' },
+    { orgId: 'org_ashby', accountId: 'acct_test_ashby', status: 'needs_info', test: true, chargesEnabled: false, payoutsEnabled: false, due: ["A director's ID"], depositPercent: 0, depositFrom: 0, updatedAt: `${daysBefore(4)}T11:20:00Z` },
+  ]
+  data.paymentAccounts.push(...accounts)
+  let k = 0
+  const charge = (inv: Owned<Invoice>, amount: number, when: string, method = methods[k % methods.length]): Owned<Charge> => {
+    k++
+    const c: Owned<Charge> = { orgId: inv.orgId, id: `chg_${inv.id}`, kind: 'invoice', method, amount, fee: ardentFee(amount), stripeFee: stripeFeeEstimate(method, amount), refunded: 0, feeRefunded: 0, at: when, customerId: inv.customerId, invoiceId: inv.id, jobId: inv.jobId, label: inv.ref, ref: `pi_test_${inv.id}` }
+    data.charges.push(c)
+    inv.payments = [...(inv.payments ?? []), { amount, method, at: when, chargeId: c.id }]
+    return c
+  }
+  const plusHours = (iso: string, h: number) => new Date(Date.parse(iso) + h * 3_600_000).toISOString().replace('.000', '')
+  for (const inv of data.invoices.filter((i) => (i.orgId === 'org_hollins' || i.orgId === 'org_demo') && i.paidAmount > 0 && i.issuedAt)) {
+    charge(inv, inv.paidAmount, plusHours(inv.issuedAt!, inv.orgId === 'org_demo' ? 26 : 3))
+  }
+  // Hollins: a customer disputed one card payment, and a Direct Debit failed.
+  const disputed = data.charges.find((c) => c.orgId === 'org_hollins' && c.method === 'card')
+  if (disputed) {
+    disputed.disputed = true
+    data.disputes.push({ orgId: 'org_hollins', id: 'dsp_hollins1', chargeId: disputed.id, amount: disputed.amount, reason: "Customer says the work wasn't done", status: 'needs_reply', openedAt: `${daysBefore(1)}T10:40:00Z`, replyBy: `${daysBefore(-8)}T23:00:00Z`, ref: 'dp_test_hollins1' })
+  }
+  const plan = (orgId: string, id: string, ref: string, customerId: string, name: string, monthly: number, months: number, status: 'active' | 'payment_failed' | 'awaiting_signature', nextService: string, includes = ['Yearly boiler service', 'Gas safety check', '10% off any repairs']) => {
+    data.plans.push({ orgId, id, ref, customerId, name, monthly, includes, status, createdAt: `${daysBefore(months * 30 + 2)}T10:00:00Z`, ...(status !== 'awaiting_signature' ? { startedAt: `${daysBefore(months * 30)}T10:00:00Z`, providerRef: `sub_test_${id}` } : { signLink: `#/plan/${id}` }), nextService, collected: monthly * months, ...(months ? { lastPaidAt: `${daysBefore(3)}T06:00:00Z` } : {}), failures: status === 'payment_failed' ? 1 : 0, ...(status === 'payment_failed' ? { lastFailedAt: `${daysBefore(2)}T06:00:00Z` } : {}) })
+    for (let m = 0; m < months; m++) {
+      const when = `${daysBefore(3 + m * 30)}T06:00:00Z`
+      data.charges.push({ orgId, id: `chg_${id}_${m}`, kind: 'plan', method: 'direct_debit', amount: monthly, fee: ardentFee(monthly), stripeFee: stripeFeeEstimate('direct_debit', monthly), refunded: 0, feeRefunded: 0, at: when, customerId, planId: id, label: `${ref}, ${new Date(when).toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' })}`, ref: `in_test_${id}_${m}` })
+    }
+  }
+  plan('org_demo', 'pln_101', 'SP-101', 'cus_01', 'Boiler care', 1200, 3, 'active', '2027-01-20')
+  plan('org_demo', 'pln_102', 'SP-102', 'cus_04', 'Boiler care', 1200, 0, 'awaiting_signature', '2027-10-18')
+  plan('org_hollins', 'pln_h1', 'SP-H1', 'cus_h1', 'Landlord safety plan', 2400, 2, 'payment_failed', '2027-02-10', ['Yearly electrical safety check (EICR)', 'Smoke and CO alarm test', '10% off any repairs'])
+  data.counters['org_demo:plan'] = 102
 }
