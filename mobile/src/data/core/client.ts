@@ -1,4 +1,4 @@
-import type { ActionEntry, Approval, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, JobStatus, Level, LineItem, MorningBrief, Note, Operator, OperatorState, OptionKey, PaymentMethod, Photo, PriceItem, Quote, ReportPart, ReportSegment, ReportTick, Signature, Site, Standby, StockLevel, TimeEntry, Usage, VanFix, Verdict } from './model'
+import type { ActionEntry, Approval, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, FollowUp, FollowUpSet, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, JobStatus, Level, LineItem, MorningBrief, Note, Operator, OperatorState, OptionKey, PaymentMethod, Photo, PriceItem, Quote, ReportPart, ReportSegment, ReportTick, Signature, Site, Standby, StockLevel, TimeEntry, Usage, VanFix, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -142,6 +142,19 @@ export interface ArdentClient {
   automation: {
     get(): Promise<{ settings: Automation; jobs: AutomationJob[] }>
     set(patch: Partial<Omit<Automation, 'areas' | 'levels' | 'chase' | 'limits' | 'officeHours'>> & { areas?: Partial<Automation['areas']>; officeHours?: Partial<Automation['officeHours']>; levels?: Record<string, Level>; chase?: Partial<Automation['chase']>; limits?: Partial<Automation['limits']> }): Promise<{ settings: Automation; jobs: AutomationJob[] }>
+  }
+  /**
+   * The follow-up questions the firm's phones ask in the voice report:
+   * Ardent's playbook, then the firm's own. Everyone in the firm reads them
+   * (phones keep them for no signal); the office changes them.
+   */
+  followUps: {
+    get(): Promise<FollowUpSet>
+    /** Switch a playbook or own question on or off for the firm. */
+    switch(id: string, on: boolean): Promise<FollowUpSet>
+    /** Add one of the firm's own, or change it when the id is given. */
+    save(rule: Omit<FollowUp, 'id'> & { id?: string; shared?: boolean }): Promise<FollowUpSet>
+    remove(id: string): Promise<FollowUpSet>
   }
   /** This month's AI spend, call minutes and texts against the plan. Office only. */
   usage: { get(opts?: { month?: string }): Promise<Usage> }

@@ -7,7 +7,7 @@
  * strips orgId and userId before anything leaves it, so callers only ever see
  * the shapes in core/src/data/model.ts.
  */
-import type { ActionEntry, Approval, Automation, Certificate, Customer, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
+import type { ActionEntry, Approval, Automation, Certificate, Customer, FirmFollowUp, FollowUp, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
 
 /** A person who can sign in. */
 export interface User {
@@ -98,6 +98,10 @@ export interface Data {
   approvals: Owned<Approval>[]
   /** Each firm's rules for Ardent, once changed from the standard ones. */
   automation: Owned<Automation>[]
+  /** Each firm's own follow-up questions and the ones it switched off. */
+  followUps: Owned<{ own: FirmFollowUp[]; off: string[] }>[]
+  /** Ardent's playbook of follow-ups every firm gets; the one in the code until Ardent HQ publishes its own. */
+  playbook: { rules: FollowUp[]; version: number; publishedAt: string; by: string } | null
   /** Use per firm per month, against the plan. */
   usage: Owned<UsageMonth>[]
   /** Everything done in each firm, oldest first, capped. */
@@ -139,6 +143,8 @@ export const emptyData = (): Data => ({
   jobRequests: [],
   approvals: [],
   automation: [],
+  followUps: [],
+  playbook: null,
   usage: [],
   actions: [],
   counters: {},

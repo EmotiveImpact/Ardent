@@ -14,6 +14,7 @@ import { Rules } from '@/routes/rules'
 import { Certificates } from '@/routes/certificates'
 import { Crew } from '@/routes/crew'
 import { Settings } from '@/routes/settings'
+import { Questions } from '@/routes/questions'
 import { FieldOnly, SignIn } from '@/routes/sign-in'
 import { Callout } from '@/routes/callout'
 import { NewJob } from '@/routes/new-job'
@@ -41,6 +42,7 @@ const router = createHashRouter([
       { path: 'certificates', element: <Certificates /> },
       { path: 'crew', element: <Crew /> },
       { path: 'settings', element: <Settings /> },
+      { path: 'settings/questions', element: <Questions /> },
     ],
   },
 ])

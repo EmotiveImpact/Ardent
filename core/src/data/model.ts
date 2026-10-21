@@ -421,6 +421,76 @@ export interface ReportReading {
   from: ReportSource
 }
 
+// Follow-up questions in the voice report: plain rules, see engine/kit/questions.ts.
+
+/**
+ * What has to be true for a follow-up to ask. Every check in a rule must hold.
+ * Words and phrases match whole words, any case; "test*" also matches
+ * "tested" and "testing".
+ */
+export type FollowUpCheck =
+  /** One sentence of the answer uses one of these. Two `says` must both be in that same sentence. */
+  | { says: string[] }
+  /** ...and that sentence uses none of these. */
+  | { unless: string[] }
+  /** Nothing anywhere in the report uses any of these. */
+  | { nowhere: string[] }
+  | { ticked: ReportTick }
+  | { notTicked: ReportTick }
+  /** The report has no readings with units yet. */
+  | { noReadings: true }
+  /** The report has no parts yet. */
+  | { noParts: true }
+
+/** A button on the follow-up, and what it does. */
+export type FollowUpReply =
+  /** Hold the button and answer; the words go under this topic. */
+  | { label: string; does: 'talk'; topic: ReportTopic }
+  /** Writes this line under the topic, as if they'd said it. */
+  | { label: string; does: 'note'; topic: ReportTopic; note: string }
+  /** Ticks it, and with `move` puts the sentence that set the rule off under it too. */
+  | { label: string; does: 'tick'; tick: ReportTick; move?: boolean }
+  /** Nothing to add. */
+  | { label: string; does: 'skip' }
+
+export interface FollowUp {
+  /** Short and fixed: the report keeps it on any words it adds, so the office can see what asked. */
+  id: string
+  /** What the rule is, for the rule book. */
+  name: string
+  /** Why Ardent asks, in a sentence the firm can check. */
+  why: string
+  /** Trades it's for; every trade when left out. */
+  trades?: Trade[]
+  /** The questions whose answers it listens to, or 'any'. */
+  after: ReportTopic[] | 'any'
+  when: FollowUpCheck[]
+  /** The question. "{said}" is the sentence that set it off. */
+  ask: string
+  hint?: string
+  replies: FollowUpReply[]
+}
+
+/** One of a firm's own follow-ups, added in Core. */
+export interface FirmFollowUp extends FollowUp {
+  /** Offered to Ardent for the playbook every firm gets. */
+  shared?: boolean
+  /** Who last changed it, and when. */
+  by: string
+  updatedAt: string
+}
+
+/**
+ * The follow-ups a firm's phones ask: Ardent's playbook, which every firm
+ * starts with, then the firm's own. The office switches any of them off.
+ */
+export interface FollowUpSet {
+  playbook: FollowUp[]
+  own: FirmFollowUp[]
+  /** Playbook and own rules switched off for this firm. */
+  off: string[]
+}
+
 /**
  * The engineer's job report, spoken on site and written on the phone with no
  * signal: every line, part and reading points back at the words it came from.

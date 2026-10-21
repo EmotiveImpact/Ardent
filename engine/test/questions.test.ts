@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { ReportSegment, ReportTick, ReportTopic, Trade } from '../../core/src/data/model.ts'
 import { priceList, stock } from '../../core/src/data/mock.ts'
-import { applyReply, explain, FOLLOW_UPS, MAX_PER_ANSWER, nextFollowUp, type FollowUpContext } from '../kit/questions.ts'
+import { applyReply, explain, FOLLOW_UPS, MAX_PER_ANSWER, nextFollowUp, ruleProblem, type FollowUpContext } from '../kit/questions.ts'
 import { buildReport, TICKS, withTicks } from '../kit/report.ts'
 
 const at = '2026-10-21T15:00:00Z'
@@ -21,6 +21,7 @@ test('every rule is well formed: a unique id, a reason, a question and a way out
   assert.equal(new Set(ids).size, ids.length)
   for (const r of FOLLOW_UPS) {
     assert.match(r.id, /^[a-z0-9-]{1,60}$/)
+    assert.equal(ruleProblem(r), undefined, `${r.id} passes the same check as a firm's own`)
     assert.ok(r.why.length > 10, `${r.id} says why`)
     assert.ok(r.replies.length >= 2, `${r.id} has a way out`)
     assert.ok(!r.ask.includes('{said}') || r.when.some((c) => 'says' in c), `${r.id} only quotes when it listens for words`)
@@ -131,4 +132,52 @@ test('the engine keeps a moved sentence and which follow-up asked, and turns awa
   assert.deepEqual(r.sections.find((s) => s.topic === 'left')?.lines.map((l) => l.text), ["The bathroom light's got no earth at the fitting.", 'Customer told.'])
   await assert.rejects(kofi.reports.save('job_1045', { operatorId: 'opr_02', segments: [{ text, at, moved: [{ start: 0, end: 999, topic: 'left' }] }] }), /moved sentence/)
   await assert.rejects(kofi.reports.save('job_1045', { operatorId: 'opr_02', segments: [{ text, at, followUp: 'Not A Rule!' }] }), /unknown follow-up/)
+})
+
+test("a firm's own questions: the office adds and switches them, phones read them, engineers can't change them", async () => {
+  const { demo } = await import('./helpers.ts')
+  const { activeRules } = await import('../kit/questions.ts')
+  const d = demo()
+  const jo = d.as('jo').client
+  const kofi = d.as('kofi').client
+  const start = await kofi.followUps.get()
+  assert.equal(start.playbook.length, FOLLOW_UPS.length)
+  assert.deepEqual([start.own, start.off], [[], []])
+
+  const rule = {
+    name: 'Gas meter left off',
+    why: 'A customer left without gas rings the office first.',
+    trades: ['gas' as const],
+    after: 'any' as const,
+    when: [{ says: ['off at the meter', 'meter off'] }, { nowhere: ['back on'] }],
+    ask: 'You said “{said}” Did you turn it back on?',
+    replies: [
+      { label: 'Yes', does: 'note' as const, topic: 'work' as const, note: 'Gas turned back on at the meter.' },
+      { label: 'No', does: 'note' as const, topic: 'left' as const, note: 'Gas left off at the meter.' },
+    ],
+  }
+  await assert.rejects(kofi.followUps.save(rule), /only the office/)
+  await assert.rejects(jo.followUps.save({ ...rule, replies: rule.replies.slice(0, 1) }), /2 to 4 buttons/)
+  await assert.rejects(jo.followUps.save({ ...rule, when: [{ nowhere: ['back on'] }], ask: 'You said “{said}”?' }), /Only quote/)
+  const saved = await jo.followUps.save(rule)
+  assert.equal(saved.own[0].id, 'own-gas-meter-left-off')
+  assert.equal(saved.own[0].by, 'Jo Pickering')
+  await jo.followUps.switch('benchmark', false)
+
+  // The engineer's phone gets the firm's set: playbook first, own after, minus what's off.
+  const phone = await kofi.followUps.get()
+  const rules = activeRules(phone)
+  assert.ok(!rules.some((r) => r.id === 'benchmark'))
+  assert.equal(rules.at(-1)!.id, 'own-gas-meter-left-off')
+  const c = ctx('gas', ['repair'], 'work', [answer('work', 'Turned it off at the meter while I swapped the valve.')])
+  assert.equal(nextFollowUp(c, [], 0, rules.filter((r) => r.id.startsWith('own-')))?.question, 'You said “Turned it off at the meter while I swapped the valve.” Did you turn it back on?')
+
+  // Changing keeps the id; removing it takes it out of the off list too.
+  const changed = await jo.followUps.save({ ...rule, id: 'own-gas-meter-left-off', ask: 'Did you turn the gas back on?' })
+  assert.equal(changed.own.length, 1)
+  assert.equal(changed.own[0].ask, 'Did you turn the gas back on?')
+  await jo.followUps.switch('own-gas-meter-left-off', false)
+  const gone = await jo.followUps.remove('own-gas-meter-left-off')
+  assert.deepEqual([gone.own, gone.off], [[], ['benchmark']])
+  await assert.rejects(jo.followUps.switch('no-such-rule', false), /not found|follow-up question/)
 })

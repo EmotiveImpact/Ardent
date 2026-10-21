@@ -10,56 +10,10 @@
  * and no answer gets more than MAX_PER_ANSWER of them, so it never nags.
  * Same rules, same questions, on the phone with no signal and in the engine.
  */
-import type { ReportSegment, ReportTick, ReportTopic, Trade } from '../../core/src/data/model.ts'
+import type { FollowUp, FollowUpReply as Reply, FollowUpSet, ReportSegment, ReportTick, ReportTopic, Trade } from '../../core/src/data/model.ts'
 import { needed, sentences, spoken, TICKS, tidy, type BuiltReport } from './report.ts'
 
-/**
- * What has to be true for a rule to ask. Every check in a rule must hold.
- * Words and phrases match whole words, any case; "test*" also matches
- * "tested" and "testing".
- */
-export type Check =
-  /** One sentence of the answer uses one of these. Two `says` must both be in that same sentence. */
-  | { says: string[] }
-  /** ...and that sentence uses none of these. */
-  | { unless: string[] }
-  /** Nothing anywhere in the report uses any of these. */
-  | { nowhere: string[] }
-  | { ticked: ReportTick }
-  | { notTicked: ReportTick }
-  /** The report has no readings with units yet. */
-  | { noReadings: true }
-  /** The report has no parts yet. */
-  | { noParts: true }
-
-/** A button on the follow-up, and what it does. */
-export type Reply =
-  /** Hold the button and answer; the words go under this topic. */
-  | { label: string; does: 'talk'; topic: ReportTopic }
-  /** Writes this line under the topic, as if they'd said it. */
-  | { label: string; does: 'note'; topic: ReportTopic; note: string }
-  /** Ticks it, and with `move` puts the sentence that set the rule off under it too. */
-  | { label: string; does: 'tick'; tick: ReportTick; move?: boolean }
-  /** Nothing to add. */
-  | { label: string; does: 'skip' }
-
-export interface FollowUp {
-  /** Short and fixed: the report keeps it on any words it adds, so the office can see what asked. */
-  id: string
-  /** What the rule is, for the rule book. */
-  name: string
-  /** Why Ardent asks, in a sentence the firm can check. */
-  why: string
-  /** Trades it's for; every trade when left out. */
-  trades?: Trade[]
-  /** The questions whose answers it listens to, or 'any'. */
-  after: ReportTopic[] | 'any'
-  when: Check[]
-  /** The question. "{said}" is the sentence that set it off. */
-  ask: string
-  hint?: string
-  replies: Reply[]
-}
+export type { FollowUp, FollowUpCheck as Check, FollowUpReply as Reply } from '../../core/src/data/model.ts'
 
 /** The most follow-ups one answer can get. */
 export const MAX_PER_ANSWER = 3
@@ -418,4 +372,84 @@ export function applyReply(segments: ReportSegment[], ticked: ReportTick[], aske
 /** Topics the ticks need that already have words, so the screen can skip asking them again. */
 export function answered(r: Pick<BuiltReport, 'sections'> & { ticked?: ReportTick[] }): ReportTopic[] {
   return needed(r.ticked ?? []).filter((t) => r.sections.some((s) => s.topic === t && s.lines.length > 0))
+}
+
+/** The rules a firm's phones check, in order: the playbook, then the firm's own, less any switched off. */
+export function activeRules(set: FollowUpSet): FollowUp[] {
+  return [...set.playbook, ...set.own].filter((r) => !set.off.includes(r.id))
+}
+
+const TOPICS: ReportTopic[] = ['work', 'parts', 'tests', 'left', 'next']
+const TRADES: Trade[] = ['gas', 'electrical', 'plumbing', 'heating', 'roofing', 'carpentry', 'fire', 'lifts', 'hvac', 'general']
+const words = (w: unknown) => Array.isArray(w) && w.length > 0 && w.length <= 40 && w.every((x) => typeof x === 'string' && x.trim().length > 0 && x.length <= 40)
+const text = (t: unknown, max: number) => typeof t === 'string' && t.trim().length > 0 && t.length <= max
+
+/**
+ * What's wrong with a rule someone wrote, in words for them, or undefined
+ * when it's fine. The office's form and the engine both check with this.
+ */
+export function ruleProblem(r: Partial<FollowUp>): string | undefined {
+  if (!text(r.name, 60)) return 'Give it a name, 60 characters at most'
+  if (!text(r.ask, 200)) return 'Give it a question to ask, 200 characters at most'
+  if (!text(r.why, 200)) return 'Say why Ardent asks, 200 characters at most'
+  if (r.hint !== undefined && !(typeof r.hint === 'string' && r.hint.length <= 160)) return 'The hint is 160 characters at most'
+  if (r.trades !== undefined && !(Array.isArray(r.trades) && r.trades.length > 0 && r.trades.every((t) => TRADES.includes(t)))) return 'Pick the trades it is for, or every trade'
+  if (!(r.after === 'any' || (Array.isArray(r.after) && r.after.length > 0 && r.after.every((t) => TOPICS.includes(t))))) return 'Pick which question it listens to'
+  if (!Array.isArray(r.when) || r.when.length === 0 || r.when.length > 8) return 'Give it at least 1 condition, or it would ask after every answer'
+  for (const c of r.when) {
+    const ok =
+      ('says' in c && words(c.says)) ||
+      ('unless' in c && words(c.unless)) ||
+      ('nowhere' in c && words(c.nowhere)) ||
+      ('ticked' in c && TICKS.some((t) => t.tick === c.ticked)) ||
+      ('notTicked' in c && TICKS.some((t) => t.tick === c.notTicked)) ||
+      ('noReadings' in c && c.noReadings === true) ||
+      ('noParts' in c && c.noParts === true)
+    if (!ok) return 'One of its conditions is not one Ardent knows'
+  }
+  if (r.when.some((c) => 'unless' in c) && !r.when.some((c) => 'says' in c)) return '"Unless that sentence says" needs words to listen for too'
+  if (r.ask!.includes('{said}') && !r.when.some((c) => 'says' in c)) return 'Only quote what they said when the rule listens for words'
+  if (!Array.isArray(r.replies) || r.replies.length < 2 || r.replies.length > 4) return 'Give it 2 to 4 buttons, so there is always a way out'
+  for (const b of r.replies) {
+    if (!text(b.label, 30)) return 'Every button needs a label, 30 characters at most'
+    const ok =
+      (b.does === 'skip') ||
+      (b.does === 'talk' && TOPICS.includes(b.topic)) ||
+      (b.does === 'note' && TOPICS.includes(b.topic) && text(b.note, 120)) ||
+      (b.does === 'tick' && TICKS.some((t) => t.tick === b.tick) && (b.move === undefined || typeof b.move === 'boolean'))
+    if (!ok) return `The button "${b.label}" doesn't say what it does`
+  }
+  if (r.replies.filter((b) => b.does === 'talk').length > 1) return 'Only 1 button can open the mic'
+  return undefined
+}
+
+/** A short id for a firm's own rule, from its name. */
+export const ownId = (name: string, taken: string[]) => {
+  const base = `own-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'rule'}`
+  let id = base
+  for (let n = 2; taken.includes(id); n++) id = `${base}-${n}`
+  return id
+}
+
+const TOPIC_NAME: Record<ReportTopic, string> = { work: 'What you did', parts: 'Parts used', tests: 'Tests and readings', left: 'Left or wrong', next: 'More work wanted' }
+/** A question's short name, for lists. */
+export const topicName = (t: ReportTopic) => TOPIC_NAME[t]
+
+/** A check in plain words, for anyone reading the rule. */
+export function describeCheck(c: FollowUp['when'][number]): string {
+  if ('says' in c) return `The answer says ${c.says.join(', ')}`
+  if ('unless' in c) return `That sentence doesn't say ${c.unless.join(', ')}`
+  if ('nowhere' in c) return `The report doesn't already say ${c.nowhere.join(', ')}`
+  if ('ticked' in c) return `“${tickLabel(c.ticked)}” is ticked`
+  if ('notTicked' in c) return `“${tickLabel(c.notTicked)}” isn't ticked`
+  if ('noReadings' in c) return 'No readings yet'
+  return 'No parts yet'
+}
+
+/** What a button does, in plain words. */
+export function describeReply(b: Reply): string {
+  if (b.does === 'talk') return `opens the mic, the words go under ${topicName(b.topic)}`
+  if (b.does === 'note') return `writes “${b.note}” under ${topicName(b.topic)}`
+  if (b.does === 'tick') return `ticks “${tickLabel(b.tick)}”${b.move ? ' and moves that sentence there' : ''}`
+  return 'adds nothing'
 }

@@ -1,6 +1,6 @@
 // Mobile-only shapes layered on Ardent Core's shared model (./core/model.ts).
 // Anything that also belongs in Core is proposed there first.
-import type { Customer, GasSafetyRecord, Invoice, Job, JobReport, Note, Operator, OperatorState, Photo, PriceItem, Signature, Site, StockLevel, TimeEntry } from './core/model';
+import type { Customer, FollowUpSet, GasSafetyRecord, Invoice, Job, JobReport, Note, Operator, OperatorState, Photo, PriceItem, Signature, Site, StockLevel, TimeEntry } from './core/model';
 
 export type * from './core/model';
 
@@ -31,6 +31,8 @@ export interface Day {
   gasRecords: GasSafetyRecord[];
   /** The engineer's spoken job reports, drafts and signed. */
   reports: JobReport[];
+  /** The follow-up questions the firm's reports ask: Ardent's playbook and the firm's own. Older saved days have none. */
+  followUps?: FollowUpSet;
   /** When this copy last came from the engine. */
   pulledAt: string;
 }

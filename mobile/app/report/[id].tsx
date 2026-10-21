@@ -12,7 +12,7 @@ import { Icon } from '@/components/Icon';
 import { Back, Dock, Input } from '@/components/ui';
 import type { Job, JobReport, ReportLine, ReportPart, ReportSegment, ReportSource, ReportTick, ReportTopic } from '@/data/types';
 import { clock } from '@/kit/format';
-import { answered, applyReply, type Explained, nextFollowUp, type Reply } from '@/kit/questions';
+import { activeRules, answered, applyReply, type Explained, FOLLOW_UPS, nextFollowUp, type Reply } from '@/kit/questions';
 import { buildReport, cantSign, coveredSoFar, keepFixes, needed, pickedPart, promptsFor, TICKS, tradeWords, withTicks } from '@/kit/report';
 import * as act from '@/sync/actions';
 import { useField } from '@/sync/hooks';
@@ -178,7 +178,8 @@ export default function JobReportScreen() {
   const nextQuestion = (segs = segments, ticked = ticksNow, n = followCount, rules = askedRules) => {
     setWhy(false);
     setElapsed(0);
-    const f = asked ? nextFollowUp({ trade: job.trade, answering: asked, segments: segs, report: built(segs, ticked) }, rules, n) : undefined;
+    // The firm's set from the office (playbook plus its own), or the playbook in the app before the first pull has it.
+    const f = asked ? nextFollowUp({ trade: job.trade, answering: asked, segments: segs, report: built(segs, ticked) }, rules, n, day.followUps ? activeRules(day.followUps) : FOLLOW_UPS) : undefined;
     if (f) {
       setFollow(f);
       setAskedRules([...rules, f.rule.id]);

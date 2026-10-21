@@ -42,6 +42,7 @@ export const METHODS = {
   log: ['list'],
   brief: ['get'],
   automation: ['get', 'set'],
+  followUps: ['get', 'switch', 'save', 'remove'],
   usage: ['get'],
   signatures: ['add', 'forJob'],
   invoices: ['list', 'forJob', 'create', 'send', 'recordPayment'],

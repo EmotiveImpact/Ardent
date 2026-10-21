@@ -21,12 +21,13 @@ export async function pullDay(client: ArdentClient): Promise<Day> {
 
   // Last year's gas record is where this year's starts, so keep every record at those sites.
   const gasSites = [...new Set(jobs.filter((j) => GAS_TRADES.has(j.trade)).map((j) => j.siteId))];
-  const [customers, sites, priceList, stock, gasRecords, perJob] = await Promise.all([
+  const [customers, sites, priceList, stock, gasRecords, followUps, perJob] = await Promise.all([
     client.customers.list(),
     client.sites.list(),
     client.priceList.list(),
     client.stock.list({ operatorId: operator.id }),
     Promise.all(gasSites.map((siteId) => client.gasRecords.list({ siteId }))).then((r) => r.flat()),
+    client.followUps.get(),
     Promise.all(
       jobs.map((j) =>
         Promise.all([client.time.forJob(j.id), client.photos.forJob(j.id), client.notes.forJob(j.id), client.signatures.forJob(j.id), client.invoices.forJob(j.id), client.reports.forJob(j.id)]),
@@ -49,6 +50,7 @@ export async function pullDay(client: ArdentClient): Promise<Day> {
     priceList,
     stock,
     gasRecords,
+    followUps,
     pulledAt: new Date(now).toISOString(),
   };
 }

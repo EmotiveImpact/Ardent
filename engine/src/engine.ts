@@ -22,8 +22,9 @@
  * rules checked in one place) and its customer, site and job records.
  */
 import type { ArdentClient } from '../../core/src/data/client.ts'
-import type { ActionEntry, Approval, Automation, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobReport, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, ReportPart, ReportSegment, ReportTick, StockLevel, Trade, Usage, VanFix, Verdict } from '../../core/src/data/model.ts'
+import type { ActionEntry, Approval, Automation, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, FirmFollowUp, FollowUp, FollowUpSet, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobReport, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, ReportPart, ReportSegment, ReportTick, StockLevel, Trade, Usage, VanFix, Verdict } from '../../core/src/data/model.ts'
 import { pounds, shortDate, ukDay } from '../kit/format.ts'
+import { FOLLOW_UPS, ownId, ruleProblem } from '../kit/questions.ts'
 import { buildReport, cantSign, partLines, TICKS, withTicks } from '../kit/report.ts'
 import { AREAS, AUTOMATION_JOBS, automationJobs, composeBrief, defaultAutomation, describe, levelOf, PLAN, usageFor, type Look } from './office.ts'
 import type { Platform } from './platform.ts'
@@ -346,6 +347,15 @@ export function createEngine(store: Store, platform: Platform) {
 
   /* ---------- The firm's rules for Ardent, and what it uses ---------- */
 
+  /** Ardent's playbook as published from Ardent HQ, or the one in the code until then. */
+  const playbook = (): FollowUp[] => db.playbook?.rules ?? FOLLOW_UPS
+
+  /** The follow-ups a firm's phones ask. */
+  function followUpsFor(orgId: string): FollowUpSet {
+    const row = db.followUps.find((f) => f.orgId === orgId)
+    return { playbook: playbook(), own: row?.own ?? [], off: row?.off ?? [] }
+  }
+
   /** A firm's rules, the standard ones filled in wherever it hasn't chosen. */
   function rulesFor(orgId: string): Automation {
     const d = defaultAutomation()
@@ -440,6 +450,15 @@ export function createEngine(store: Store, platform: Platform) {
     const isOwner = () => membership().role === 'owner'
     const requireOffice = (what: string) => {
       if (!isOffice()) throw forbidden(`only the office can ${what}`)
+    }
+    /** The firm's own follow-up row, made on first change. */
+    const firmFollowUps = () => {
+      let row = db.followUps.find((f) => f.orgId === orgId)
+      if (!row) {
+        row = { orgId, own: [], off: [] }
+        db.followUps.push(row)
+      }
+      return row
     }
     const myOperator = () => {
       membership()
@@ -757,6 +776,56 @@ export function createEngine(store: Store, platform: Platform) {
             db.automation.push({ ...next, orgId })
             syncApprovals()
             return { settings: next, jobs: automationJobs(next) }
+          }).then(done),
+      },
+
+      followUps: {
+        get: () => run(() => followUpsFor(orgId)),
+        switch: (id, on) =>
+          run(() => {
+            requireOffice('change the follow-up questions')
+            const set = followUpsFor(orgId)
+            if (![...set.playbook, ...set.own].some((r) => r.id === id)) throw notFound('follow-up question')
+            if (typeof on !== 'boolean') throw invalid('a question is on or off')
+            const row = firmFollowUps()
+            row.off = on ? row.off.filter((x) => x !== id) : [...new Set([...row.off, id])]
+            return followUpsFor(orgId)
+          }).then(done),
+        save: (input) =>
+          run(() => {
+            requireOffice('change the follow-up questions')
+            const why = ruleProblem(input)
+            if (why) throw invalid(why)
+            const row = firmFollowUps()
+            const was = input.id ? row.own.find((r) => r.id === input.id) : undefined
+            if (input.id && !was) throw notFound('follow-up question')
+            if (!was && row.own.length >= 50) throw invalid('a firm can have 50 of its own questions')
+            const taken = [...followUpsFor(orgId).playbook.map((r) => r.id), ...row.own.map((r) => r.id)]
+            const rule: FirmFollowUp = {
+              id: was?.id ?? ownId(input.name, taken),
+              name: input.name.trim(),
+              why: input.why.trim(),
+              ...(input.hint?.trim() ? { hint: input.hint.trim() } : {}),
+              ...(input.trades ? { trades: [...input.trades] } : {}),
+              after: input.after === 'any' ? 'any' : [...input.after],
+              when: input.when.map((c) => ({ ...c })),
+              ask: input.ask.trim(),
+              replies: input.replies.map((b) => ({ ...b })),
+              ...(input.shared ? { shared: true } : {}),
+              by: me().name,
+              updatedAt: new Date().toISOString(),
+            }
+            row.own = was ? row.own.map((r) => (r === was ? rule : r)) : [...row.own, rule]
+            return followUpsFor(orgId)
+          }).then(done),
+        remove: (id) =>
+          run(() => {
+            requireOffice('change the follow-up questions')
+            const row = firmFollowUps()
+            if (!row.own.some((r) => r.id === id)) throw notFound("the firm's own question")
+            row.own = row.own.filter((r) => r.id !== id)
+            row.off = row.off.filter((x) => x !== id)
+            return followUpsFor(orgId)
           }).then(done),
       },
 

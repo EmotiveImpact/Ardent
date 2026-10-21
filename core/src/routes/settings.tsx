@@ -46,7 +46,7 @@ export function Settings() {
   return (
     <div className="flex flex-col gap-10 pb-6">
       <PageBar crumbs={[{ label: 'Settings' }]} />
-      <PageHead title="Settings" book={book} sub="Your firm, your sign-in, who else can sign in, and your price list." className="pb-0" />
+      <PageHead title="Settings" book={book} sub="Your firm, report questions, your sign-in, who else can sign in, and your price list." className="pb-0" />
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-5">
@@ -68,6 +68,14 @@ export function Settings() {
               </Fact>
             </div>
             <p className="text-[12.5px] text-faint">Your address, VAT number and bank details aren't in Ardent yet, so invoices go out without them. The firm's name and payment terms can't be changed here yet.</p>
+          </Card>
+
+          <Card className="flex flex-col gap-3 p-6">
+            <SectionHead title="Job report questions" aside={<RowButton to="/settings/questions">Open</RowButton>} className="pb-0" />
+            <p className="text-[13.5px] text-muted">The quick follow-ups engineers get when an answer in their job report is missing something. Switch Ardent's off, or add your firm's own.</p>
+            <RowButton to="/settings/questions" className="self-start sm:hidden">
+              Report questions
+            </RowButton>
           </Card>
 
           <Card className="flex flex-col gap-3 p-6">

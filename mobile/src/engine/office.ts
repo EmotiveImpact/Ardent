@@ -4,7 +4,7 @@
  * in the log, and the owner's morning brief from the day's numbers. Code does
  * the sums and the sentences here; nothing is guessed.
  */
-import type { Automation, AutomationArea, AutomationJob, Customer, Exception, Invoice, Job, JobStatus, MorningBrief, Operator, Quote, Usage, UsageLine, Level } from '../data/core/model'
+import type { Automation, AutomationArea, AutomationJob, Customer, Exception, FollowUpSet, Invoice, Job, JobStatus, MorningBrief, Operator, Quote, Usage, UsageLine, Level } from '../data/core/model'
 import { pounds, ukDay } from '../kit/format'
 
 export interface Look {
@@ -98,6 +98,17 @@ export function describe(method: string, args: unknown[], result: unknown, look:
       return { summary: `Marked ${r.ref} as sent`, jobId: r.jobId }
     case 'invoices.recordPayment':
       return { summary: `${pounds(args[1] as number)} paid on ${r.ref} by ${String(args[2]).replace('_', ' ')}`, jobId: r.jobId }
+    case 'followUps.switch': {
+      const r = result as FollowUpSet
+      const rule = [...r.playbook, ...r.own].find((x) => x.id === a0)
+      return { summary: `Switched the follow-up "${rule?.name ?? a0}" ${args[1] ? 'on' : 'off'}` }
+    }
+    case 'followUps.save': {
+      const p = a0 as { id?: string; name: string }
+      return { summary: `${p.id ? 'Changed' : 'Added'} the firm's follow-up "${p.name}"` }
+    }
+    case 'followUps.remove':
+      return { summary: "Removed one of the firm's follow-up questions" }
     case 'automation.set': {
       const p = (a0 ?? {}) as Partial<Automation>
       const bits = [
