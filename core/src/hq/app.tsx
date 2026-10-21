@@ -11,6 +11,7 @@ import { Firm } from './firm'
 import { Playbook } from './playbook'
 import { Shared } from './shared'
 import { Usage } from './usage'
+import { Payments } from './payments'
 import { Activity } from './activity'
 
 /* Ardent HQ: the app Ardent's own team uses to look after every firm on Ardent. */
@@ -25,6 +26,7 @@ const router = createHashRouter([
       { path: 'firms/:id', element: <Firm /> },
       { path: 'playbook', element: <Playbook /> },
       { path: 'shared', element: <Shared /> },
+      { path: 'payments', element: <Payments /> },
       { path: 'usage', element: <Usage /> },
       { path: 'activity', element: <Activity /> },
       { path: '*', element: <Live /> },

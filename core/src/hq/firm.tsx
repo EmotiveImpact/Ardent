@@ -15,6 +15,7 @@ import { useEvery, useHqQuery } from './data'
 import { HqMap, type Picked } from './map'
 import { Chip, Dot, Failed, healthTone, isDone, isLive, jobTone, Loading, Meter, stageWord, State, Tag, toneText, when, who } from './parts'
 import { trades } from './firms'
+import { FirmPaymentsSection } from './payments'
 
 /*
  * One firm's account, as Ardent's team sees it: today on its own map, every
@@ -529,6 +530,7 @@ function MoneyTab({ account }: { account: FirmAccount }) {
   const invoices = [...account.invoices].sort((a, b) => (b.issuedAt ?? '9').localeCompare(a.issuedAt ?? '9'))
   return (
     <div className="flex flex-col gap-4">
+      <FirmPaymentsSection firmId={account.firm.id} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Figure label="Owed to the firm" value={pounds(owing.reduce((s, i) => s + invoiceOwed(i), 0))} note={`${owing.length} invoices`} />
         <Figure label="Late" value={pounds(lateOnes.reduce((s, i) => s + invoiceOwed(i), 0))} note={`${lateOnes.length} invoices`} tone={lateOnes.length ? 'text-warn' : undefined} />

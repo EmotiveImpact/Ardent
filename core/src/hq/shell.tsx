@@ -25,6 +25,7 @@ export const hqNav: { to: string; label: string; icon: HqIconName; end?: boolean
   { to: '/firms', label: 'Firms', icon: 'firms' },
   { to: '/playbook', label: 'Playbook', icon: 'playbook' },
   { to: '/shared', label: 'Shared', icon: 'shared' },
+  { to: '/payments', label: 'Payments', icon: 'payments' },
   { to: '/usage', label: 'Usage', icon: 'usage' },
   { to: '/activity', label: 'Activity', icon: 'activity' },
 ]

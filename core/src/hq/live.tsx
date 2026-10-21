@@ -72,10 +72,11 @@ export function useLiveFilters() {
 export function Live() {
   const now = useNow(15_000)
   useEvery(20_000)
-  const { data, error } = useHqQuery((hq) => Promise.all([hq.overview(), hq.live()]))
+  // Payments only add to what needs a look, so the map still shows if they fail.
+  const { data, error } = useHqQuery((hq) => Promise.all([hq.overview(), hq.live(), hq.payments().catch(() => undefined)]))
   const f = useLiveFilters()
   const navigate = useNavigate()
-  const [overview, board] = data ?? []
+  const [overview, board, payments] = data ?? []
 
   const inFirms = (x: { firmId: string }) => !f.firmIds.length || f.firmIds.includes(x.firmId)
   const firms = useMemo(() => overview?.firms ?? [], [overview])
@@ -88,15 +89,25 @@ export function Live() {
   const job = picked?.kind === 'job' ? board?.jobs.find((j) => j.id === picked.id) : undefined
   const van = picked?.kind === 'van' ? board?.vans.find((v) => v.id === picked.id) : undefined
 
-  // What needs a look: the engine's list, then any flagged job it doesn't already cover.
-  const needs: (HqNeed & { job?: LiveJob })[] = []
+  // What needs a look: the engine's list, any flagged job it doesn't already cover,
+  // then payment problems and stuck Stripe sign-ups. The worst come first.
+  const needs: (HqNeed & { job?: LiveJob; to?: string })[] = []
   if (overview && board) {
     for (const x of overview.needs) if (!x.firmId || inFirms({ firmId: x.firmId })) needs.push({ ...x, job: x.jobId ? board.jobs.find((j) => j.id === x.jobId) : undefined })
     for (const j of board.jobs.filter((j) => j.flag && inFirms(j) && !overview.needs.some((x) => x.jobId === j.id))) {
       needs.push({ id: `flag-${j.id}`, firmId: j.firmId, firmName: j.firmName, tone: emergencyOpen(j) ? 'bad' : 'warn', title: `${j.firmName}: ${j.title}`, note: `${j.flag}. ${j.area}.`, go: 'live', jobId: j.id, job: j })
     }
+    payments?.problems.filter(inFirms).forEach((x, i) => {
+      needs.push({ id: `pay-${x.kind}-${x.firmId}-${i}`, firmId: x.firmId, firmName: x.firmName, tone: x.kind === 'dd_failed' ? 'warn' : 'bad', title: `${x.firmName}: ${x.title}`, note: `${x.detail}.`, go: 'firm', to: `/firms/${x.firmId}?tab=money` })
+    })
+    for (const x of payments?.firms.filter((x) => inFirms(x) && (x.status === 'needs_info' || x.status === 'onboarding')) ?? []) {
+      needs.push({ id: `pay-stuck-${x.firmId}`, firmId: x.firmId, firmName: x.firmName, tone: 'info', title: `${x.firmName}: Stripe sign-up stuck`, note: `${x.stuck ?? 'Stripe needs more details'}.`, go: 'firm', to: `/firms/${x.firmId}?tab=money` })
+    }
+    const rank = (x: (typeof needs)[number]) => (x.tone === 'bad' || (x.job && emergencyOpen(x.job)) ? 0 : x.tone === 'warn' ? 1 : 2)
+    needs.sort((a, b) => rank(a) - rank(b))
   }
-  const openNeed = (x: HqNeed) => {
+  const openNeed = (x: (typeof needs)[number]) => {
+    if (x.to) return navigate(x.to)
     if (x.jobId) return pick({ kind: 'job', id: x.jobId })
     if (x.go === 'firm' && x.firmId) return navigate(`/firms/${x.firmId}`)
     if (x.go === 'usage') return navigate(x.firmId ? `/firms/${x.firmId}?tab=usage` : '/usage')

@@ -16,6 +16,7 @@ export const hqPaths = {
   playbook: 'M4 5.5c2.8-1.4 5.5-1.4 8 0v14c-2.5-1.4-5.2-1.4-8 0zM20 5.5c-2.8-1.4-5.5-1.4-8 0v14c2.5-1.4 5.2-1.4 8 0z',
   shared: 'M3.5 13.5L6 5h12l2.5 8.5V19h-17zM3.5 13.5h5l1.2 2.5h4.6l1.2-2.5h5M12 7.5v5M9.5 10l2.5 2.5 2.5-2.5',
   usage: 'M4 19.5a8 8 0 1 1 16 0M12 19.5l4-6M7.5 15.5h.01M12 11h.01M16.5 15.5h.01',
+  payments: 'M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM3 10.5h18M6.5 14.5h4',
   activity: 'M2.5 12h4l2.5-6 4.5 12 2.5-6h5.5',
 } as const
 export type HqIconName = keyof typeof hqPaths
