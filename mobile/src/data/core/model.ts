@@ -366,6 +366,9 @@ export interface Signature {
 /** What a prompt in the engineer's job report asks about. */
 export type ReportTopic = 'work' | 'parts' | 'tests' | 'left' | 'next'
 
+/** What the engineer ticks before talking. Each one ticked has to be in the report before it can be signed off. */
+export type ReportTick = 'service' | 'repair' | 'fitted' | 'parts' | 'tests' | 'left' | 'next'
+
 /** One stretch of what the engineer said, as the phone heard it (or as they corrected it). */
 export interface ReportSegment {
   text: string
@@ -401,6 +404,8 @@ export interface ReportPart {
   from: ReportSource
   /** Price list items it could be, when the words fit more than one. */
   choices?: string[]
+  /** Picked from the van list or typed rather than heard. `from` then points at no words (segment -1). */
+  picked?: boolean
 }
 
 /** A reading or result the engineer said out loud. Never filled in by Ardent. */
@@ -422,8 +427,10 @@ export interface JobReport {
   sections: { topic: ReportTopic; lines: ReportLine[] }[]
   parts: ReportPart[]
   readings: ReportReading[]
-  /** Prompts nothing was said about. */
+  /** Prompts nothing was said about, or, once ticks are made, ticked things the report still lacks. */
   missing: ReportTopic[]
+  /** What the engineer ticked before talking. Older reports have none. */
+  ticked?: ReportTick[]
   status: 'draft' | 'signed'
   createdAt: string
   updatedAt: string

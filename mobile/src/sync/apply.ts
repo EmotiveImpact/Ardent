@@ -5,7 +5,7 @@
  * folds the engine's answer back in once a change has gone.
  */
 import { totals } from '@/kit/format';
-import { buildReport, partLines } from '@/kit/report';
+import { buildReport, partLines, withTicks } from '@/kit/report';
 import { checkLabel } from '@/kit/states';
 import type { ComplianceCheck, Day, GasAppliance, GasSafetyRecord, Invoice, Job, JobReport, LineItem, Note, Operator, OperatorState, Photo, Signature, Standby, TimeEntry, VanFix } from '@/data/types';
 
@@ -152,12 +152,12 @@ export function applyLocal(day: Day, op: Op): Day {
       }));
     }
     case 'reports.save': {
-      const [jobId, input] = a as unknown as [string, { operatorId: string; segments: JobReport['segments']; parts?: JobReport['parts'] }];
+      const [jobId, input] = a as unknown as [string, { operatorId: string; segments: JobReport['segments']; parts?: JobReport['parts']; ticked?: JobReport['ticked'] }];
       const job = day.jobs.find((j) => j.id === jobId);
       if (!job) return day;
       const was = day.reports.find((r) => r.jobId === jobId && r.operatorId === input.operatorId && r.status === 'draft');
       const built = buildReport({ segments: input.segments, trade: job.trade, priceList: day.priceList, van: day.stock });
-      const report: JobReport = { ...built, parts: input.parts ?? built.parts, id: was?.id ?? op.localId!, jobId, operatorId: input.operatorId, segments: input.segments, status: 'draft', createdAt: was?.createdAt ?? op.at, updatedAt: op.at };
+      const report: JobReport = { ...withTicks(built, input.parts ?? built.parts, input.ticked ?? was?.ticked), id: was?.id ?? op.localId!, jobId, operatorId: input.operatorId, segments: input.segments, status: 'draft', createdAt: was?.createdAt ?? op.at, updatedAt: op.at };
       return { ...day, reports: [...day.reports.filter((r) => r !== was), report] };
     }
     case 'reports.sign': {

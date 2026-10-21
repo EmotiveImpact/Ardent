@@ -5,7 +5,7 @@
  * a reading is a number they spoke with its unit. Nothing is ever filled in
  * that wasn't said, and what wasn't said shows as still needed.
  */
-import type { JobReport, LineItem, PriceItem, ReportLine, ReportPart, ReportReading, ReportSegment, ReportSource, ReportTopic, StockLevel, Trade } from '../../core/src/data/model.ts'
+import type { JobReport, LineItem, PriceItem, ReportLine, ReportPart, ReportReading, ReportSegment, ReportSource, ReportTick, ReportTopic, StockLevel, Trade } from '../../core/src/data/model.ts'
 
 export interface ReportPrompt {
   topic: ReportTopic
@@ -35,6 +35,47 @@ export function promptsFor(trade: Trade): ReportPrompt[] {
     { topic: 'left', chip: 'Faults', title: "Anything you couldn't finish or found wrong", hint: 'Faults, no access, made safe. Say "nothing left" if none' },
     { topic: 'next', chip: 'Next', title: 'What the customer wants next', hint: 'Quotes, return visits, advice. Say "nothing else" if none' },
   ]
+}
+
+export interface ReportTickOption {
+  tick: ReportTick
+  label: string
+  hint: string
+  /** What the report must then have before it can be signed off. */
+  needs: ReportTopic
+}
+
+/**
+ * What the engineer ticks before talking. Talking is good for the story of the
+ * job and poor at an exact list, so ticking first tells Ardent what has to be
+ * there: a ticked item can't sign off empty.
+ */
+export const TICKS: ReportTickOption[] = [
+  { tick: 'service', label: 'Service or check-up', hint: 'Looked after what was already there', needs: 'work' },
+  { tick: 'repair', label: 'Repair', hint: 'Found a fault and fixed it', needs: 'work' },
+  { tick: 'fitted', label: 'Fitted or replaced something', hint: 'Something new went in', needs: 'parts' },
+  { tick: 'parts', label: 'Parts used', hint: 'Off the van, a merchant or the customer', needs: 'parts' },
+  { tick: 'tests', label: 'Tests and readings', hint: 'Anything you measured or tested', needs: 'tests' },
+  { tick: 'left', label: 'Left something or found a fault', hint: "Couldn't finish, made safe, no access", needs: 'left' },
+  { tick: 'next', label: 'Customer wants more work', hint: 'A quote, a return visit, advice', needs: 'next' },
+]
+
+const TOPIC_ORDER: ReportTopic[] = ['work', 'parts', 'tests', 'left', 'next']
+
+/** The topics a set of ticks needs. What was done is always needed. */
+export function needed(ticked: ReportTick[]): ReportTopic[] {
+  const want = new Set<ReportTopic>(['work', ...ticked.map((t) => TICKS.find((x) => x.tick === t)!.needs)])
+  return TOPIC_ORDER.filter((t) => want.has(t))
+}
+
+/**
+ * Ticked things a report still lacks. A ticked "Parts used" needs a real part
+ * in the list, not just a sentence about parts; tests need a line or a reading.
+ */
+export function stillNeeded(r: Pick<JobReport, 'sections' | 'parts' | 'readings'> & { ticked?: ReportTick[] }): ReportTopic[] {
+  if (!r.ticked) return []
+  const said = (t: ReportTopic) => r.sections.some((s) => s.topic === t && s.lines.length > 0)
+  return needed(r.ticked).filter((t) => !(t === 'parts' ? r.parts.length > 0 : t === 'tests' ? said(t) || r.readings.length > 0 : said(t)))
 }
 
 // Numbers, as people say them on site.
@@ -198,6 +239,10 @@ const RULES: { topic: ReportTopic | 'none_left' | 'none_next'; re: RegExp }[] = 
   { topic: 'parts', re: /\b(off the van|from the van|out the van|van|merchant|wholesaler|screwfix|toolstation|plumb ?centre|city plumbing|customer'?s own|customer supplied|supplied by|picked up|bought|used)\b/i },
 ]
 
+/** A sentence that opens with what they did. */
+const DID_FIRST = /^\W*(i\W+|we\W+|i've\W+|have\W+)?(swapped|replaced|fitted|installed|changed|put in|renewed|repaired|fixed|re-?made|re-?wired|re-?piped|cleared)\b/i
+/** Words that mean something is still wrong after the visit. */
+const STILL_WRONG = /\b(couldn'?t|could not|unable|no access|made (it |them )?safe|left (it|as|the|them)|capped|isolated|unsafe|at risk|immediately dangerous|still|needs? (replacing|a new|to be)|warning notice|condemned|ran out)\b/i
 /** Looking after what's already there: "serviced the boiler" uses no new boiler. */
 const UPKEEP = /\b(serviced|cleaned|cleared|checked|inspected|looked at|tested|repaired|fixed|bled|flushed|descaled|adjusted)\b/i
 /** Words that mean something new went in. */
@@ -454,6 +499,8 @@ export function buildReport({ segments, trade, priceList, van }: ReportInput): B
         continue
       }
       if (rule) topic = rule.topic as ReportTopic
+      // "Replaced the faulty socket" is work done, not a fault left behind.
+      if (topic === 'left' && DID_FIRST.test(sen.text) && !STILL_WRONG.test(sen.text)) topic = 'work'
       // "Swapped it for a new valve off the van" is the work as well as the part.
       if (topic === 'parts' && WORK.test(sen.text)) topic = 'work'
 
@@ -568,10 +615,27 @@ export function partLines(parts: ReportPart[], priceList: PriceItem[], operatorI
   })
 }
 
+/** A built report with the engineer's own parts and ticks: once they've ticked, "missing" is what the ticks still need. */
+export function withTicks(built: BuiltReport, parts: ReportPart[], ticked?: ReportTick[]): BuiltReport & { ticked?: ReportTick[] } {
+  const r = { ...built, parts, ...(ticked ? { ticked } : {}) }
+  return ticked ? { ...r, missing: stillNeeded(r) } : r
+}
+
 /** Why a report can't be signed yet, or undefined when it can. */
-export function cantSign(parts: ReportPart[]): string | undefined {
-  const open = parts.find((p) => !p.itemId && p.choices?.length)
-  return open ? `Pick which part "${open.description}" is first` : undefined
+const LACKING: Record<ReportTopic, string> = {
+  work: 'Say what you did first',
+  parts: 'You ticked parts: add them from your van, or say or type them',
+  tests: 'You ticked tests and readings: say what you tested',
+  left: "You ticked something left or wrong: say what it is",
+  next: 'You ticked more work: say what the customer wants',
+}
+
+export function cantSign(r: Pick<JobReport, 'sections' | 'parts' | 'readings'> & { ticked?: ReportTick[] }): string | undefined {
+  const open = r.parts.find((p) => !p.itemId && p.choices?.length)
+  if (open) return `Pick which part "${open.description}" is first`
+  if (!r.sections.length && !r.parts.length) return LACKING.work
+  const lacking = stillNeeded(r)[0]
+  return lacking ? LACKING[lacking] : undefined
 }
 
 /**
@@ -584,6 +648,23 @@ export function keepFixes(built: ReportPart[], saved: ReportPart[]): ReportPart[
     const same = list.filter((o) => o.from.segment === p.from.segment && o.from.start === p.from.start && o.from.end === p.from.end)
     return `${p.from.segment}:${p.from.start}:${p.from.end}:${same.indexOf(p)}`
   }
-  const fixed = new Map(saved.map((p) => [key(p, saved), p]))
-  return built.map((p) => fixed.get(key(p, built)) ?? p)
+  const fixed = new Map(saved.filter((p) => !p.picked).map((p) => [key(p, saved), p]))
+  // Parts picked from the van list or typed aren't in the words, so they're kept as they are.
+  return [...built.map((p) => fixed.get(key(p, built)) ?? p), ...saved.filter((p) => p.picked)]
+}
+
+/** A part picked from the van list, or typed when it isn't on the van or the price list. */
+export function pickedPart(item: PriceItem | undefined, description: string, fromVan: boolean): ReportPart {
+  return {
+    ...(item ? { itemId: item.id } : {}),
+    description: item?.name ?? description.trim(),
+    quantity: 1,
+    unit: item?.unit ?? 'each',
+    quantitySaid: true,
+    fromVan,
+    sourceSaid: true,
+    heard: '',
+    from: { segment: -1, start: 0, end: 0 },
+    picked: true,
+  }
 }

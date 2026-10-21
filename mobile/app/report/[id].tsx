@@ -10,16 +10,16 @@ import { Atmosphere } from '@/components/Atmosphere';
 import { HoldToCommit } from '@/components/HoldToCommit';
 import { Icon } from '@/components/Icon';
 import { Back, Dock, Input } from '@/components/ui';
-import type { Job, JobReport, ReportLine, ReportPart, ReportSegment, ReportSource } from '@/data/types';
+import type { Job, JobReport, ReportLine, ReportPart, ReportSegment, ReportSource, ReportTick } from '@/data/types';
 import { clock } from '@/kit/format';
-import { buildReport, cantSign, coveredSoFar, keepFixes, promptsFor, tradeWords } from '@/kit/report';
+import { buildReport, cantSign, coveredSoFar, keepFixes, needed, pickedPart, promptsFor, TICKS, tradeWords } from '@/kit/report';
 import * as act from '@/sync/actions';
 import { useField } from '@/sync/hooks';
 import { GAS_TRADES } from '@/sync/pull';
 import { color, font, radius, space } from '@/theme/tokens';
 import { useListen } from '@/voice/listen';
 
-type Step = 'talk' | 'check' | 'signed';
+type Step = 'what' | 'talk' | 'check' | 'signed';
 
 const buzz = (type: Haptics.NotificationFeedbackType) => {
   if (Platform.OS !== 'web') Haptics.notificationAsync(type).catch(() => {});
@@ -63,7 +63,10 @@ export default function JobReportScreen() {
   const mine = day && job ? day.reports.filter((r) => r.jobId === job.id && r.operatorId === day.operator.id) : [];
   const report: JobReport | undefined = mine.find((r) => r.status === 'draft') ?? mine.find((r) => r.status === 'signed');
 
-  const [step, setStep] = useState<Step>(() => (report?.status === 'signed' ? 'signed' : report?.segments.length ? 'check' : 'talk'));
+  const [step, setStep] = useState<Step>(() => (report?.status === 'signed' ? 'signed' : report?.segments.length ? 'check' : report?.ticked ? 'talk' : 'what'));
+  const [ticks, setTicks] = useState<ReportTick[]>(() => report?.ticked ?? []);
+  const [picking, setPicking] = useState(false);
+  const [other, setOther] = useState('');
   const words = useMemo(() => (day && job ? tradeWords({ trade: job.trade, priceList: day.priceList, van: day.stock }) : []), [day?.priceList, day?.stock, job?.trade]);
   const ear = useListen(words);
   const preview = Platform.OS === 'web' && ear.hearing !== 'listening';
@@ -91,7 +94,10 @@ export default function JobReportScreen() {
 
   if (!day || !job) return <View style={styles.root} />;
   const segments = report?.segments ?? [];
-  const prompts = promptsFor(job.trade);
+  const allPrompts = promptsFor(job.trade);
+  // Once they've ticked what happened, only what the ticks need is asked for.
+  const prompts = report?.ticked ? allPrompts.filter((p) => needed(report.ticked!).includes(p.topic)) : allPrompts;
+  const title = (t: string) => allPrompts.find((p) => p.topic === t)!.title;
   const input = (segs: ReportSegment[]) => ({ segments: segs, trade: job.trade, priceList: day.priceList, van: day.stock });
   const live = demo || ear.live;
   const covered = coveredSoFar(input(live ? [...segments, { text: live, at: new Date().toISOString() }] : segments));
@@ -125,6 +131,34 @@ export default function JobReportScreen() {
     void run(() => save([...segments, { text: t, at: new Date().toISOString() }]));
   };
   const fix = (i: number, change: Partial<ReportPart>) => report && run(() => act.saveReport(job, report.segments, report.parts.map((p, j) => (j === i ? { ...p, ...change } : p))));
+  const drop = (i: number) => report && run(() => act.saveReport(job, report.segments, report.parts.filter((_, j) => j !== i)));
+  /** A part from the van list: one more of it if it's already there. */
+  const pick = (itemId: string) => {
+    if (!report) return;
+    const item = day.priceList.find((x) => x.id === itemId);
+    if (!item) return;
+    const at = report.parts.findIndex((p) => p.itemId === itemId);
+    if (at >= 0) return fix(at, { quantity: report.parts[at].quantity + 1, quantitySaid: true });
+    void run(() => act.saveReport(job, report.segments, [...report.parts, pickedPart(item, '', true)]));
+  };
+  const typePart = () => {
+    const text = other.trim();
+    if (!report || !text) return;
+    const item = day.priceList.find((x) => x.kind === 'material' && x.name.toLowerCase() === text.toLowerCase());
+    setOther('');
+    void run(() => act.saveReport(job, report.segments, [...report.parts, pickedPart(item, text, false)]));
+  };
+  const toggle = (t: ReportTick) =>
+    setTicks((was) => {
+      if (was.includes(t)) return was.filter((x) => x !== t);
+      // Fitting something means parts went in.
+      return TICKS.map((x) => x.tick).filter((x) => x === t || was.includes(x) || (t === 'fitted' && x === 'parts'));
+    });
+  const confirmTicks = () =>
+    run(async () => {
+      await act.saveReport(job, segments, report?.parts, ticks);
+      setStep(segments.length ? 'check' : 'talk');
+    });
 
   const press = () => {
     if (preview) {
@@ -152,7 +186,7 @@ export default function JobReportScreen() {
 
   const sign = () => {
     if (!report) return;
-    const why = cantSign(report.parts);
+    const why = cantSign(report);
     if (why) {
       setWarn(why);
       buzz(Haptics.NotificationFeedbackType.Warning);
@@ -236,9 +270,16 @@ export default function JobReportScreen() {
           </Text>
           {p.fromVan && <Text style={styles.van}>VAN</Text>}
         </View>
-        <Text style={styles.partSaid} numberOfLines={2}>
-          “{s.it.trim()}”
-        </Text>
+        <View style={styles.partFrom}>
+          <Text style={[styles.partSaid, { flex: 1, marginTop: 0 }]} numberOfLines={2}>
+            {p.picked ? (p.itemId ? (p.fromVan ? 'Picked from your van' : 'Picked from the price list') : 'Typed in, not on the price list. The office prices it') : `“${s.it.trim()}”`}
+          </Text>
+          {p.picked && (
+            <Pressable onPress={() => void drop(i)} accessibilityRole="button" accessibilityLabel={`Remove ${p.description}`} hitSlop={10}>
+              <Text style={styles.remove}>Remove</Text>
+            </Pressable>
+          )}
+        </View>
         {!!p.choices?.length && (
           <View style={{ gap: 6, marginTop: 10 }} accessibilityRole="radiogroup">
             {p.choices.map((c) => {
@@ -271,7 +312,12 @@ export default function JobReportScreen() {
     );
   };
 
-  const blocked = report ? cantSign(report.parts) : 'Say something first';
+  const blocked = report ? cantSign(report) : 'Say something first';
+  const partsTicked = !!report?.ticked && needed(report.ticked).includes('parts');
+  const van = day.stock
+    .filter((x) => x.quantity > 0)
+    .map((x) => ({ ...x, item: day.priceList.find((i) => i.id === x.itemId) }))
+    .filter((x) => x.item);
 
   return (
     <View style={styles.root}>
@@ -279,21 +325,53 @@ export default function JobReportScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={styles.pad}>
           <TopRow
-            left={step === 'check' ? <Back label="Talk" onPress={() => setStep('talk')} /> : <Back label={job.ref} />}
+            left={
+              step === 'check' ? <Back label="Talk" onPress={() => setStep('talk')} /> : step === 'talk' ? <Back label="What happened" onPress={() => setStep('what')} /> : <Back label={job.ref} />
+            }
             right={`${job.ref}   ${clock(new Date().toISOString())}`}
           />
         </View>
 
         <View style={styles.head}>
-          <OpTitle size={26}>{step === 'talk' ? 'Job report' : step === 'check' ? 'Check it over' : 'Report signed'}</OpTitle>
+          <OpTitle size={26}>{step === 'what' ? 'What happened?' : step === 'talk' ? 'Job report' : step === 'check' ? 'Check it over' : 'Report signed'}</OpTitle>
           <Text style={styles.sub}>
-            {step === 'talk'
+            {step === 'what'
+              ? "Tick everything that happened on this job. You can't sign off until each one is in the report."
+              : step === 'talk'
               ? 'Hold the button and talk it through, the way you would tell the office. It stays on the phone.'
               : step === 'check'
                 ? 'Tap a line to see the words it came from.'
                 : `Signed by ${report?.signedBy ?? day.operator.name}${report?.signedAt ? ` at ${clock(report.signedAt)}` : ''}. The office sees it on ${job.ref}.`}
           </Text>
         </View>
+
+        {step === 'what' && (
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            <Card style={styles.list}>
+              {TICKS.map((t, i) => {
+                const on = ticks.includes(t.tick);
+                return (
+                  <Pressable
+                    key={t.tick}
+                    onPress={() => toggle(t.tick)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={t.label}
+                    style={({ pressed }) => [styles.prompt, i > 0 && styles.promptDivider, pressed && { opacity: 0.6 }]}
+                  >
+                    <View style={[styles.box, on && styles.boxOn]}>{on && <Icon name="check" size={14} tint={color.bg} strokeWidth={2.6} />}</View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.promptTitle}>{t.label}</Text>
+                      <Text style={styles.promptHint}>{t.hint}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </Card>
+            <Text style={styles.hint}>What you did always goes in. Parts can be picked from your van afterwards, or said while you talk.</Text>
+            {!!warn && <Text style={[styles.hint, { color: color.warn }]}>{warn}</Text>}
+          </ScrollView>
+        )}
 
         {step === 'talk' && (
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -349,7 +427,12 @@ export default function JobReportScreen() {
                 <Section label="Still needed" right={<Cap tint={color.warn}>{`${report.missing.length}`}</Cap>} style={{ marginTop: 0 }} />
                 <Card style={styles.list}>
                   {report.missing.map((t, i) => (
-                    <Line key={t} first={i === 0} left={prompts.find((p) => p.topic === t)!.title} right={<Chip label="Say it" tint={color.fg} onPress={() => setStep('talk')} />} />
+                    <Line
+                      key={t}
+                      first={i === 0}
+                      left={title(t)}
+                      right={t === 'parts' ? <Chip label="Pick" tint={color.fg} onPress={() => setPicking(true)} /> : <Chip label="Say it" tint={color.fg} onPress={() => setStep('talk')} />}
+                    />
                   ))}
                 </Card>
               </>
@@ -357,16 +440,51 @@ export default function JobReportScreen() {
 
             {report.sections.map((s) => (
               <View key={s.topic}>
-                <Section label={prompts.find((p) => p.topic === s.topic)!.title} />
+                <Section label={title(s.topic)} />
                 <Card style={styles.list}>{s.lines.map((l, i) => lineRow(l, `${s.topic}${i}`, i === 0))}</Card>
               </View>
             ))}
 
-            {report.parts.length > 0 && (
+            {(report.parts.length > 0 || partsTicked || picking) && (
               <>
-                <Section label="Parts" right={<Cap>{`${report.parts.length}`}</Cap>} />
-                <Card style={styles.list}>{report.parts.map(partRow)}</Card>
-                <Text style={styles.hint}>Signing adds these to the job at price list prices, and takes the van ones off your van.</Text>
+                <Section label="Parts for the invoice" right={<Cap>{`${report.parts.length}`}</Cap>} />
+                {report.parts.length > 0 && <Card style={styles.list}>{report.parts.map(partRow)}</Card>}
+                {picking ? (
+                  <Card style={[styles.list, { marginTop: report.parts.length ? 8 : 0 }]}>
+                    <Cap tint={color.fgMuted}>On your van</Cap>
+                    {van.length === 0 && <Text style={styles.hint}>Nothing on your van list.</Text>}
+                    {van.map((v, i) => {
+                      const n = report.parts.find((p) => p.itemId === v.itemId)?.quantity;
+                      return (
+                        <Pressable
+                          key={v.itemId}
+                          onPress={() => pick(v.itemId)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Add ${v.item!.name}`}
+                          style={({ pressed }) => [styles.vanRow, i > 0 && styles.rowDivider, pressed && { opacity: 0.6 }]}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.rowText}>{v.item!.name}</Text>
+                            <Text style={styles.promptHint}>{`${v.quantity} on the van`}</Text>
+                          </View>
+                          {n ? <Text style={styles.reading}>{`${n} added`}</Text> : <Icon name="plus" size={18} tint={color.fg} />}
+                        </Pressable>
+                      );
+                    })}
+                    <Cap tint={color.fgMuted} style={{ marginTop: 16 }}>Not on the van</Cap>
+                    <Input value={other} onChangeText={setOther} placeholder="Type it, for example 10-way consumer unit" accessibilityLabel="Part not on the van" style={{ marginTop: 8 }} onSubmitEditing={typePart} />
+                    <View style={styles.pair}>
+                      <Plain title="Done" quiet onPress={() => setPicking(false)} flex />
+                      <Plain title="Add it" onPress={typePart} disabled={!other.trim()} flex />
+                    </View>
+                  </Card>
+                ) : (
+                  <View style={styles.pair}>
+                    <Plain title="From the van" icon="plus" onPress={() => setPicking(true)} flex />
+                    <Plain title="Say them" quiet onPress={() => setStep('talk')} flex />
+                  </View>
+                )}
+                {report.parts.length > 0 && <Text style={styles.hint}>Signing adds these to the job at price list prices, and takes the van ones off your van.</Text>}
               </>
             )}
 
@@ -399,7 +517,7 @@ export default function JobReportScreen() {
             </Animated.View>
             {report.sections.map((s) => (
               <View key={s.topic}>
-                <Section label={prompts.find((p) => p.topic === s.topic)!.title} />
+                <Section label={title(s.topic)} />
                 <Card style={styles.list}>{s.lines.map((l, i) => lineRow(l, `${s.topic}${i}`, i === 0))}</Card>
               </View>
             ))}
@@ -417,6 +535,7 @@ export default function JobReportScreen() {
         )}
 
         <Dock>
+          {step === 'what' && <Go label={busy ? 'Saving' : 'Next: talk it through'} icon="arrow" onPress={() => void confirmTicks()} disabled={busy} />}
           {step === 'talk' && (
             <>
               <View style={styles.micRow}>
@@ -478,6 +597,11 @@ const styles = StyleSheet.create({
   partName: { flex: 1, color: color.fg, fontFamily: font.sansMedium, fontSize: 15 },
   partSaid: { color: color.fgFaint, fontFamily: font.sans, fontSize: 13, lineHeight: 18, marginTop: 4 },
   partControls: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 10 },
+  partFrom: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  remove: { color: color.fgMuted, fontFamily: font.sansMedium, fontSize: 13 },
+  vanRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  box: { width: 24, height: 24, borderRadius: 7, backgroundColor: color.raised, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  boxOn: { backgroundColor: color.fg },
   van: { color: color.fgMuted, backgroundColor: color.raised, fontFamily: font.mono, fontSize: 10, letterSpacing: 1.6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.sm, overflow: 'hidden' },
   grid: { flexDirection: 'row', gap: 8 },
   micRow: { alignItems: 'center', gap: 10, marginBottom: 12 },

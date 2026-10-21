@@ -212,10 +212,10 @@ export function setStandby(standby: { until: string; radius: number; base?: { la
 }
 
 /** Save what's been said so far as the job's report draft. parts carries the engineer's own fixes to the parts. */
-export function saveReport(job: Job, segments: JobReport['segments'], parts?: JobReport['parts']) {
+export function saveReport(job: Job, segments: JobReport['segments'], parts?: JobReport['parts'], ticked?: JobReport['ticked']) {
   const day = current();
   const has = day.reports.some((r) => r.jobId === job.id && r.status === 'draft');
-  return field.enqueue(callOp('reports.save', [job.id, { operatorId: day.operator.id, segments, ...(parts ? { parts } : {}) }], `${has ? 'Updated' : 'Recorded'} the job report on ${job.ref}`, has ? {} : { localId: localId('rep') }));
+  return field.enqueue(callOp('reports.save', [job.id, { operatorId: day.operator.id, segments, ...(parts ? { parts } : {}), ...(ticked ? { ticked } : {}) }], `${has ? 'Updated' : 'Recorded'} the job report on ${job.ref}`, has ? {} : { localId: localId('rep') }));
 }
 
 export function signReport(report: JobReport, job: Job) {

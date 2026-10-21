@@ -55,3 +55,10 @@ test('labour on the price list is not a part: "the engineers" may be written', (
   const check = checkTidy(report, { next: ['The customer wants the engineers to return to look at the radiators upstairs.'] }, priceList)
   assert.equal(check.ok, true, check.problems.join('; '))
 })
+
+test('a part dropped from the rewrite fails even when its number is kept', () => {
+  const report = { sections: [{ topic: 'parts' as const, lines: [{ text: 'Took the board and the breakers off the van, plus about 2 m of 2.5mm twin and earth.', from: { segment: 0, start: 0, end: 1 } }] }] }
+  const check = checkTidy(report, { parts: ['Used the board and breakers from the van, plus about 2 m of 2.5mm cable.'] }, priceList)
+  assert.equal(check.ok, false)
+  assert.ok(check.problems.some((p) => p.includes('dropped the part word "twin"')), check.problems.join('; '))
+})

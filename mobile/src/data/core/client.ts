@@ -1,4 +1,4 @@
-import type { ActionEntry, Approval, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, JobStatus, Level, LineItem, MorningBrief, Note, Operator, OperatorState, OptionKey, PaymentMethod, Photo, PriceItem, Quote, ReportPart, ReportSegment, Signature, Site, Standby, StockLevel, TimeEntry, Usage, VanFix, Verdict } from './model'
+import type { ActionEntry, Approval, Automation, AutomationJob, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobReport, JobRequest, JobStatus, Level, LineItem, MorningBrief, Note, Operator, OperatorState, OptionKey, PaymentMethod, Photo, PriceItem, Quote, ReportPart, ReportSegment, ReportTick, Signature, Site, Standby, StockLevel, TimeEntry, Usage, VanFix, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -82,7 +82,7 @@ export interface ArdentClient {
   reports: {
     forJob(jobId: string): Promise<JobReport[]>
     /** Make or replace the job's draft. parts is the engineer's own pick, quantity and van for each part. */
-    save(jobId: string, input: { operatorId: string; segments: ReportSegment[]; parts?: ReportPart[] }): Promise<JobReport>
+    save(jobId: string, input: { operatorId: string; segments: ReportSegment[]; parts?: ReportPart[]; ticked?: ReportTick[] }): Promise<JobReport>
     /** Signed off by the engineer: the parts go on the job (and a draft invoice) and come off their van. */
     sign(id: string): Promise<JobReport>
   }

@@ -10,7 +10,7 @@ import { Card, ChecksRow, RowButton, SectionHead, StageTrack, StateDot, StepRing
 import { BookedTime, OnSiteClock, jobSteps, useJobField, type JobField } from '@/components/ardent/job-live'
 import { Fact, OverrideHold, StageTimes } from '@/components/ardent/jobs-parts'
 import { useArdent, useBook, type Book } from '@/data/ardent'
-import type { Invoice, Job, JobStatus, LineItem, Priority, Quote, ReportTopic } from '@/data/model'
+import type { Invoice, Job, JobStatus, LineItem, Priority, Quote, ReportTick, ReportTopic } from '@/data/model'
 import { act } from '@/lib/act'
 import { find, invoiceOwed, invoiceTotal, jobContext, onDay, today } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
@@ -399,11 +399,12 @@ function JobReports({ book, field }: { book: Book; field: JobField }) {
               )}
               {r.parts.length > 0 && (
                 <p className="text-[13px] text-muted">
-                  Parts: {r.parts.map((p) => `${p.quantity > 1 ? `${p.quantity}× ` : ''}${p.description}${p.fromVan ? ' (van)' : ''}`).join(', ')}
+                  Parts: {r.parts.map((p) => `${p.quantity > 1 ? `${p.quantity}× ` : ''}${p.description}${p.fromVan ? ' (van)' : ''}${p.itemId ? '' : ' (not on the price list, needs a price)'}`).join(', ')}
                   {r.status === 'signed' ? '. Added to the job.' : '.'}
                 </p>
               )}
-              {r.missing.length > 0 && <p className="text-[13px] text-warn">Not said: {r.missing.map((t) => title(t).toLowerCase()).join(', ')}.</p>}
+              {r.ticked && r.ticked.length > 0 && <p className="text-[13px] text-muted">Ticked on site: {r.ticked.map((t) => TICKED[t]).join(', ')}.</p>}
+              {r.missing.length > 0 && <p className="text-[13px] text-warn">Still needed: {r.missing.map((t) => title(t).toLowerCase()).join(', ')}.</p>}
             </Card>
           )
         })}
@@ -411,6 +412,8 @@ function JobReports({ book, field }: { book: Book; field: JobField }) {
     </section>
   )
 }
+
+const TICKED: Record<ReportTick, string> = { service: 'service', repair: 'repair', fitted: 'fitted something', parts: 'parts used', tests: 'tests', left: 'left or found wrong', next: 'more work wanted' }
 
 const kinds: LineItem['kind'][] = ['labour', 'material', 'callout', 'other']
 const kindWord: Record<LineItem['kind'], string> = { labour: 'Labour', material: 'Materials', callout: 'Call-out', other: 'Other' }

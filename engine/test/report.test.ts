@@ -2,11 +2,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { priceList, stock } from '../../core/src/data/mock.ts'
-import { buildReport, digits, keepFixes, spoken, tidy, tradeWords } from '../kit/report.ts'
+import { buildReport, digits, keepFixes, pickedPart, spoken, tidy, tradeWords } from '../kit/report.ts'
 import { demo } from './helpers.ts'
 
 const at = '2026-10-21T15:00:00Z'
 const said = (...texts: string[]) => texts.map((text) => ({ text, at }))
+const said2 = said
 const van = (operatorId: string) => stock.filter((s) => s.operatorId === operatorId)
 
 test('numbers and units come out the way a report writes them', () => {
@@ -178,4 +179,30 @@ test('a service uses no parts: "serviced the boiler" is not a new boiler', () =>
   assert.deepEqual(r.parts, [])
   const fitted = buildReport({ trade: 'gas', priceList, van: van('opr_01'), segments: said('Fitted a new combi boiler.') })
   assert.equal(fitted.parts[0]?.itemId, 'itm_01')
+})
+
+test('ticked first: a ticked item can not sign off empty, and parts can be picked from the van', async () => {
+  const kofi = demo().as('kofi').client
+  const ticked = await kofi.reports.save('job_1045', { operatorId: 'opr_02', segments: [], ticked: ['repair', 'parts', 'tests'] })
+  assert.deepEqual(ticked.missing, ['work', 'parts', 'tests'])
+  await assert.rejects(kofi.reports.sign(ticked.id), /Say what you did/)
+
+  // Said what was done and tested, but no part was heard: still can't sign.
+  const said = await kofi.reports.save('job_1045', { operatorId: 'opr_02', segments: said2('Replaced the faulty socket in the kitchen.', 'Tested it, Zs nought point four two.') })
+  assert.deepEqual(said.ticked, ['repair', 'parts', 'tests'], 'ticks stay when they talk')
+  assert.deepEqual(said.missing, ['parts'])
+  await assert.rejects(kofi.reports.sign(said.id), /You ticked parts/)
+
+  // Pick one from the van list and type one that isn't on it.
+  const rcbo = priceList.find((i) => i.id === 'itm_11')!
+  const parts = [...said.parts, { ...pickedPart(rcbo, '', true), quantity: 2 }, pickedPart(undefined, 'Double socket, white', false)]
+  const picked = await kofi.reports.save('job_1045', { operatorId: 'opr_02', segments: said.segments, parts })
+  assert.deepEqual(picked.missing, [])
+  assert.deepEqual(picked.parts.map((p) => [p.description, p.quantity, p.picked]), [['RCBO, 32A type A', 2, true], ['Double socket, white', 1, true]])
+  await assert.rejects(kofi.reports.save('job_1045', { operatorId: 'opr_02', segments: said.segments, parts: [pickedPart(undefined, '  ', false)] }), /typed part needs a name/)
+
+  // Talking again keeps what was picked.
+  assert.equal(keepFixes(buildReport({ trade: 'electrical', priceList, van: van('opr_02'), segments: said.segments }).parts, picked.parts).length, 2)
+  const signed = await kofi.reports.sign(picked.id)
+  assert.equal(signed.status, 'signed')
 })

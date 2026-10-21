@@ -23,9 +23,9 @@
  * rules checked in one place) and its customer, site and job records.
  */
 import type { ArdentClient } from '../data/core/client'
-import type { ActionEntry, Approval, Automation, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobReport, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, ReportPart, ReportSegment, StockLevel, Trade, Usage, VanFix, Verdict } from '../data/core/model'
+import type { ActionEntry, Approval, Automation, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobReport, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, ReportPart, ReportSegment, ReportTick, StockLevel, Trade, Usage, VanFix, Verdict } from '../data/core/model'
 import { pounds, shortDate, ukDay } from '../kit/format'
-import { buildReport, cantSign, partLines } from '../kit/report'
+import { buildReport, cantSign, partLines, TICKS, withTicks } from '../kit/report'
 import { AREAS, AUTOMATION_JOBS, automationJobs, composeBrief, defaultAutomation, describe, levelOf, PLAN, usageFor, type Look } from './office'
 import type { Platform } from './platform'
 import type { Data, Membership, OperatorRow, Organisation, Owned, Role, Store, User } from './store'
@@ -1270,13 +1270,15 @@ export function createEngine(store: Store, platform: Platform) {
             const job = editableJob(jobId)
             const op = actingAs(input.operatorId, job)
             const segments = checkSegments(input.segments)
+            if (!segments.length && input.ticked === undefined) throw invalid('the report needs something said')
             if (db.reports.some((r) => r.orgId === orgId && r.jobId === jobId && r.operatorId === op.id && r.status === 'signed')) throw invalid('the job report is already signed off')
             const items = db.priceList.filter((i) => i.orgId === orgId)
             const built = buildReport({ segments, trade: job.trade, priceList: items, van: db.stock.filter((x) => x.orgId === orgId && x.operatorId === op.id) })
-            const parts = input.parts ? checkParts(input.parts, segments, items) : built.parts
-            const now = new Date().toISOString()
             const was = db.reports.find((r) => r.orgId === orgId && r.jobId === jobId && r.operatorId === op.id && r.status === 'draft')
-            const report: Owned<JobReport> = { ...built, parts, id: was?.id ?? newId('rep'), jobId, operatorId: op.id, segments, status: 'draft', createdAt: was?.createdAt ?? now, updatedAt: now, orgId }
+            const parts = input.parts ? checkParts(input.parts, segments, items) : built.parts
+            const ticked = input.ticked === undefined ? was?.ticked : checkTicks(input.ticked)
+            const now = new Date().toISOString()
+            const report: Owned<JobReport> = { ...withTicks(built, parts, ticked), id: was?.id ?? newId('rep'), jobId, operatorId: op.id, segments, status: 'draft', createdAt: was?.createdAt ?? now, updatedAt: now, orgId }
             db.reports = [...db.reports.filter((r) => r !== was), report]
             return report
           }).then((r) => done(out(r))),
@@ -1287,7 +1289,7 @@ export function createEngine(store: Store, platform: Platform) {
             const job = editableJob(report.jobId)
             const op = actingAs(report.operatorId, job)
             if (report.status === 'signed') throw invalid('the job report is already signed off')
-            const why = cantSign(report.parts)
+            const why = cantSign(report)
             if (why) throw invalid(why)
             const lines = partLines(report.parts, db.priceList.filter((i) => i.orgId === orgId), op.id)
             for (const l of lines) {
@@ -1716,7 +1718,8 @@ export function createEngine(store: Store, platform: Platform) {
 
     /** What the engineer said, as the phone sends it: some words, each with a time. */
     function checkSegments(input: unknown): ReportSegment[] {
-      if (!Array.isArray(input) || !input.length) throw invalid('the report needs something said')
+      // Empty only while they've just ticked what happened; signing needs words.
+      if (!Array.isArray(input)) throw invalid('the report needs something said')
       if (input.length > 200) throw invalid('the report is too long')
       return input.map((x) => {
         const seg = x as Partial<ReportSegment>
@@ -1728,14 +1731,20 @@ export function createEngine(store: Store, platform: Platform) {
       })
     }
 
-    /** The engineer's own pick for each part: a real item, a count, and the words it came from. */
+    function checkTicks(input: unknown): ReportTick[] {
+      if (!Array.isArray(input) || input.some((t) => !TICKS.some((x) => x.tick === t))) throw invalid('unknown tick on the report')
+      return TICKS.map((x) => x.tick).filter((t) => input.includes(t))
+    }
+
+    /** The engineer's own pick for each part: a real item, a count, and the words it came from (or picked from the van list). */
     function checkParts(input: ReportPart[], segments: ReportSegment[], items: PriceItem[]): ReportPart[] {
       if (!Array.isArray(input) || input.length > 100) throw invalid('too many parts')
       return input.map((p) => {
         if (p.itemId && !items.some((i) => i.id === p.itemId)) throw notFound('price list item')
         if (!(p.quantity > 0) || p.quantity > 10_000) throw invalid('quantity must be more than zero')
         const seg = segments[p.from?.segment]
-        if (!seg || !(p.from.start >= 0 && p.from.end <= seg.text.length && p.from.start < p.from.end)) throw invalid('every part must point at the words it came from')
+        if (!p.picked && (!seg || !(p.from.start >= 0 && p.from.end <= seg.text.length && p.from.start < p.from.end))) throw invalid('every part must point at the words it came from')
+        if (p.picked && !p.itemId && !String(p.description ?? '').trim()) throw invalid('a typed part needs a name')
         const item = items.find((i) => i.id === p.itemId)
         return {
           ...(p.itemId ? { itemId: p.itemId } : {}),
@@ -1746,7 +1755,8 @@ export function createEngine(store: Store, platform: Platform) {
           fromVan: !!p.fromVan,
           sourceSaid: !!p.sourceSaid,
           heard: String(p.heard ?? '').slice(0, 500),
-          from: { segment: p.from.segment, start: p.from.start, end: p.from.end },
+          from: p.picked ? { segment: -1, start: 0, end: 0 } : { segment: p.from.segment, start: p.from.start, end: p.from.end },
+          ...(p.picked ? { picked: true } : {}),
           ...(!p.itemId && p.choices?.length ? { choices: p.choices.filter((c) => items.some((i) => i.id === c)) } : {}),
         }
       })

@@ -76,7 +76,7 @@ const count = (xs: number[]) => xs.reduce<Map<number, number>>((m, x) => m.set(x
 /**
  * Check a rewrite against the plain report it came from. Numbers and units
  * must match exactly, section by section; no "no" may be lost; no part may
- * be named that wasn't said. New ordinary words are listed, not failed.
+ * be named that wasn't said, or dropped that was. New ordinary words are listed, not failed.
  */
 export function checkTidy(report: Pick<BuiltReport, 'sections'> & Partial<Pick<BuiltReport, 'readings'>>, tidied: unknown, priceList: PriceItem[] = []): TidyCheck {
   const problems: string[] = []
@@ -108,6 +108,9 @@ export function checkTidy(report: Pick<BuiltReport, 'sections'> & Partial<Pick<B
     for (const u of uNow) if (!uWas.includes(u)) problems.push(`${name}: added the unit ${u}`)
     if (negatives(after) < negatives(before)) problems.push(`${name}: lost a "no" or "not"`)
     if (after.length > before.length * 2 + 40) problems.push(`${name}: much longer than what was said`)
+    // A part named in what was said has to survive the rewrite, even with its number kept ("2 m of twin and earth").
+    const kept = new Set(words(spoken(after)).map(stem))
+    for (const w of new Set(words(spoken(before)))) if (partWords.has(stem(w)) && !kept.has(stem(w))) problems.push(`${name}: dropped the part word "${w}"`)
     const said = new Set(words(spoken(before)).map(stem))
     for (const w of new Set(words(spoken(after)))) {
       if (said.has(stem(w)) || PLAIN.has(stem(w))) continue
