@@ -170,7 +170,8 @@ export function Topbar() {
   const here = navFor(pathname)
   const crumbs = bar.crumbs ?? [{ label: pathname.startsWith('/settings') ? 'Settings' : (here?.label ?? 'Ardent Core') }]
   return (
-    <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3.5 shadow-[inset_0_-1px_0_var(--line)]">
+    // Stays at the top while the page scrolls under it, edge to edge across the page's padding.
+    <header className="sticky top-0 z-30 -mx-4 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-background/85 px-4 py-3.5 shadow-[inset_0_-1px_0_var(--line)] backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-9 lg:px-9">
       <div className="flex min-w-0 flex-[1_1_520px] items-center gap-2">
         <ArdentMark className="md:hidden" />
         <Arrows />
