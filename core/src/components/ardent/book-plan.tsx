@@ -85,7 +85,11 @@ export function rankCrew(book: Book, trade: Trade, site?: Site, now = Date.now()
     let state = ''
     let when: Candidate['when'] = 'now'
     let freeAt: string | undefined
-    if (op.state === 'off_shift') {
+    const standby = op.standby && Date.parse(op.standby.until) > now ? op.standby : undefined
+    if (op.role === 'freelance' && !standby) {
+      when = 'off'
+      state = 'Freelance, not on standby'
+    } else if (op.state === 'off_shift') {
       when = 'off'
       state = 'Off shift'
     } else if (current && (op.state === 'on_site' || op.state === 'en_route' || op.state === 'delayed')) {
@@ -96,7 +100,7 @@ export function rankCrew(book: Book, trade: Trade, site?: Site, now = Date.now()
       else if (op.state === 'delayed') state = `Running late to ${current.ref}${op.etaMinutes ? `, ${op.etaMinutes} min out` : ''}, booked there until ${clock(current.end)}`
       else state = `On the way to ${current.ref}${op.etaMinutes ? `, there in ${op.etaMinutes} min` : ''}, booked until ${clock(current.end)}`
     } else {
-      state = op.state === 'workshop' ? 'In the workshop' : 'On shift with nothing on right now'
+      state = standby && op.role === 'freelance' ? `Freelance, on standby until ${clock(standby.until)} within ${standby.radius} miles` : op.state === 'workshop' ? 'In the workshop' : 'On shift with nothing on right now'
       if (nextToday) state += `, next booked ${clock(nextToday.start)} at ${nextToday.ref}`
     }
 

@@ -51,6 +51,8 @@ interface ArdentState {
   signIn(email: string, password: string): Promise<Me>
   signOut(): Promise<void>
   reset?: () => Promise<void>
+  /** Demo only: the same firm as someone else, to play an engineer's phone. */
+  demoAs?: (email: string) => ArdentClient
   /** Bumped after every change, so queries reload. */
   version: number
   refresh(): void
@@ -142,6 +144,7 @@ export function ArdentProvider({ children }: { children: ReactNode }) {
             refresh()
           }
         : undefined,
+      demoAs: conn.demoAs ? (email) => watched(conn.demoAs!(email), refresh) : undefined,
       version,
       refresh,
     }

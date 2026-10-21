@@ -75,6 +75,8 @@ function CallSheet({ book }: { book: Book }) {
   const [feeLabel, setFeeLabel] = useState<string>()
   const [fee, setFee] = useState<string>()
   const [picked, setPicked] = useState<string>()
+  // Send someone straight away, or put it to the crew as a job request.
+  const [how, setHow] = useState<'send' | 'one' | 'all'>('send')
   const [busy, setBusy] = useState(false)
 
   const site = find(book.sites, who.siteId)
@@ -98,7 +100,8 @@ function CallSheet({ book }: { book: Book }) {
     return (['gas', 'heating', 'plumbing', 'electrical', 'roofing', 'carpentry', 'fire', 'lifts', 'hvac', 'general'] as Trade[]).filter((t) => held.has(t))
   }, [book.operators, trade])
 
-  const missing = whoMissing(who) ?? (!chosen ? `someone cleared for ${tradeWord(trade)}` : undefined)
+  const asking = how !== 'send'
+  const missing = whoMissing(who) ?? (!chosen && !asking ? `someone cleared for ${tradeWord(trade)}` : undefined)
 
   const pickProblem = (i: number) => {
     setProblem(i)
@@ -107,7 +110,7 @@ function CallSheet({ book }: { book: Book }) {
   }
 
   const send = async () => {
-    if (missing || busy || !chosen) return
+    if (missing || busy || (!chosen && !asking)) return
     setBusy(true)
     try {
       const where = await settleWho(client, who)
@@ -123,16 +126,17 @@ function CallSheet({ book }: { book: Book }) {
           priority: 'emergency',
           customerId: where.customerId,
           siteId: where.siteId,
-          operatorIds: [chosen.op.id],
+          operatorIds: asking ? [] : [chosen!.op.id],
           start: new Date(start).toISOString(),
           end: new Date(start + TWO_HOURS).toISOString(),
           lines: [],
           checks: checksFor(trade),
           notes: said.trim() || undefined,
         }),
-        (j) => `${j.ref} sent to ${first(chosen.op.name)}`,
+        (j) => (asking ? `${j.ref} booked` : `${j.ref} sent to ${first(chosen!.op.name)}`),
       )
       if (!job) return
+      if (asking) await act(client.requests.create(job.id, { mode: how === 'all' ? 'all' : 'one' }), (r) => (r.status === 'open' ? 'Asking the crew' : 'No one can be asked: see why on the job'))
       if (pence) await act(client.jobs.addLine(job.id, { kind: 'callout', description: feeName.trim() || 'Emergency callout', quantity: 1, unitPrice: pence, ...(listed && fee === undefined && feeLabel === undefined ? { itemId: listed.id } : {}) }))
       navigate(`/jobs/${job.id}`)
     } finally {
@@ -215,15 +219,39 @@ function CallSheet({ book }: { book: Book }) {
           <SectionHead title="Who can go" aside={<span className="font-mono text-[11px] tracking-[.06em] uppercase">Needs {tradeWord(trade)}</span>} className="pb-0" />
           <div className="flex flex-col gap-1" role="radiogroup" aria-label="Who to send">
             {crew.map((c) => (
-              <CrewRow key={c.op.id} c={c} on={chosen?.op.id === c.op.id} best={c === canGo[0] && c.when === 'now'} onPick={() => setPicked(c.op.id)} />
+              <CrewRow
+                key={c.op.id}
+                c={c}
+                on={!asking && chosen?.op.id === c.op.id}
+                best={c === canGo[0] && c.when === 'now'}
+                onPick={() => {
+                  setPicked(c.op.id)
+                  setHow('send')
+                }}
+              />
             ))}
           </div>
-          <p className="pt-3.5 text-[13px] leading-[19px] text-muted shadow-[inset_0_1px_0_var(--line)]">
-            {missing ? `Still need ${missing} before you can send anyone.` : sendNote(book, chosen!, who.name)}
+          <div className="flex flex-wrap items-center gap-1.5 pt-3.5 shadow-[inset_0_1px_0_var(--line)]" role="group" aria-label="How to send it">
+            <Pill on={how === 'send'} onClick={() => setHow('send')} disabled={!chosen}>
+              {chosen ? `Send ${first(chosen.op.name)}` : 'Send someone'}
+            </Pill>
+            <Pill on={how === 'one'} onClick={() => setHow('one')}>
+              Ask the crew, one at a time
+            </Pill>
+            <Pill on={how === 'all'} onClick={() => setHow('all')}>
+              Ask everyone at once
+            </Pill>
+          </div>
+          <p className="text-[13px] leading-[19px] text-muted">
+            {missing
+              ? `Still need ${missing} before you can send anyone.`
+              : asking
+                ? `It goes to the phones of whoever does ${tradeWord(trade)}, has the papers it needs and is free, ${how === 'one' ? 'nearest first, 45 seconds each' : 'all together, first to accept gets it'}. Freelancers are asked when they're on standby. You watch the answers on the job.`
+                : sendNote(book, chosen!, who.name)}
           </p>
           {site && roads && !roads.roadTimes && <p className="-mt-2 text-[12.5px] text-faint">Distances are as the crow flies, from where each van was last seen or the job it's on. Drive times by road come on once the TomTom key is added.</p>}
           <HoldButton
-            label={chosen ? `Hold to send ${first(chosen.op.name)}` : 'Nobody to send'}
+            label={asking ? 'Hold to ask the crew' : chosen ? `Hold to send ${first(chosen.op.name)}` : 'Nobody to send'}
             onCommit={() => void send()}
             ms={1000}
             disabled={!!missing || busy}
@@ -233,7 +261,7 @@ function CallSheet({ book }: { book: Book }) {
             <Link to={who.siteId ? `/jobs/new?site=${who.siteId}` : '/jobs/new'} className="rounded text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60">
               Book it for later instead
             </Link>
-            {canGo.length > 1 && <span className="text-faint">Tap another name to send them instead</span>}
+            {canGo.length > 1 && !asking && <span className="text-faint">Tap another name to send them instead</span>}
           </div>
         </Card>
       </div>

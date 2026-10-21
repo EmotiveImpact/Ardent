@@ -79,6 +79,7 @@ function AddCrewDialog({ children }: { children: ReactNode }) {
             <select id="ac-role" className={selectClass} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Operator['role'] })}>
               <option value="operator">Employee</option>
               <option value="subcontractor">Subcontractor</option>
+              <option value="freelance">Freelance (asked when on standby)</option>
               <option value="owner">Owner</option>
             </select>
           </Labelled>
@@ -239,6 +240,7 @@ function roleLine(o: Operator) {
   const list = t.length > 1 ? `${t.slice(0, -1).join(', ')} and ${t[t.length - 1]}` : (t[0] ?? '')
   if (o.role === 'owner') return list ? `Owner, ${list}` : 'Owner'
   if (o.role === 'subcontractor') return list ? `Subcontractor, ${list}` : 'Subcontractor'
+  if (o.role === 'freelance') return list ? `Freelance, ${list}` : 'Freelance'
   if (o.trades.length === 1 && o.trades[0] === 'electrical') return 'Electrician'
   return list ? list.charAt(0).toUpperCase() + list.slice(1) : 'Employee'
 }

@@ -4,6 +4,7 @@ import { clock, dayDate, duration, invoiceStatus, pounds, quoteStatus, totals, t
 import { PageBar } from '@/components/layout/bar'
 import { fieldClass } from '@/components/ui/field'
 import { barButton } from '@/components/layout/topbar'
+import { RequestBoard, wantsRequest } from '@/components/ardent/job-request'
 import { Card, ChecksRow, RowButton, SectionHead, StageTrack, StateDot, StepRings } from '@/components/ardent/parts'
 import { BookedTime, OnSiteClock, jobSteps, useJobField, type JobField } from '@/components/ardent/job-live'
 import { Fact, OverrideHold, StageTimes } from '@/components/ardent/jobs-parts'
@@ -77,6 +78,8 @@ export function JobDetail() {
       <div className="-mt-4 flex flex-wrap gap-2 empty:hidden sm:hidden">
         <JobActions job={job} book={book} />
       </div>
+
+      {wantsRequest(job) && <RequestBoard job={job} book={book} />}
 
       <section aria-label="Booked to paid" className="flex flex-col gap-4">
         <SectionHead title="Booked to paid" className="pb-1" />
