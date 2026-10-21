@@ -13,10 +13,11 @@ import { clock, relative, shortDate, ukDay } from '@/kit/format';
 import { certificateState, jobDone, trade } from '@/kit/states';
 import { ENGINE_URL, field } from '@/sync/field';
 import { standing, useField, vanStock, waiting } from '@/sync/hooks';
+import { demoRequest } from '@/sync/requests';
 import type { Op } from '@/sync/ops';
 import { color, font, radius, space, toneColor } from '@/theme/tokens';
 
-const ROLE: Record<string, string> = { owner: 'Owner', operator: 'Engineer', subcontractor: 'Subcontractor' };
+const ROLE: Record<string, string> = { owner: 'Owner', operator: 'Engineer', subcontractor: 'Subcontractor', freelance: 'Freelance' };
 
 export default function Me() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function Me() {
   const { state, day } = snap;
   const [confirm, setConfirm] = useState<'reset' | 'signout'>();
   const [busy, setBusy] = useState(false);
+  const [tried, setTried] = useState<string>();
   const n = waiting(snap);
   if (!day || !state.me) return <View style={styles.root} />;
   const op = day.operator;
@@ -179,6 +181,12 @@ export default function Me() {
                     accessibilityLabel="Pretend there's no signal"
                   />
                 }
+              />
+              <Line
+                left="Send me a job request"
+                sub={tried ? `Not offered to you: ${tried}` : 'The office asks who can take an emergency'}
+                right="›"
+                onPress={() => void demoRequest().then(setTried, (e) => setTried((e as Error).message))}
               />
               <Line left="Reset the demo" sub="Back to how it started, on today's date" right="›" onPress={() => setConfirm(confirm === 'reset' ? undefined : 'reset')} />
             </>

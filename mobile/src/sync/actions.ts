@@ -4,7 +4,7 @@
  * moment the engineer acted, never the moment the change reaches the engine.
  */
 import type { ComplianceCheck, Day, DayMode, GasAppliance, GasInstallation, GasSafetyRecord, Job, LineItem, PaymentMethod, Photo, PriceItem, TimeEntry, Verdict } from '@/data/types';
-import { totals } from '@/kit/format';
+import { clock, totals } from '@/kit/format';
 import { checkLabel, jobStatus } from '@/kit/states';
 
 import { field } from './field';
@@ -203,4 +203,10 @@ export function shareLocation(fix: { lat: number; lng: number; accuracy?: number
   const day = field.day;
   if (!day || day.operator.state === 'off_shift') return Promise.resolve();
   return field.enqueueLatest(callOp('operators.setLocation', [day.operator.id, fix], 'Where the van is', { at: fix.at }));
+}
+
+/** On standby for job requests until a time, within so many miles, or off it (null). Only the newest choice is sent. */
+export function setStandby(standby: { until: string; radius: number; base?: { lat: number; lng: number } } | null) {
+  const day = current();
+  return field.enqueueLatest(callOp('operators.setStandby', [day.operator.id, standby], standby ? `On standby until ${clock(standby.until)}` : 'Off standby'));
 }

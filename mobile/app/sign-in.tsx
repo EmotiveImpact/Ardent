@@ -22,8 +22,10 @@ const crew = demoPeople
   .filter((p) => p.role !== 'office')
   .map((p) => {
     const op = demo.operators.find((o) => o.name === p.name);
-    const what = op ? op.trades.map((t) => trade[t]).join(' and ') : '';
-    return { ...p, line: what || (p.role === 'owner' ? 'Owner' : 'Engineer') };
+    const names = op ? op.trades.map((t) => trade[t]) : [];
+    const what = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : (names[0] ?? '');
+    const line = what || (p.role === 'owner' ? 'Owner' : 'Engineer');
+    return { ...p, line: op?.role === 'freelance' ? `Freelance, ${line.toLowerCase()}` : line };
   });
 
 export default function SignIn() {

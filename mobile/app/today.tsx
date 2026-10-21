@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Cap, Go, Num, OpTitle, openMaps, Plain, ring, ringName, Section, StageTrack, TabBar, TopRow } from '@/components/ardent';
 import { Atmosphere } from '@/components/Atmosphere';
 import { HoldToCommit } from '@/components/HoldToCommit';
+import { StandbyCard } from '@/components/Standby';
 import { Dock, ModeChip, SyncChip } from '@/components/ui';
 import type { JobCard } from '@/data/types';
 import { copy } from '@/kit/copy';
@@ -163,6 +164,12 @@ export default function Today() {
             </Text>
           </Animated.View>
 
+          {day.operator.role === 'freelance' && !next && (
+            <Animated.View entering={FadeInDown.delay(40).duration(420)} style={{ marginTop: 22 }}>
+              <StandbyCard />
+            </Animated.View>
+          )}
+
           {next ? (
             <Animated.View entering={FadeInDown.delay(60).duration(420)} style={{ marginTop: 22 }}>
               <Hero job={next} now={now} first={done === 0} />
@@ -178,6 +185,12 @@ export default function Today() {
                 <LaterRow key={j.id} job={j} index={i} />
               ))}
             </>
+          )}
+
+          {day.operator.role === 'freelance' && next && (
+            <View style={{ marginTop: 22 }}>
+              <StandbyCard />
+            </View>
           )}
         </ScrollView>
 

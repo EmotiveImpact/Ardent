@@ -3,7 +3,8 @@
  * so the local engine opens on the same jobs the prototypes show.
  *
  * Sign-ins are for local development only. Dan owns the firm and works on the
- * tools; Jo runs the office; Kofi, Ryan and Tom are in the field.
+ * tools; Jo runs the office; Kofi, Ryan and Tom are in the field;
+ * Sam is a freelance gas engineer the firm calls in.
  */
 import * as mock from '../../core/src/data/mock.ts'
 import type { Platform } from './platform.ts'
@@ -20,6 +21,7 @@ export const demoUsers: { id: string; email: string; name: string; role: Role; o
   { id: 'usr_kofi', email: 'kofi@demo.ardent.local', name: 'Kofi Asante', role: 'field', operatorId: 'opr_02' },
   { id: 'usr_ryan', email: 'ryan@demo.ardent.local', name: 'Ryan Holt', role: 'field', operatorId: 'opr_03' },
   { id: 'usr_tom', email: 'tom@demo.ardent.local', name: 'Tom Byrne', role: 'field', operatorId: 'opr_04' },
+  { id: 'usr_sam', email: 'sam@demo.ardent.local', name: 'Sam Ellis', role: 'field', operatorId: 'opr_05' },
 ]
 
 export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {

@@ -7,7 +7,7 @@
  * strips orgId and userId before anything leaves it, so callers only ever see
  * the shapes in core/src/data/model.ts.
  */
-import type { Certificate, Customer, GasSafetyRecord, Invoice, Job, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
+import type { Certificate, Customer, GasSafetyRecord, Invoice, Job, JobRequest, Note, Operator, Photo, PriceItem, Quote, Signature, Site, StockLevel, TimeEntry } from '../../core/src/data/model.ts'
 
 /** A person who can sign in. */
 export interface User {
@@ -83,6 +83,7 @@ export interface Data {
   priceList: Owned<PriceItem>[]
   stock: Owned<StockLevel>[]
   gasRecords: Owned<GasSafetyRecord>[]
+  jobRequests: Owned<JobRequest>[]
   /** Last number used per firm and kind, e.g. "org_demo:job" -> 1052. */
   counters: Record<string, number>
   sessions: SessionRow[]
@@ -116,6 +117,7 @@ export const emptyData = (): Data => ({
   priceList: [],
   stock: [],
   gasRecords: [],
+  jobRequests: [],
   counters: {},
   sessions: [],
   requests: [],

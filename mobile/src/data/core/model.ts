@@ -49,11 +49,12 @@ export interface Site {
 /** What an operator is doing right now. The mobile app sets this; Core reads it. */
 export type OperatorState = 'on_call' | 'en_route' | 'on_site' | 'workshop' | 'delayed' | 'off_shift'
 
-/** A tradesperson using Ardent, whether owner, employee or subbie. */
+/** A tradesperson using Ardent: owner, employee, subbie, or a freelancer the firm calls in. */
 export interface Operator {
   id: string
   name: string
-  role: 'owner' | 'operator' | 'subcontractor'
+  /** Freelancers are only offered work while they are on standby. */
+  role: 'owner' | 'operator' | 'subcontractor' | 'freelance'
   initials: string
   trades: Trade[]
   van: string
@@ -65,6 +66,16 @@ export interface Operator {
   registrations: { body: string; number: string; expires: string }[]
   /** Where the van was last seen, shared from Ardent Field while on shift. Cleared when the shift ends. */
   location?: VanFix
+  /** Free to be sent work until a time, within so many miles. Set from Ardent Field. */
+  standby?: Standby
+}
+
+export interface Standby {
+  until: string
+  /** How far they'll travel, in miles. */
+  radius: number
+  /** Where they're working from, when the phone isn't sharing the van. */
+  base?: { lat: number; lng: number }
 }
 
 /** One reading of where a van is. */
@@ -87,6 +98,44 @@ export interface DriveTime {
   /** Measured from the van's last reading, or from the site of the job they're on. */
   from: 'van' | 'job'
   seenAt?: string
+}
+
+/** Why an engineer said no to a job request. */
+export type DeclineReason = 'on_a_job' | 'too_far' | 'cant_today'
+
+/** One engineer's go at a job request. */
+export interface JobOffer {
+  operatorId: string
+  status: 'waiting' | 'offered' | 'accepted' | 'declined' | 'expired' | 'closed'
+  /** How far they were when the request went out. */
+  miles?: number
+  minutes?: number
+  offeredAt?: string
+  /** Hold to accept before this, or it moves on. */
+  expiresAt?: string
+  answeredAt?: string
+  reason?: DeclineReason
+}
+
+/**
+ * The office asking who can take a job: sent to the nearest engineer who can
+ * do it, one at a time or to everyone at once, first to accept gets it.
+ */
+export interface JobRequest {
+  id: string
+  jobId: string
+  mode: 'one' | 'all'
+  /** Seconds each engineer has to answer. */
+  wait: number
+  status: 'open' | 'filled' | 'unfilled' | 'withdrawn'
+  /** What the engineer sees before they say yes: no customer name or door number until then. */
+  brief: { ref: string; title: string; trade: Trade; priority: Priority; start: string; end: string; area: string; lat: number; lng: number }
+  /** Who it goes to, in order. Field only sees their own. */
+  offers: JobOffer[]
+  /** Who it couldn't go to, and why. Office only. */
+  skipped: { operatorId: string; why: string }[]
+  createdAt: string
+  filledBy?: string
 }
 
 export interface LineItem {

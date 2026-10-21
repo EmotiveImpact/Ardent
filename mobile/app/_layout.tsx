@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { JobRequestOverlay } from '@/components/JobRequest';
 import { field } from '@/sync/field';
 import { useField } from '@/sync/hooks';
 import { useVanLocation } from '@/sync/location';
@@ -50,6 +51,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.bg }, animation: 'fade' }} />
+      {state.phase === 'signed_in' && <JobRequestOverlay />}
     </SafeAreaProvider>
   );
 }

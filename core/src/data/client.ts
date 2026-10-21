@@ -1,4 +1,4 @@
-import type { Certificate, ComplianceCheck, Customer, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobStatus, LineItem, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, StockLevel, TimeEntry, VanFix, Verdict } from './model'
+import type { Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobRequest, JobStatus, LineItem, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, Standby, StockLevel, TimeEntry, VanFix, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -43,6 +43,23 @@ export interface ArdentClient {
     setState(id: string, state: OperatorState, jobId?: string): Promise<Operator>
     /** The engineer's own van, from their phone, while on shift. Ignored off shift. */
     setLocation(id: string, fix: VanFix): Promise<Operator>
+    /** The engineer puts themselves on standby for work, or comes off it (null). */
+    setStandby(id: string, standby: Standby | null): Promise<Operator>
+  }
+  /**
+   * Asking the crew who can take a job. The office sends one; it goes to
+   * the nearest engineers with the trade and the papers for it, staff before
+   * freelancers. Field sees the requests offered to them and answers.
+   */
+  requests: {
+    /** Office: every request (open ones by default). Field: the ones offered to them. */
+    list(filter?: { jobId?: string; open?: boolean }): Promise<JobRequest[]>
+    /** One at a time (the default) or everyone at once. wait is seconds each, 45 unless given. */
+    create(jobId: string, opts?: { mode?: JobRequest['mode']; wait?: number }): Promise<JobRequest>
+    /** Accepting puts the engineer on the job; declining moves it to the next one. */
+    respond(id: string, answer: 'accept' | 'decline', reason?: DeclineReason): Promise<JobRequest>
+    /** Office calls it off. */
+    withdraw(id: string): Promise<JobRequest>
   }
   /** How far each van on shift is from a site. Office only. */
   travel: {

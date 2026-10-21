@@ -55,6 +55,11 @@ export interface Connection {
   photoUrl(photo: Photo): Promise<string>
   /** For demo mode: put the demo firm back as it started. */
   reset?(): Promise<void>
+  /**
+   * For demo mode: the same firm as someone else, to play the other side of a
+   * job request (the office sending one, or an engineer answering it).
+   */
+  demoAs?(email: string): ArdentClient
 }
 
 const TOKEN = 'ardent.session'
@@ -228,6 +233,11 @@ export async function connectDemo(storage: KeyValue, opts: { today?: string } = 
       const result = (await fn(...args)) ?? null
       if (key) engine.remember(key, result)
       return result
+    },
+    demoAs(email) {
+      const user = engine.data.users.find((u) => u.email === email.trim().toLowerCase())
+      if (!session || !user) throw new EngineError('not_found', 'no one by that email in the demo')
+      return engine.as({ userId: user.id, orgId: session.me.organisation.id }).client
     },
     // The demo has no file store: the image stays where the device saved it.
     uploadPhoto: async () => undefined,

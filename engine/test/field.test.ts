@@ -12,7 +12,7 @@ test('Kofi sees only his jobs, and only their customers and sites', async () => 
   assert.equal(await kofi.sites.get('sit_01'), undefined)
   assert.equal(await kofi.jobs.get('job_1042'), undefined)
   assert.equal(await kofi.customers.get('cus_01'), undefined)
-  assert.equal((await kofi.operators.list()).length, 4, 'the whole crew is visible')
+  assert.equal((await kofi.operators.list()).length, 5, 'the whole crew is visible')
   assert.equal((await kofi.operators.me()).id, 'opr_02')
 })
 

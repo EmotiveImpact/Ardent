@@ -6,7 +6,7 @@
  */
 import { totals } from '@/kit/format';
 import { checkLabel } from '@/kit/states';
-import type { ComplianceCheck, Day, GasAppliance, GasSafetyRecord, Invoice, Job, LineItem, Note, Operator, OperatorState, Photo, Signature, TimeEntry, VanFix } from '@/data/types';
+import type { ComplianceCheck, Day, GasAppliance, GasSafetyRecord, Invoice, Job, LineItem, Note, Operator, OperatorState, Photo, Signature, Standby, TimeEntry, VanFix } from '@/data/types';
 
 import type { CallOp, Op } from './ops';
 
@@ -71,6 +71,12 @@ export function applyLocal(day: Day, op: Op): Day {
       const [, state, jobId] = a as unknown as [string, OperatorState, string | undefined];
       const operator: Operator = { ...day.operator, state, ...(jobId !== undefined ? { currentJobId: jobId } : {}) };
       return { ...day, operator };
+    }
+    case 'operators.setStandby': {
+      const standby = a[1] as Standby | null;
+      if (standby) return { ...day, operator: { ...day.operator, standby: { ...day.operator.standby, ...standby }, state: day.operator.state === 'off_shift' ? 'on_call' : day.operator.state } };
+      const { standby: _s, ...operator } = day.operator;
+      return { ...day, operator: operator.role === 'freelance' && operator.state === 'on_call' ? { ...operator, state: 'off_shift', location: undefined } : operator };
     }
     case 'operators.setLocation':
       return day.operator.state === 'off_shift' ? day : { ...day, operator: { ...day.operator, location: a[1] as VanFix } };

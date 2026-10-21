@@ -43,6 +43,16 @@ export const operators: Operator[] = [
     state: 'on_call',
     registrations: [],
   },
+  {
+    id: 'opr_05', name: 'Sam Ellis', role: 'freelance', initials: 'SE', trades: ['gas', 'heating', 'plumbing'], van: 'VX20 SEL',
+    state: 'on_call',
+    registrations: [
+      { body: 'Gas Safe', number: '612 904', expires: '2027-08-31' },
+      { body: 'Public liability', number: 'PL-44120', expires: '2027-04-30' },
+    ],
+    // Freelance, on standby from home in Burnage for the rest of the day.
+    standby: { until: '2026-10-18T19:00:00Z', radius: 10, base: { lat: 53.4328, lng: -2.2051 } },
+  },
 ]
 
 export const jobs: Job[] = [
