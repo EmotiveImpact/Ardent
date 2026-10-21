@@ -273,6 +273,56 @@ export function IconButton({ icon, label, onPress }: { icon: IconName; label: st
   );
 }
 
+/** Two to four answers side by side in a sunken track; the picked one fills. */
+export function Segmented<K extends string>({ options, value, onChange, label, style }: { options: { key: K; label: string }[]; value?: K; onChange: (k: K) => void; label: string; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={[s.seg, style]} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      {options.map((o) => {
+        const on = value === o.key;
+        return (
+          <Pressable
+            key={o.key}
+            onPress={() => {
+              tap();
+              onChange(o.key);
+            }}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={`${label}: ${o.label}`}
+            style={[s.segItem, on && { backgroundColor: color.fg }]}
+          >
+            <Text style={[s.segText, on && { color: color.bg }]} numberOfLines={1}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** A count with a minus and a plus, 44pt targets. */
+export function Stepper({ value, onChange, min = 1, max, label }: { value: number; onChange: (n: number) => void; min?: number; max?: number; label: string }) {
+  const step = (by: number) => {
+    const next = Math.max(min, max === undefined ? value + by : Math.min(max, value + by));
+    if (next !== value) {
+      tap();
+      onChange(next);
+    }
+  };
+  return (
+    <View style={s.stepper} accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{ now: value, min, max }}>
+      <Pressable onPress={() => step(-1)} disabled={value <= min} accessibilityRole="button" accessibilityLabel={`One fewer ${label.toLowerCase()}`} style={({ pressed }) => [s.stepBtn, (pressed || value <= min) && { opacity: value <= min ? 0.35 : 0.7 }]}>
+        <Icon name="minus" size={18} />
+      </Pressable>
+      <Text style={s.stepValue}>{value}</Text>
+      <Pressable onPress={() => step(1)} disabled={max !== undefined && value >= max} accessibilityRole="button" accessibilityLabel={`One more ${label.toLowerCase()}`} style={({ pressed }) => [s.stepBtn, (pressed || (max !== undefined && value >= max)) && { opacity: max !== undefined && value >= max ? 0.35 : 0.7 }]}>
+        <Icon name="plus" size={18} />
+      </Pressable>
+    </View>
+  );
+}
+
 /** One answer in a list of answers. The picked one lifts and fills its ring. */
 export function Radio({ label, on, onPress, style }: { label: string; on: boolean; onPress: () => void; style?: StyleProp<ViewStyle> }) {
   return (
@@ -368,6 +418,12 @@ const s = StyleSheet.create({
   choice: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: radius.lg + 2, backgroundColor: color.inset },
   choiceItem: { minWidth: 48, minHeight: 44, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   choiceText: { color: color.fgMuted, fontFamily: font.mono, fontSize: 12, letterSpacing: 0.6 },
+  seg: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: radius.lg + 2, backgroundColor: color.inset },
+  segItem: { flex: 1, minHeight: 44, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  segText: { color: color.fgMuted, fontFamily: font.sansMedium, fontSize: 14 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 3, borderRadius: radius.lg + 2, backgroundColor: color.inset },
+  stepBtn: { width: 44, height: 44, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', backgroundColor: color.raised },
+  stepValue: { minWidth: 40, textAlign: 'center', color: color.fg, fontFamily: font.mono, fontSize: 17 },
   tabs: { flexDirection: 'row', paddingTop: space[3], backgroundColor: 'rgba(7,7,7,0.94)' },
   tab: { flex: 1, alignItems: 'center', gap: 6, minHeight: 48, justifyContent: 'center' },
   go: { height: 64, borderRadius: radius.xl + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 16 },

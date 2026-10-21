@@ -6,6 +6,8 @@ const DAY_MS = 86_400_000;
 const BACK_DAYS = 14;
 const AHEAD_DAYS = 21;
 const IN_HAND = new Set<Job['status']>(['en_route', 'on_site', 'paused']);
+/** Jobs that can need a gas safety record. */
+export const GAS_TRADES = new Set<Job['trade']>(['gas', 'heating']);
 
 /** Read the engineer's slice of the firm from the engine. */
 export async function pullDay(client: ArdentClient): Promise<Day> {
@@ -17,9 +19,14 @@ export async function pullDay(client: ArdentClient): Promise<Day> {
   const mine = await client.jobs.list({ operatorId: operator.id });
   const jobs = mine.filter((j) => IN_HAND.has(j.status) || (j.start >= from && j.start < to)).sort((a, b) => a.start.localeCompare(b.start));
 
-  const [customers, sites, perJob] = await Promise.all([
+  // Last year's gas record is where this year's starts, so keep every record at those sites.
+  const gasSites = [...new Set(jobs.filter((j) => GAS_TRADES.has(j.trade)).map((j) => j.siteId))];
+  const [customers, sites, priceList, stock, gasRecords, perJob] = await Promise.all([
     client.customers.list(),
     client.sites.list(),
+    client.priceList.list(),
+    client.stock.list({ operatorId: operator.id }),
+    Promise.all(gasSites.map((siteId) => client.gasRecords.list({ siteId }))).then((r) => r.flat()),
     Promise.all(
       jobs.map((j) =>
         Promise.all([client.time.forJob(j.id), client.photos.forJob(j.id), client.notes.forJob(j.id), client.signatures.forJob(j.id), client.invoices.forJob(j.id)]),
@@ -38,6 +45,9 @@ export async function pullDay(client: ArdentClient): Promise<Day> {
     notes: perJob.flatMap(([, , n]) => n),
     signatures: perJob.flatMap(([, , , s]) => s),
     invoices: perJob.flatMap(([, , , , i]) => i),
+    priceList,
+    stock,
+    gasRecords,
     pulledAt: new Date(now).toISOString(),
   };
 }

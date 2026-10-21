@@ -6,7 +6,7 @@
  */
 import { totals } from '@/kit/format';
 import { checkLabel } from '@/kit/states';
-import type { ComplianceCheck, Day, Invoice, Job, LineItem, Note, Operator, OperatorState, Photo, Signature, TimeEntry } from '@/data/types';
+import type { ComplianceCheck, Day, GasAppliance, GasSafetyRecord, Invoice, Job, LineItem, Note, Operator, OperatorState, Photo, Signature, TimeEntry } from '@/data/types';
 
 import type { CallOp, Op } from './ops';
 
@@ -18,6 +18,27 @@ function patchJob(day: Day, id: string, fn: (j: Job) => Job): Day {
 function patchInvoice(day: Day, id: string, fn: (i: Invoice) => Invoice): Day {
   return { ...day, invoices: day.invoices.map((i) => (i.id === id ? fn(i) : i)) };
 }
+function patchRecord(day: Day, id: string, fn: (r: GasSafetyRecord) => GasSafetyRecord): Day {
+  return { ...day, gasRecords: day.gasRecords.map((r) => (r.id === id && r.status === 'draft' ? fn(r) : r)) };
+}
+/** Parts off (or back onto) the engineer's van, never below zero, as the engine counts them. */
+function moveStock(day: Day, operatorId: string, itemId: string, by: number): Day {
+  if (operatorId !== day.operator.id) return day;
+  const row = day.stock.find((x) => x.itemId === itemId) ?? { operatorId, itemId, quantity: 0, min: 0 };
+  const next = { ...row, quantity: Math.max(0, row.quantity + by) };
+  return { ...day, stock: [...day.stock.filter((x) => x.itemId !== itemId), next] };
+}
+const pendingChecks = (): GasAppliance['checks'] => ({ flue: 'pending', ventilation: 'pending', safetyDevice: 'pending', spillage: 'pending' });
+/** Same day next year; 29 February rolls back to the 28th. */
+const yearOn = (day: string) => {
+  const [y, m, d] = day.split('-').map(Number);
+  const next = new Date(Date.UTC(y + 1, m - 1, d));
+  if (next.getUTCMonth() !== m - 1) next.setUTCDate(0);
+  return next.toISOString().slice(0, 10);
+};
+/** The appliance ids a new record starts with, before the engine gives its own. */
+const copiedId = (recordId: string, i: number) => `${recordId}_a${i}`;
+
 function upsert<T extends { id: string }>(list: T[], item: T, replacing = item.id): T[] {
   return list.some((x) => x.id === replacing) ? list.map((x) => (x.id === replacing ? item : x)) : [...list, item];
 }
@@ -29,10 +50,16 @@ export function applyLocal(day: Day, op: Op): Day {
   switch (op.method) {
     case 'jobs.setStatus':
       return patchJob(day, a[0], (j) => ({ ...j, status: a[1] }));
-    case 'jobs.addLine':
-      return patchJob(day, a[0], (j) => ({ ...j, lines: [...j.lines, { ...(a[1] as Omit<LineItem, 'id'>), id: op.localId! }] }));
-    case 'jobs.removeLine':
-      return patchJob(day, a[0], (j) => ({ ...j, lines: j.lines.filter((l) => l.id !== a[1]) }));
+    case 'jobs.addLine': {
+      const line = a[1] as Omit<LineItem, 'id'>;
+      const next = patchJob(day, a[0], (j) => ({ ...j, lines: [...j.lines, { ...line, id: op.localId! }] }));
+      return line.fromVan && line.itemId ? moveStock(next, line.fromVan, line.itemId, -line.quantity) : next;
+    }
+    case 'jobs.removeLine': {
+      const line = day.jobs.find((j) => j.id === a[0])?.lines.find((l) => l.id === a[1]);
+      const next = patchJob(day, a[0], (j) => ({ ...j, lines: j.lines.filter((l) => l.id !== a[1]) }));
+      return line?.fromVan && line.itemId ? moveStock(next, line.fromVan, line.itemId, line.quantity) : next;
+    }
     case 'jobs.setCheck': {
       const [, key, state, detail] = a as unknown as [string, ComplianceCheck['key'], ComplianceCheck['state'], string | undefined];
       return patchJob(day, a[0], (j) => {
@@ -76,6 +103,44 @@ export function applyLocal(day: Day, op: Op): Day {
       const status: Invoice['status'] = paidAmount >= total ? 'paid' : 'part_paid';
       const paid = patchInvoice(day, inv.id, (i) => ({ ...i, paidAmount, status, issuedAt: i.issuedAt ?? op.at }));
       return patchJob(paid, inv.jobId, (j) => ({ ...j, status: status === 'paid' ? 'paid' : 'invoiced' }));
+    }
+    case 'gasRecords.create': {
+      const [jobId, operatorId] = a as unknown as [string, string];
+      const job = day.jobs.find((j) => j.id === jobId);
+      if (!job || day.gasRecords.some((r) => r.jobId === jobId && r.status === 'draft')) return day;
+      const last = day.gasRecords.filter((r) => r.siteId === job.siteId && r.status === 'issued').sort((x, y) => (y.issuedAt ?? '').localeCompare(x.issuedAt ?? ''))[0];
+      const rec: GasSafetyRecord = {
+        id: op.localId!,
+        ref: '',
+        jobId,
+        siteId: job.siteId,
+        customerId: job.customerId,
+        operatorId,
+        appliances: (last?.appliances ?? []).map((x, i) => ({ id: copiedId(op.localId!, i), location: x.location, type: x.type, make: x.make, model: x.model, flue: x.flue, landlords: x.landlords, checks: pendingChecks() })),
+        installation: { tightness: 'pending', ecv: 'pending', bonding: 'pending', pipework: 'pending', coAlarm: 'pending' },
+        status: 'draft',
+      };
+      return { ...day, gasRecords: [...day.gasRecords, rec] };
+    }
+    case 'gasRecords.saveAppliance': {
+      const input = a[1] as GasAppliance;
+      const next: GasAppliance = { ...input, id: input.id ?? op.localId!, checks: { ...pendingChecks(), ...input.checks } };
+      if (next.safe) delete next.unsafe;
+      return patchRecord(day, a[0], (r) => ({ ...r, appliances: r.appliances.some((x) => x.id === next.id) ? r.appliances.map((x) => (x.id === next.id ? next : x)) : [...r.appliances, next] }));
+    }
+    case 'gasRecords.removeAppliance':
+      return patchRecord(day, a[0], (r) => ({ ...r, appliances: r.appliances.filter((x) => x.id !== a[1]) }));
+    case 'gasRecords.setInstallation':
+      return patchRecord(day, a[0], (r) => ({ ...r, installation: { ...r.installation, [a[1]]: a[2] } }));
+    case 'gasRecords.issue': {
+      const rec = day.gasRecords.find((r) => r.id === a[0]);
+      if (!rec || rec.status !== 'draft') return day;
+      const issued = patchRecord(day, rec.id, (r) => ({ ...r, status: 'issued', issuedAt: op.at, expires: yearOn(op.at.slice(0, 10)) }));
+      const tightness = rec.installation.tightness;
+      return patchJob(issued, rec.jobId, (j) => ({
+        ...j,
+        checks: [...j.checks.filter((c) => c.key !== 'gas_tightness'), { key: 'gas_tightness', label: j.checks.find((c) => c.key === 'gas_tightness')?.label ?? checkLabel.gas_tightness, state: tightness === 'pending' ? 'pending' : tightness, detail: `${rec.ref || 'Gas safety record'} issued` }],
+      }));
     }
     default:
       return day;
@@ -124,6 +189,23 @@ export function settle(base: Day, op: CallOp, result: unknown): { day: Day; ids:
     case 'invoices':
       day = { ...day, invoices: upsert(day.invoices, r as Invoice, op.localId ?? r.id) };
       break;
+    case 'gasRecords': {
+      const rec = r as GasSafetyRecord;
+      if (op.method === 'gasRecords.create' && op.localId) {
+        // The engine copies last year's appliances in the same order, so the phone's stand-in ids line up.
+        rec.appliances.forEach((x, i) => (ids[copiedId(op.localId!, i)] = x.id));
+        day = { ...day, gasRecords: upsert(day.gasRecords, rec, op.localId) };
+        break;
+      }
+      if (op.method === 'gasRecords.saveAppliance' && op.localId) {
+        const before = new Set(base.gasRecords.find((x) => x.id === rec.id)?.appliances.map((x) => x.id));
+        const added = rec.appliances.filter((x) => !before.has(x.id)).at(-1);
+        delete ids[op.localId];
+        if (added) ids[op.localId] = added.id;
+      }
+      day = { ...day, gasRecords: upsert(day.gasRecords, rec) };
+      break;
+    }
   }
   return { day, ids };
 }

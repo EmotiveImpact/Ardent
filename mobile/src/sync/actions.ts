@@ -3,7 +3,7 @@
  * moves the screen at once and joins the queue for the engine. Times are the
  * moment the engineer acted, never the moment the change reaches the engine.
  */
-import type { ComplianceCheck, Day, DayMode, Job, LineItem, PaymentMethod, Photo, TimeEntry } from '@/data/types';
+import type { ComplianceCheck, Day, DayMode, GasAppliance, GasInstallation, GasSafetyRecord, Job, LineItem, PaymentMethod, Photo, PriceItem, TimeEntry, Verdict } from '@/data/types';
 import { totals } from '@/kit/format';
 import { checkLabel, jobStatus } from '@/kit/states';
 
@@ -76,6 +76,13 @@ export function finish(job: Job) {
 
 export function addMaterial(job: Job, line: Omit<LineItem, 'id'>) {
   return field.enqueue(callOp('jobs.addLine', [job.id, line], `Logged ${line.quantity} × ${line.description} on ${job.ref}`, { localId: localId('li') }));
+}
+
+/** A part off the price list, out of the engineer's van or bought on the way. */
+export function usePart(job: Job, item: PriceItem, quantity: number, fromVan: boolean) {
+  const day = current();
+  const line: Omit<LineItem, 'id'> = { kind: item.kind, description: item.name, quantity, unitPrice: item.price, itemId: item.id, ...(fromVan ? { fromVan: day.operator.id } : {}) };
+  return field.enqueue(callOp('jobs.addLine', [job.id, line], `${fromVan ? 'From the van' : 'Logged'}: ${quantity} × ${item.name} on ${job.ref}`, { localId: localId('li') }));
 }
 
 export function removeLine(job: Job, line: LineItem) {
@@ -158,4 +165,35 @@ export function takePayment(invoiceId: string, ref: string, method: PaymentMetho
   if (!inv) throw new Error('Invoice not found');
   const owed = totals(inv).total - inv.paidAmount;
   return field.enqueue(callOp('invoices.recordPayment', [invoiceId, owed, method], `Payment for ${ref}`));
+}
+
+/** Start this year's gas safety record. Returns its id (local until the engine numbers it). */
+export async function startGasRecord(job: Job) {
+  const day = current();
+  const open = day.gasRecords.find((r) => r.jobId === job.id && r.status === 'draft');
+  if (open) return open.id;
+  const id = localId('gsr');
+  await field.enqueue(callOp('gasRecords.create', [job.id, day.operator.id], `Gas safety record started on ${job.ref}`, { localId: id }));
+  return id;
+}
+
+const recName = (rec: GasSafetyRecord) => rec.ref || 'the gas safety record';
+
+/** An appliance's readings and checks. A new one gets an id the phone uses until the engine answers. */
+export async function saveAppliance(rec: GasSafetyRecord, appliance: Omit<GasAppliance, 'id'> & { id?: string }) {
+  const id = appliance.id ? undefined : localId('app');
+  await field.enqueue(callOp('gasRecords.saveAppliance', [rec.id, appliance], `${appliance.type}, ${appliance.location}, on ${recName(rec)}`, { localId: id }));
+  return appliance.id ?? id!;
+}
+
+export function removeAppliance(rec: GasSafetyRecord, appliance: GasAppliance) {
+  return field.enqueue(callOp('gasRecords.removeAppliance', [rec.id, appliance.id], `Took the ${appliance.type.toLowerCase()} off ${recName(rec)}`));
+}
+
+export function setInstallation(rec: GasSafetyRecord, key: keyof GasInstallation, verdict: Verdict, label: string) {
+  return field.enqueue(callOp('gasRecords.setInstallation', [rec.id, key, verdict], `${label} on ${recName(rec)}: ${verdict === 'pending' ? 'to do' : verdict}`));
+}
+
+export function issueGasRecord(rec: GasSafetyRecord, job: Job) {
+  return field.enqueue(callOp('gasRecords.issue', [rec.id], `Gas safety record issued on ${job.ref}`));
 }

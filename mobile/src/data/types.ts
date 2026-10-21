@@ -1,6 +1,6 @@
 // Mobile-only shapes layered on Ardent Core's shared model (./core/model.ts).
 // Anything that also belongs in Core is proposed there first.
-import type { Customer, Invoice, Job, Note, Operator, OperatorState, Photo, Signature, Site, TimeEntry } from './core/model';
+import type { Customer, GasSafetyRecord, Invoice, Job, Note, Operator, OperatorState, Photo, PriceItem, Signature, Site, StockLevel, TimeEntry } from './core/model';
 
 export type * from './core/model';
 
@@ -23,6 +23,12 @@ export interface Day {
   notes: Note[];
   signatures: Signature[];
   invoices: Invoice[];
+  /** The firm's price list, without what things cost the firm. */
+  priceList: PriceItem[];
+  /** What's on the engineer's own van. */
+  stock: StockLevel[];
+  /** Gas safety records at the sites of gas and heating jobs, last year's included. */
+  gasRecords: GasSafetyRecord[];
   /** When this copy last came from the engine. */
   pulledAt: string;
 }

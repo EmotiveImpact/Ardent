@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
-import type { Day, Invoice, Job, JobCard, OperatorState, Photo, TimeEntry } from '@/data/types';
+import type { Day, Invoice, Job, JobCard, OperatorState, Photo, PriceItem, TimeEntry } from '@/data/types';
 import { ukDay } from '@/kit/format';
 import { jobDone, operatorState } from '@/kit/states';
 
@@ -107,4 +107,13 @@ export function stageOf(status: Job['status']) {
   if (status === 'complete' || status === 'invoiced') return 3;
   if (status === 'paid') return 4;
   return 0;
+}
+
+/** What's on the van, by name, and what's at or under its low mark. */
+export function vanStock(day: Day) {
+  const items = new Map(day.priceList.map((i) => [i.id, i]));
+  const rows = day.stock.flatMap((x) => (items.has(x.itemId) ? [{ item: items.get(x.itemId)! as PriceItem, quantity: x.quantity, min: x.min }] : [])).sort((a, b) => a.item.name.localeCompare(b.item.name));
+  const low = rows.filter((r) => r.quantity <= r.min);
+  const lowWords = low.map((r) => `${r.item.name}, ${r.quantity} left`).slice(0, 3).join('; ') + (low.length > 3 ? ` and ${low.length - 3} more` : '');
+  return { rows, low, lowWords };
 }

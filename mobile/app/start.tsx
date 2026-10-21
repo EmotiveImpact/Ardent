@@ -14,7 +14,7 @@ import { clock, dayDate } from '@/kit/format';
 import { certificateState, jobDone, operatorState, toneColor, trade } from '@/kit/states';
 import { setMode } from '@/sync/actions';
 import { field } from '@/sync/field';
-import { nextUp, standing, stateLabel, today, useField, waiting } from '@/sync/hooks';
+import { nextUp, standing, stateLabel, today, useField, vanStock, waiting } from '@/sync/hooks';
 import { color, font, radius, space } from '@/theme/tokens';
 
 /** The three ways to start the day. Set off and arrived take care of en route and on site. */
@@ -35,6 +35,7 @@ export default function Start() {
   const first = nextUp(jobs);
   const after = jobs.filter((j) => j.id !== first?.id && !jobDone.has(j.status)).slice(0, 3);
   const op = day?.operator;
+  const van = day ? vanStock(day) : { rows: [], low: [], lowWords: '' };
   const reg = op?.registrations[0];
   const iso = new Date().toISOString();
 
@@ -85,6 +86,7 @@ export default function Start() {
                 return <Line key={`${r.body}-${r.number}`} first={i === 0} left={`${r.body} card`} right={st.label === 'Valid' ? 'In date' : st.label} tint={st.tone === 'ok' ? color.fgMuted : toneColor[st.tone]} />;
               })}
               <Line first={!op.registrations.length} left="Van" right={op.van || 'None'} />
+              {van.rows.length > 0 && <Line left="Van stock" sub={van.low.length ? van.lowWords : `${van.rows.length} parts, none low`} right={van.low.length ? `${van.low.length} low` : 'Stocked'} tint={van.low.length ? color.warn : color.fgMuted} />}
             </>
           )}
 

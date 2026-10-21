@@ -4,23 +4,31 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Card, Cap, Chip, Choice, Go, Line, Num, openMaps, Plain, ring, ringName, Section, StageTrack, Tile, TopRow, type Verdict } from '@/components/ardent';
+import { Card, Cap, Chip, Choice, Go, Line, Num, openMaps, Plain, ring, ringName, Section, Segmented, StageTrack, Stepper, Tile, TopRow, type Verdict } from '@/components/ardent';
 import { Atmosphere } from '@/components/Atmosphere';
 import { HoldToCommit } from '@/components/HoldToCommit';
 import { Icon } from '@/components/Icon';
 import { PhotoThumb } from '@/components/PhotoThumb';
 import { pickPhoto } from '@/components/pickPhoto';
 import { Back, Dock, Input } from '@/components/ui';
-import type { ComplianceCheck, OperatorState, Photo } from '@/data/types';
+import type { ComplianceCheck, OperatorState, Photo, PriceItem } from '@/data/types';
+import { gasGaps } from '@/engine/engine';
 import { copy } from '@/kit/copy';
 import { clock, pounds, window as slot } from '@/kit/format';
 import { checkState, jobStatus, priority } from '@/kit/states';
 import * as act from '@/sync/actions';
 import { card, elapsed, hms, stageOf, useField, useNow } from '@/sync/hooks';
+import { GAS_TRADES } from '@/sync/pull';
 import { color, font, radius, space, toneColor } from '@/theme/tokens';
 
 const STAGES: Photo['stage'][] = ['before', 'during', 'after'];
 type Sheet = 'photo' | 'part' | 'note';
+type PartFrom = 'van' | 'list' | 'other';
+const PART_FROM: { key: PartFrom; label: string }[] = [
+  { key: 'van', label: 'Van' },
+  { key: 'list', label: 'Price list' },
+  { key: 'other', label: 'Other' },
+];
 
 /** One check: a ring that ticks once it's answered, and Pass, Fail or N/A beside it. */
 function CheckRow({ check, now, onPick }: { check: ComplianceCheck; now: boolean; onPick?: (v: Verdict) => void }) {
@@ -55,6 +63,9 @@ export default function JobScreen() {
   const [stage, setStage] = useState<Photo['stage']>();
   const [draft, setDraft] = useState('');
   const [mat, setMat] = useState({ description: '', qty: '1', price: '' });
+  const [partFrom, setPartFrom] = useState<PartFrom>();
+  const [picked, setPicked] = useState<{ item: PriceItem; qty: number }>();
+  const [find, setFind] = useState('');
   const [problem, setProblem] = useState('');
   const job = day?.jobs.find((j) => j.id === id);
   const time = day?.time.filter((t) => t.jobId === id) ?? [];
@@ -121,6 +132,34 @@ export default function JobScreen() {
   };
 
   const toggle = (to: Sheet) => setSheet((s) => (s === to ? undefined : to));
+
+  // What's on the van, by name, and the rest of the price list to search.
+  const items = new Map(day.priceList.map((i) => [i.id, i]));
+  const onVan = day.stock.flatMap((x) => (items.has(x.itemId) ? [{ item: items.get(x.itemId)!, quantity: x.quantity }] : [])).sort((a, b) => a.item.name.localeCompare(b.item.name));
+  const from = partFrom ?? (onVan.some((x) => x.quantity > 0) ? 'van' : 'list');
+  const words = find.trim().toLowerCase();
+  const listed = day.priceList.filter((i) => i.kind === 'material' && (!words || `${i.name} ${i.code ?? ''}`.toLowerCase().includes(words))).slice(0, 8);
+  const vanLeft = picked ? (onVan.find((x) => x.item.id === picked.item.id)?.quantity ?? 0) : 0;
+  const logPicked = () => {
+    if (!picked) return;
+    const fromVan = from === 'van';
+    setPicked(undefined);
+    setFind('');
+    void tryIt(() => act.usePart(job, picked.item, picked.qty, fromVan));
+  };
+  const pick = (item: PriceItem) => setPicked((p) => (p?.item.id === item.id ? undefined : { item, qty: 1 }));
+  const chooseFrom = (k: PartFrom) => {
+    setPartFrom(k);
+    setPicked(undefined);
+  };
+
+  const gasJob = GAS_TRADES.has(job.trade);
+  const gasRecord = day.gasRecords.filter((r) => r.jobId === job.id).sort((a, b) => (a.status === 'draft' ? -1 : b.status === 'draft' ? 1 : 0))[0];
+  const openGas = () =>
+    tryIt(async () => {
+      await act.startGasRecord(job);
+      router.push({ pathname: '/gas/[id]', params: { id: job.id } });
+    });
 
   const dock = () => {
     switch (job.status) {
@@ -231,7 +270,21 @@ export default function JobScreen() {
                 <Tile icon="camera" label="Photo" onPress={() => toggle('photo')} />
                 <Tile icon="box" label="Part used" onPress={() => toggle('part')} />
                 <Tile icon="note" label="Note" onPress={() => toggle('note')} />
+                {gasJob && <Tile icon="flame" label="CP12" onPress={openGas} />}
               </View>
+            )}
+
+            {gasRecord && (
+              <Card style={{ marginTop: 8, paddingVertical: 2 }}>
+                <Line
+                  first
+                  left={`Gas safety record${gasRecord.ref ? ` ${gasRecord.ref}` : ''}`}
+                  sub={gasRecord.status === 'issued' ? `Issued, runs to ${new Date(`${gasRecord.expires}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : `${gasRecord.appliances.length} appliance${gasRecord.appliances.length === 1 ? '' : 's'}, ${gasGaps(gasRecord).length ? 'still to finish' : 'ready to issue'}`}
+                  right={gasRecord.status === 'issued' ? 'Issued' : 'Draft'}
+                  tint={gasRecord.status === 'issued' ? color.ok : color.fgMuted}
+                  onPress={() => router.push({ pathname: '/gas/[id]', params: { id: job.id } })}
+                />
+              </Card>
             )}
 
             {sheet === 'photo' && (
@@ -254,12 +307,52 @@ export default function JobScreen() {
               <Animated.View entering={FadeIn.duration(220)}>
                 <Card style={styles.sheet}>
                   <Cap>Part used</Cap>
-                  <Input value={mat.description} onChangeText={(description) => setMat({ ...mat, description })} placeholder="Part or material" style={styles.sheetInput} />
-                  <View style={styles.pairInputs}>
-                    <Input value={mat.qty} onChangeText={(qty) => setMat({ ...mat, qty })} placeholder="Qty" keyboardType="number-pad" style={[styles.sheetInput, styles.monoInput]} accessibilityLabel="Quantity" />
-                    <Input value={mat.price} onChangeText={(price) => setMat({ ...mat, price })} placeholder="£ each" keyboardType="decimal-pad" style={[styles.sheetInput, styles.monoInput]} accessibilityLabel="Price each in pounds" />
-                  </View>
-                  <Plain title="Log it" icon="box" onPress={addMaterial} />
+                  <Segmented options={PART_FROM} value={from} onChange={chooseFrom} label="Where it came from" />
+                  {from === 'van' &&
+                    (onVan.length ? (
+                      <View>
+                        {onVan.map(({ item, quantity }, i) => (
+                          <Line
+                            key={item.id}
+                            first={i === 0}
+                            left={item.name}
+                            sub={quantity ? `${quantity} on the van` : 'None left on the van'}
+                            right={picked?.item.id === item.id ? <Icon name="check" size={18} /> : pounds(item.price)}
+                            onPress={quantity ? () => pick(item) : undefined}
+                            style={!quantity ? { opacity: 0.45 } : undefined}
+                          />
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.addr}>Nothing's down as on your van yet. The office keeps the van counts.</Text>
+                    ))}
+                  {from === 'list' && (
+                    <>
+                      <Input value={find} onChangeText={setFind} placeholder="Search parts" style={styles.sheetInput} accessibilityLabel="Search the price list" />
+                      <View>
+                        {listed.map((item, i) => (
+                          <Line key={item.id} first={i === 0} left={item.name} sub={item.code} right={picked?.item.id === item.id ? <Icon name="check" size={18} /> : pounds(item.price)} onPress={() => pick(item)} />
+                        ))}
+                        {!listed.length && <Text style={styles.addr}>Nothing matches. Try Other to type it in.</Text>}
+                      </View>
+                    </>
+                  )}
+                  {from !== 'other' && picked && (
+                    <View style={styles.pickBar}>
+                      <Stepper value={picked.qty} onChange={(qty) => setPicked({ ...picked, qty })} max={from === 'van' ? vanLeft : undefined} label="Quantity" />
+                      <Plain flex title="Log it" icon="box" onPress={logPicked} />
+                    </View>
+                  )}
+                  {from === 'other' && (
+                    <>
+                      <Input value={mat.description} onChangeText={(description) => setMat({ ...mat, description })} placeholder="Part or material" style={styles.sheetInput} />
+                      <View style={styles.pairInputs}>
+                        <Input value={mat.qty} onChangeText={(qty) => setMat({ ...mat, qty })} placeholder="Qty" keyboardType="number-pad" style={[styles.sheetInput, styles.monoInput]} accessibilityLabel="Quantity" />
+                        <Input value={mat.price} onChangeText={(price) => setMat({ ...mat, price })} placeholder="£ each" keyboardType="decimal-pad" style={[styles.sheetInput, styles.monoInput]} accessibilityLabel="Price each in pounds" />
+                      </View>
+                      <Plain title="Log it" icon="box" onPress={addMaterial} />
+                    </>
+                  )}
                 </Card>
               </Animated.View>
             )}
@@ -294,6 +387,7 @@ export default function JobScreen() {
                       key={l.id}
                       first={i === 0}
                       left={`${l.quantity > 1 ? `${l.quantity}× ` : ''}${l.description}`}
+                      sub={l.fromVan ? 'From the van' : undefined}
                       right={
                         <View style={styles.matRight}>
                           <Text style={styles.mono}>{pounds(l.unitPrice * l.quantity)}</Text>
@@ -359,6 +453,7 @@ const styles = StyleSheet.create({
   sheetInput: { backgroundColor: color.raised },
   pairInputs: { flexDirection: 'row', gap: 8 },
   monoInput: { flex: 1, minWidth: 0, width: 0, fontFamily: font.mono },
+  pickBar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stages: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: radius.lg + 2, backgroundColor: color.inset },
   stage: { flex: 1, minHeight: 44, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
   stageOn: { backgroundColor: color.fg },

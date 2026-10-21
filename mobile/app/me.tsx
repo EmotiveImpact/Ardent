@@ -12,7 +12,7 @@ import { copy } from '@/kit/copy';
 import { clock, relative, shortDate, ukDay } from '@/kit/format';
 import { certificateState, jobDone, trade } from '@/kit/states';
 import { ENGINE_URL, field } from '@/sync/field';
-import { standing, useField, waiting } from '@/sync/hooks';
+import { standing, useField, vanStock, waiting } from '@/sync/hooks';
 import type { Op } from '@/sync/ops';
 import { color, font, radius, space, toneColor } from '@/theme/tokens';
 
@@ -27,6 +27,7 @@ export default function Me() {
   const n = waiting(snap);
   if (!day || !state.me) return <View style={styles.root} />;
   const op = day.operator;
+  const van = vanStock(day);
   const demo = state.mode === 'demo';
 
   const signOut = async () => {
@@ -141,6 +142,7 @@ export default function Me() {
             );
           })}
           <Line first={!op.registrations.length} left="Van" right={op.van || 'None'} />
+          {van.rows.length > 0 && <Line left="Van stock" sub={van.low.length ? van.lowWords : `${van.rows.length} parts, none low`} right={van.low.length ? `${van.low.length} low` : 'Stocked'} tint={van.low.length ? color.warn : color.fgMuted} />}
           <Line left="Trades" right={op.trades.map((t) => trade[t]).join(', ') || 'None set'} />
           {!op.registrations.length && <Text style={styles.hint}>No registrations on your record. The office adds these.</Text>}
 
