@@ -49,3 +49,9 @@ test("only the section lines go to Claude, with the customer's name taken out", 
   assert.doesNotMatch(user, /Shah/)
   assert.equal(redact('Rang Priya to say', ['Priya Shah']), 'Rang the customer to say')
 })
+
+test('labour on the price list is not a part: "the engineers" may be written', () => {
+  const report = { sections: [{ topic: 'next' as const, lines: [{ text: 'She wants us back to look at the radiators upstairs.', from: { segment: 0, start: 0, end: 1 } }] }] }
+  const check = checkTidy(report, { next: ['The customer wants the engineers to return to look at the radiators upstairs.'] }, priceList)
+  assert.equal(check.ok, true, check.problems.join('; '))
+})

@@ -172,3 +172,10 @@ test('a parts sentence stays in the report even when it names things the price l
   const parts = r.sections.find((s) => s.topic === 'parts')
   assert.ok(parts?.lines.some((l) => l.text.startsWith('Took the board and the breakers off the van')))
 })
+
+test('a service uses no parts: "serviced the boiler" is not a new boiler', () => {
+  const r = buildReport({ trade: 'gas', priceList, van: van('opr_01'), segments: said('Serviced the boiler and cleaned the condensate trap.') })
+  assert.deepEqual(r.parts, [])
+  const fitted = buildReport({ trade: 'gas', priceList, van: van('opr_01'), segments: said('Fitted a new combi boiler.') })
+  assert.equal(fitted.parts[0]?.itemId, 'itm_01')
+})

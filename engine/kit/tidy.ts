@@ -85,7 +85,8 @@ export function checkTidy(report: Pick<BuiltReport, 'sections'> & Partial<Pick<B
   const t = tidied as Record<string, unknown>
   const topics = report.sections.map((s) => s.topic)
   for (const k of Object.keys(t)) if (!topics.includes(k as ReportTopic)) problems.push(`Added a section that wasn't in the report (${k})`)
-  const partWords = new Set(priceList.flatMap((i) => words(i.name).map(stem)))
+  // Only things that get fitted count as parts: "engineer" or "call-out" on the price list aren't.
+  const partWords = new Set(priceList.filter((i) => i.kind === 'material').flatMap((i) => words(i.name).map(stem)))
 
   for (const s of report.sections) {
     const lines = t[s.topic]

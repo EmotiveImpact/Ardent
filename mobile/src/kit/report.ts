@@ -198,6 +198,10 @@ const RULES: { topic: ReportTopic | 'none_left' | 'none_next'; re: RegExp }[] = 
   { topic: 'parts', re: /\b(off the van|from the van|out the van|van|merchant|wholesaler|screwfix|toolstation|plumb ?centre|city plumbing|customer'?s own|customer supplied|supplied by|picked up|bought|used)\b/i },
 ]
 
+/** Looking after what's already there: "serviced the boiler" uses no new boiler. */
+const UPKEEP = /\b(serviced|cleaned|cleared|checked|inspected|looked at|tested|repaired|fixed|bled|flushed|descaled|adjusted)\b/i
+/** Words that mean something new went in. */
+const FITTED = /\b(swapped|replaced|fitted|installed|changed|put in|added|renewed|new|ran|wired|used)\b/i
 const WORK = /\b(swapped|replaced|fitted|installed|changed|put in|added|renewed|repaired|fixed|ran|wired|connected|re-?made|re-?piped|cleared|serviced)\b/i
 
 /** Sentences in a segment, with where each sits in the segment's text. */
@@ -454,9 +458,9 @@ export function buildReport({ segments, trade, priceList, van }: ReportInput): B
       if (topic === 'parts' && WORK.test(sen.text)) topic = 'work'
 
       // Parts can be named in any sentence about the work, but never in what the customer wants next,
-      // and a test that names a part ("checked every valve") hasn't used one.
+      // a test that names a part ("checked every valve") hasn't used one, and nor has a service ("serviced the boiler").
       let named = 0
-      if (topic !== 'next' && (topic !== 'tests' || WORK.test(sen.text))) {
+      if (topic !== 'next' && (topic !== 'tests' || WORK.test(sen.text)) && !(UPKEEP.test(sen.text) && !FITTED.test(sen.text))) {
         const taken = new Set<string>()
         for (const m of matches(sen.text, list)) {
           if (taken.has(m.x.item.id)) continue
