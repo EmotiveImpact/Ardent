@@ -197,7 +197,7 @@ export function CommandMenu() {
   return (
     <D.Root open={open} onOpenChange={toggle}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-[3px] data-[state=open]:animate-[rise_200ms_ease-out]" />
+        <D.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-[3px]" />
         <D.Content className="fixed top-[8vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[760px] -translate-x-1/2 outline-none">
           <D.Title className="sr-only">Search Ardent</D.Title>
           <D.Description className="sr-only">Find a job, customer, address, postcode, quote or invoice, or go somewhere.</D.Description>

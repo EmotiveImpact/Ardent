@@ -74,7 +74,7 @@ export function Dashboard() {
                 <SectionHead title="The crew" aside={!wall && 'Pick someone on the map or the list to open their job'} />
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                   <div className="flex min-w-0 flex-col gap-3">
-                    <MapWell book={book} onSelect={setPicked} className="h-[420px]" />
+                    <MapWell book={book} onSelect={setPicked} className="sm:h-[420px]" />
                     <CrewTiles book={book} onPick={setPicked} picked={live?.id} />
                   </div>
                   <div className="min-w-0">{sheet}</div>
@@ -114,7 +114,7 @@ export function Dashboard() {
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(380px,1fr)]">
               <section className="flex min-w-0 flex-col gap-3">
                 <SectionHead title="The crew" aside={!wall && 'Pick someone on the map or the list to open their job'} />
-                <MapWell book={book} onSelect={setPicked} className="h-[620px]" />
+                <MapWell book={book} onSelect={setPicked} className="sm:h-[620px]" />
                 <CrewTiles book={book} onPick={setPicked} picked={live?.id} />
               </section>
               <section className="min-w-0">
@@ -159,7 +159,7 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
 /** The crew map in its well, with a live clock in the corner. */
 function MapWell({ book, onSelect, className }: { book: Book; onSelect: (id: string) => void; className?: string }) {
   return (
-    <div className={cn('relative hidden overflow-hidden rounded-[14px] bg-inset sm:block', className)}>
+    <div className={cn('relative h-[320px] overflow-hidden rounded-[14px] bg-inset', className)}>
       <LiveClock />
       <CrewMap operators={book.operators} jobs={book.jobs} sites={book.sites} onSelect={onSelect} />
     </div>
