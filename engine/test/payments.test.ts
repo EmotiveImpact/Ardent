@@ -130,8 +130,9 @@ test('refunds wait in Approvals; Ardent gives back its share of the fee', async 
   await as('jo').client.approvals.approve(ask.id, ask.version)
   assert.deepEqual(stripe.calls.find((c) => c.fn === 'refund')!.args, ['acct_test_mercer', { ref: charge.ref, amount: 10000 }])
   const inv = (await dan.invoices.list()).find((i) => i.id === 'inv_2206')!
-  assert.equal(inv.status, 'part_paid')
-  assert.equal(inv.paidAmount, 50400 - 10000)
+  assert.equal(inv.status, 'paid', 'a refund is settled, so the customer is not chased for it')
+  assert.equal(inv.paidAmount, 50400)
+  assert.equal(inv.payments!.at(-1)!.amount, -10000)
   const after = (await dan.payments.get()).refunds[0]
   assert.equal(after.status, 'done')
   assert.equal(after.feeBack, 20)

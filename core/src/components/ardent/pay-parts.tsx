@@ -22,8 +22,8 @@ import { cn } from '@/lib/utils'
 
 export const methodWord: Record<PaymentMethod, string> = { bank_transfer: 'Bank transfer', cash: 'Cash', card: 'Card', tap: 'Tap to Pay', pay_by_bank: 'Pay by bank', direct_debit: 'Direct Debit' }
 
-/** How it was paid, in the middle of a sentence: "by card", "by Direct Debit". */
-export const methodPhrase = (m: PaymentMethod) => (m === 'direct_debit' || m === 'tap' ? methodWord[m] : methodWord[m].toLowerCase())
+/** How it was paid, after "by": "card", "bank", "Direct Debit". */
+export const methodPhrase = (m: PaymentMethod) => (m === 'pay_by_bank' ? 'bank' : m === 'direct_debit' || m === 'tap' ? methodWord[m] : methodWord[m].toLowerCase())
 
 /** Paid through Stripe, so it carries Ardent's fee and can be refunded. */
 export const throughStripe = (m: PaymentMethod) => m === 'card' || m === 'tap' || m === 'pay_by_bank' || m === 'direct_debit'

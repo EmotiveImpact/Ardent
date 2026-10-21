@@ -303,13 +303,9 @@ export function createPayments(deps: PaymentDeps) {
       refund.feeBack = back
     }
     const inv = db.invoices.find((i) => i.id === (c.invoiceId ?? db.quotes.find((q) => q.id === c.quoteId)?.deposit?.invoiceId) && i.orgId === c.orgId)
-    if (inv) {
-      ;(inv.payments ??= []).push({ amount: -amount, method: c.method, at: new Date().toISOString(), chargeId: c.id, refund: true })
-      inv.paidAmount = Math.max(0, inv.paidAmount - amount)
-      if (inv.status === 'paid' || inv.status === 'part_paid') inv.status = inv.paidAmount > 0 ? 'part_paid' : 'sent'
-      const job = db.jobs.find((j) => j.id === inv.jobId && j.orgId === inv.orgId)
-      if (job?.status === 'paid') job.status = 'invoiced'
-    }
+    // Money the firm chose to give back is settled, so the invoice isn't
+    // reopened and nobody is chased for it; the refund shows in its history.
+    if (inv) (inv.payments ??= []).push({ amount: -amount, method: c.method, at: new Date().toISOString(), chargeId: c.id, refund: true })
     log(c.orgId, `Refunded ${pounds(amount)} to ${customerName(c.orgId, c.customerId)} on ${c.label}${back ? `; Ardent gave back ${pounds(back)} of its fee` : ''}`, { jobId: c.jobId, action: 'payments.refunded' })
   }
 
