@@ -1726,7 +1726,8 @@ export function createEngine(store: Store, platform: Platform) {
         if (!text) throw invalid('every part of the report needs words')
         if (text.length > 4000) throw invalid('one part of the report is too long')
         if (typeof seg.at !== 'string' || Number.isNaN(Date.parse(seg.at))) throw invalid('every part of the report needs a time')
-        return { text, at: seg.at }
+        if (seg.topic !== undefined && !['work', 'parts', 'tests', 'left', 'next'].includes(seg.topic)) throw invalid('unknown report topic')
+        return { text, at: seg.at, ...(seg.topic ? { topic: seg.topic } : {}) }
       })
     }
 

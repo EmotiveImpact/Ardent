@@ -206,3 +206,14 @@ test('ticked first: a ticked item can not sign off empty, and parts can be picke
   const signed = await kofi.reports.sign(picked.id)
   assert.equal(signed.status, 'signed')
 })
+
+test('an answer to one question goes under it, whatever words it uses', () => {
+  const seg = (text: string, topic: 'work' | 'tests' | 'left' | 'next') => ({ text, at, topic })
+  const r = buildReport({
+    trade: 'electrical',
+    priceList,
+    van: van('opr_02'),
+    segments: [seg('Swapped the old fuse board for a new one.', 'work'), seg("Everything's working fine, all circuits checked.", 'tests'), seg('Bathroom light has no earth.', 'left'), seg('Nothing else.', 'next')],
+  })
+  assert.deepEqual(r.sections.map((s) => [s.topic, s.lines.length]), [['work', 1], ['tests', 1], ['left', 1], ['next', 1]])
+})

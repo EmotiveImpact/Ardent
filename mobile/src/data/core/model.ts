@@ -374,6 +374,8 @@ export interface ReportSegment {
   text: string
   /** When it was said. */
   at: string
+  /** The question it answered, when they were asked one thing at a time. */
+  topic?: ReportTopic
 }
 
 /** Where something in the report came from: a segment, and the characters within it. */

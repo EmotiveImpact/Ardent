@@ -488,21 +488,26 @@ export function buildReport({ segments, trade, priceList, van }: ReportInput): B
       const from: ReportSource = { segment, start: sen.start, end: sen.end }
       const rule = RULES.find((r) => r.re.test(spoken(sen.text)))
       let topic: ReportTopic = 'work'
-      if (rule?.topic === 'none_left') {
+      // An answer to one question belongs to it, whatever words it uses ("all working fine" after "What did you test?").
+      // Parts said while answering "What did you do?" still go under parts.
+      if (seg.topic) topic = seg.topic === 'work' && rule?.topic === 'parts' && !WORK.test(sen.text) ? 'parts' : seg.topic
+      else if (rule?.topic === 'none_left') {
         covered.add('left')
         lines.left.push({ text, from })
         continue
       }
-      if (rule?.topic === 'none_next') {
+      else if (rule?.topic === 'none_next') {
         covered.add('next')
         lines.next.push({ text, from })
         continue
       }
-      if (rule) topic = rule.topic as ReportTopic
-      // "Replaced the faulty socket" is work done, not a fault left behind.
-      if (topic === 'left' && DID_FIRST.test(sen.text) && !STILL_WRONG.test(sen.text)) topic = 'work'
-      // "Swapped it for a new valve off the van" is the work as well as the part.
-      if (topic === 'parts' && WORK.test(sen.text)) topic = 'work'
+      if (rule && !seg.topic) {
+        topic = rule.topic as ReportTopic
+        // "Replaced the faulty socket" is work done, not a fault left behind.
+        if (topic === 'left' && DID_FIRST.test(sen.text) && !STILL_WRONG.test(sen.text)) topic = 'work'
+        // "Swapped it for a new valve off the van" is the work as well as the part.
+        if (topic === 'parts' && WORK.test(sen.text)) topic = 'work'
+      }
 
       // Parts can be named in any sentence about the work, but never in what the customer wants next,
       // a test that names a part ("checked every valve") hasn't used one, and nor has a service ("serviced the boiler").

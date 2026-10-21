@@ -10,7 +10,7 @@ import { Atmosphere } from '@/components/Atmosphere';
 import { HoldToCommit } from '@/components/HoldToCommit';
 import { Icon } from '@/components/Icon';
 import { Back, Dock, Input } from '@/components/ui';
-import type { Job, JobReport, ReportLine, ReportPart, ReportSegment, ReportSource, ReportTick } from '@/data/types';
+import type { Job, JobReport, ReportLine, ReportPart, ReportSegment, ReportSource, ReportTick, ReportTopic } from '@/data/types';
 import { clock } from '@/kit/format';
 import { buildReport, cantSign, coveredSoFar, keepFixes, needed, pickedPart, promptsFor, TICKS, tradeWords } from '@/kit/report';
 import * as act from '@/sync/actions';
@@ -26,26 +26,26 @@ const buzz = (type: Haptics.NotificationFeedbackType) => {
 };
 
 // A browser preview can't use a phone's recogniser, so holding plays what an engineer might say instead.
-const SAMPLE: Partial<Record<Job['trade'], string[]>> = {
-  electrical: [
-    'Swapped the old fuse board for a ten-way dual RCD unit. Added two thirty-two amp breakers for the kitchen and the shower circuit.',
-    'Took the board and the breakers off the van, plus about two metres of two point five mil twin and earth.',
-    "Tested everything. Zs on the shower's nought point three eight, RCDs tripping at twenty-two and twenty-five milliseconds, insulation's over two hundred meg on all circuits.",
-    "One thing, the bathroom light's got no earth at the fitting. I've left it as it was and told her.",
-    'She wants a quote for an extra socket in the garage.',
-  ],
-  plumbing: [
-    'Leak under the kitchen sink. The cold feed isolation valve was weeping so I swapped it for a new fifteen mil isolating valve off the van.',
-    'Turned the water back on, no leaks.',
-    'Nothing left to do.',
-    'Told her to keep an eye on the cupboard for a day or two.',
-  ],
-  gas: [
-    'Serviced the boiler and cleaned the condensate trap.',
-    'Working pressure twenty millibar, tightness test passed. CO2 nine point two percent, ratio nought point nought nought zero four.',
-    'Nothing left to do.',
-    'She wants us back to look at the radiators upstairs.',
-  ],
+const SAMPLE: Partial<Record<Job['trade'], Partial<Record<ReportTopic, string>>>> = {
+  electrical: {
+    work: 'Swapped the old fuse board for a ten-way dual RCD unit. Added two thirty-two amp breakers for the kitchen and the shower circuit.',
+    parts: 'Took the board and the breakers off the van, plus about two metres of two point five mil twin and earth.',
+    tests: "Tested everything. Zs on the shower's nought point three eight, RCDs tripping at twenty-two and twenty-five milliseconds, insulation's over two hundred meg on all circuits.",
+    left: "One thing, the bathroom light's got no earth at the fitting. I've left it as it was and told her.",
+    next: 'She wants a quote for an extra socket in the garage.',
+  },
+  plumbing: {
+    work: 'Leak under the kitchen sink. The cold feed isolation valve was weeping so I swapped it for a new fifteen mil isolating valve off the van.',
+    tests: 'Turned the water back on, no leaks.',
+    left: 'Nothing left to do.',
+    next: 'Told her to keep an eye on the cupboard for a day or two.',
+  },
+  gas: {
+    work: 'Serviced the boiler and cleaned the condensate trap.',
+    tests: 'Working pressure twenty millibar, tightness test passed. CO2 nine point two percent, ratio nought point nought nought zero four.',
+    left: 'Nothing left to do.',
+    next: 'She wants us back to look at the radiators upstairs.',
+  },
 };
 const BARS = 36;
 /** The end of what they've said, so the newest words are always on screen. */
@@ -63,6 +63,8 @@ function Wave({ bars, live }: { bars: number[]; live: boolean }) {
 }
 
 const sampleFor = (trade: Job['trade']) => SAMPLE[trade] ?? SAMPLE[trade === 'heating' ? 'gas' : 'plumbing']!;
+/** What a preview engineer says for one question, or something general when the trade has nothing for it. */
+const sampleOn = (trade: Job['trade'], topic: ReportTopic) => sampleFor(trade)[topic] ?? 'Used a few bits off the van.';
 
 /** The words a line or part came from, as said. */
 const saidFor = (segments: ReportSegment[], from: ReportSource) => {
@@ -82,6 +84,8 @@ export default function JobReportScreen() {
   const [ticks, setTicks] = useState<ReportTick[]>(() => report?.ticked ?? []);
   const [picking, setPicking] = useState(false);
   const [other, setOther] = useState('');
+  /** Which ticked question they're on. */
+  const [qi, setQi] = useState(0);
   const words = useMemo(() => (day && job ? tradeWords({ trade: job.trade, priceList: day.priceList, van: day.stock }) : []), [day?.priceList, day?.stock, job?.trade]);
   const ear = useListen(words);
   const preview = Platform.OS === 'web' && ear.hearing !== 'listening';
@@ -133,8 +137,24 @@ export default function JobReportScreen() {
   const input = (segs: ReportSegment[]) => ({ segments: segs, trade: job.trade, priceList: day.priceList, van: day.stock });
   const live = demo || ear.live;
   const covered = coveredSoFar(input(live ? [...segments, { text: live, at: new Date().toISOString() }] : segments));
-  const samples = sampleFor(job.trade);
-  const nextSample = samples[segments.length % samples.length];
+  // Once they've ticked, each ticked thing is its own question, one at a time.
+  const asking = report?.ticked ? needed(report.ticked) : undefined;
+  const asked = asking?.[Math.min(qi, asking.length - 1)];
+  const askedPrompt = asked ? allPrompts.find((p) => p.topic === asked)! : undefined;
+  const answer = asked ? segments.filter((g) => g.topic === asked).at(-1) : segments.at(-1);
+  const samples = Object.values(sampleFor(job.trade));
+  const nextSample = asked ? sampleOn(job.trade, asked) : samples[segments.length % samples.length];
+  const lastQuestion = !!asking && qi >= asking.length - 1;
+  const nextQuestion = () => {
+    if (!lastQuestion) return setQi(qi + 1);
+    setStep('check');
+    if (asking?.includes('parts')) setPicking(true);
+  };
+  const ask = (t: ReportTopic) => {
+    const i = asking?.indexOf(t) ?? -1;
+    if (i >= 0) setQi(i);
+    setStep('talk');
+  };
   const site = day.sites.find((x) => x.id === job.siteId);
   const gasJob = GAS_TRADES.has(job.trade);
   const gasRecord = day.gasRecords.find((r) => r.jobId === job.id);
@@ -161,7 +181,7 @@ export default function JobReportScreen() {
   const add = (text: string) => {
     const t = text.trim();
     if (!t) return;
-    void run(() => save([...segments, { text: t, at: new Date().toISOString() }]));
+    void run(() => save([...segments, { text: t, at: new Date().toISOString(), ...(asked ? { topic: asked } : {}) }]));
   };
   const fix = (i: number, change: Partial<ReportPart>) => report && run(() => act.saveReport(job, report.segments, report.parts.map((p, j) => (j === i ? { ...p, ...change } : p))));
   const drop = (i: number) => report && run(() => act.saveReport(job, report.segments, report.parts.filter((_, j) => j !== i)));
@@ -190,6 +210,7 @@ export default function JobReportScreen() {
   const confirmTicks = () =>
     run(async () => {
       await act.saveReport(job, segments, report?.parts, ticks);
+      setQi(0);
       setStep(segments.length ? 'check' : 'talk');
     });
 
@@ -359,7 +380,7 @@ export default function JobReportScreen() {
         <View style={styles.pad}>
           <TopRow
             left={
-              step === 'check' ? <Back label="Talk" onPress={() => setStep('talk')} /> : step === 'talk' ? <Back label="What happened" onPress={() => setStep('what')} /> : <Back label={job.ref} />
+              step === 'check' ? <Back label="Talk" onPress={() => setStep('talk')} /> : step === 'talk' ? <Back label="Back" onPress={() => (asking && qi > 0 ? setQi(qi - 1) : setStep('what'))} /> : <Back label={job.ref} />
             }
             right={`${job.ref}   ${clock(new Date().toISOString())}`}
           />
@@ -413,13 +434,26 @@ export default function JobReportScreen() {
 
         {step === 'talk' && (
           <ScrollView contentContainerStyle={styles.stage} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Text style={styles.eyebrow}>{`Job update  ·  ${listening ? 'Recording' : segments.length ? `Said ${segments.length} time${segments.length === 1 ? '' : 's'}` : 'Ready'}`}</Text>
+            {asking && askedPrompt && (
+              <>
+                <View style={styles.progress}>
+                  {asking.map((t, i) => (
+                    <View key={t} style={[styles.progressBit, i <= qi && { backgroundColor: color.fg }]} />
+                  ))}
+                </View>
+                <Text style={styles.question}>{askedPrompt.title}</Text>
+                <Text style={styles.questionHint}>{asked === 'parts' ? 'Say them, or pick them from your van next' : askedPrompt.hint}</Text>
+              </>
+            )}
+            <Text style={styles.eyebrow}>
+              {`${asking ? `${qi + 1} of ${asking.length}` : 'Job update'}  ·  ${listening ? 'Recording' : answer ? 'Said' : 'Ready'}`}
+            </Text>
             <Wave bars={bars} live={listening} />
             <Text style={styles.timer} accessibilityLabel={`${Math.floor(elapsed / 60)} minutes ${elapsed % 60} seconds`}>{`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`}</Text>
-            <Text style={[styles.quote, !live && !segments.length && { color: color.fgFaint }]} accessibilityLiveRegion="polite">
-              {live ? `“${tail(live)}”` : segments.length ? `“${tail(segments.at(-1)!.text)}”` : 'Hold the button and talk it through, the way you would tell the office.'}
+            <Text style={[styles.quote, !live && !answer && { color: color.fgFaint }]} accessibilityLiveRegion="polite">
+              {live ? `“${tail(live)}”` : answer ? `“${tail(answer.text)}”` : asking ? 'Hold the button and answer.' : 'Hold the button and talk it through, the way you would tell the office.'}
             </Text>
-            <View style={styles.marks} accessibilityLabel={prompts.map((p) => `${p.chip} ${covered.has(p.topic) ? 'covered' : 'still to say'}`).join(', ')}>
+            {!asking && <View style={styles.marks} accessibilityLabel={prompts.map((p) => `${p.chip} ${covered.has(p.topic) ? 'covered' : 'still to say'}`).join(', ')}>
               {prompts.map((p) => {
                 const done = covered.has(p.topic);
                 return (
@@ -429,7 +463,7 @@ export default function JobReportScreen() {
                   </View>
                 );
               })}
-            </View>
+            </View>}
             {ear.onPhone === false && Platform.OS === 'android' && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.hint}>This phone needs signal to hear you until its English (UK) speech pack is on it.</Text>
@@ -465,7 +499,7 @@ export default function JobReportScreen() {
                       key={t}
                       first={i === 0}
                       left={title(t)}
-                      right={t === 'parts' ? <Chip label="Pick" tint={color.fg} onPress={() => setPicking(true)} /> : <Chip label="Say it" tint={color.fg} onPress={() => setStep('talk')} />}
+                      right={t === 'parts' ? <Chip label="Pick" tint={color.fg} onPress={() => setPicking(true)} /> : <Chip label="Say it" tint={color.fg} onPress={() => ask(t)} />}
                     />
                   ))}
                 </Card>
@@ -515,7 +549,7 @@ export default function JobReportScreen() {
                 ) : (
                   <View style={styles.pair}>
                     <Plain title="From the van" icon="plus" onPress={() => setPicking(true)} flex />
-                    <Plain title="Say them" quiet onPress={() => setStep('talk')} flex />
+                    <Plain title="Say them" quiet onPress={() => ask('parts')} flex />
                   </View>
                 )}
                 {report.parts.length > 0 && <Text style={styles.hint}>Signing adds these to the job at price list prices, and takes the van ones off your van.</Text>}
@@ -587,10 +621,15 @@ export default function JobReportScreen() {
                 </Pressable>
               </View>
               <Text style={styles.micLabel}>{listening ? 'Release to finish' : busy ? 'Saving' : 'Hold to talk'}</Text>
-              {segments.length > 0 && !listening && (
-                <Pressable onPress={() => setStep('check')} accessibilityRole="button" hitSlop={10} style={styles.next}>
-                  <Text style={styles.nextText}>Check it over</Text>
+              {(asking ? !!answer || (asked === 'parts' && !!report?.parts.length) : segments.length > 0) && !listening && (
+                <Pressable onPress={asking ? nextQuestion : () => setStep('check')} accessibilityRole="button" hitSlop={10} style={styles.next}>
+                  <Text style={styles.nextText}>{!asking ? 'Check it over' : !lastQuestion ? 'Next question' : asking.includes('parts') ? 'Next: check the parts' : 'Check it over'}</Text>
                   <Icon name="arrow" size={15} tint={color.fg} />
+                </Pressable>
+              )}
+              {asked === 'parts' && !answer && !listening && (
+                <Pressable onPress={nextQuestion} accessibilityRole="button" hitSlop={10} style={styles.next}>
+                  <Text style={[styles.nextText, { color: color.fgMuted }]}>Pick them from the van instead</Text>
                 </Pressable>
               )}
               {preview && <Text style={[styles.hint, { textAlign: 'center' }]}>Preview: holding plays what an engineer might say.</Text>}
@@ -642,6 +681,10 @@ const styles = StyleSheet.create({
   boxOn: { backgroundColor: color.fg },
   van: { color: color.fgMuted, backgroundColor: color.raised, fontFamily: font.mono, fontSize: 10, letterSpacing: 1.6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.sm, overflow: 'hidden' },
   grid: { flexDirection: 'row', gap: 8 },
+  progress: { flexDirection: 'row', gap: 4, alignSelf: 'stretch', marginBottom: 28 },
+  progressBit: { flex: 1, height: 3, borderRadius: 2, backgroundColor: color.raised },
+  question: { color: color.fg, fontFamily: font.sansMedium, fontSize: 22, lineHeight: 28, textAlign: 'center' },
+  questionHint: { color: color.fgFaint, fontFamily: font.sans, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 6, marginBottom: 20 },
   stage: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, paddingVertical: 24 },
   eyebrow: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, letterSpacing: 2.4, textTransform: 'uppercase' },
   wave: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 56, marginTop: 22 },
