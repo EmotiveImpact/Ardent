@@ -21,9 +21,15 @@ import { NewJob } from '@/routes/new-job'
 import { QuoteDetail } from '@/routes/quote'
 import { InvoiceDetail, NewInvoice } from '@/routes/invoice'
 import { CoreWall } from '@/routes/wall'
+import { PaymentsSettings } from '@/routes/payments-settings'
+import { PayPage, PlanSign, StripeSignUp } from '@/routes/stripe-test'
 
 const router = createHashRouter([
   { path: 'wall', element: <CoreWall /> },
+  // The demo's stand-ins for Stripe's own pages, outside the app like the wall.
+  { path: 'stripe-test/sign-up', element: <StripeSignUp /> },
+  { path: 'pay/:id', element: <PayPage /> },
+  { path: 'plan/:id', element: <PlanSign /> },
   {
     element: <AppShell />,
     children: [
@@ -45,6 +51,7 @@ const router = createHashRouter([
       { path: 'crew', element: <Crew /> },
       { path: 'settings', element: <Settings /> },
       { path: 'settings/questions', element: <Questions /> },
+      { path: 'settings/payments', element: <PaymentsSettings /> },
     ],
   },
 ])

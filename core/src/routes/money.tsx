@@ -4,6 +4,7 @@ import { pounds, totals } from '@kit'
 import { PageBar } from '@/components/layout/bar'
 import { Card, PageHead, RowButton, SectionHead } from '@/components/ardent/parts'
 import { MoneyLoading, StateMark } from '@/components/ardent/money-parts'
+import { PaymentsPart } from '@/components/ardent/money-payments'
 import { capDate, daysLate, isLate, OWING, quoteState, say, invoiceState } from '@/components/ardent/money-lib'
 import { useBook, type Book } from '@/data/ardent'
 import type { Invoice, Quote } from '@/data/model'
@@ -92,6 +93,8 @@ export function Money() {
           </div>
         </div>
       )}
+
+      {book && <PaymentsPart book={book} />}
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { capDate, greyButton, quoteState } from '@/components/ardent/money-lib'
 import { solidButton } from '@/components/ardent/people-kit'
 import { kinds, kindWord, matchItems, penceOf, unitWord, usePriceList } from '@/components/ardent/price-parts'
 import { fieldClass } from '@/components/ui/field'
+import { LinkBox, usePayments } from '@/components/ardent/pay-parts'
 import { useArdent, useBook, type Book } from '@/data/ardent'
 import type { LineItem, OptionKey, PriceItem, Quote } from '@/data/model'
 import { act } from '@/lib/act'
@@ -529,8 +530,71 @@ function SendCard({ q, book, ed }: { q: Quote; book: Book; ed: Draft }) {
           is booked with {chosen ? 'those' : 'these'} lines.
         </p>
       )}
+      {q.status === 'sent' && <DepositNote q={q} />}
+      {q.status === 'accepted' && <DepositPart q={q} book={book} />}
       {q.status === 'declined' && <p className="text-[13.5px] text-muted">{who} said no to this one.</p>}
       {q.status === 'expired' && <p className="text-[13.5px] text-muted">This quote ran out on {shortDate(`${q.validUntil}T12:00:00Z`)} without an answer.</p>}
     </Card>
   )
+}
+
+/** The deposit asked for when they said yes: its link while it's waiting, then paid, then taken off the invoice. */
+function DepositPart({ q, book }: { q: Quote; book: Book }) {
+  const { account, demo } = usePayments()
+  const d = q.deposit
+  if (!d) {
+    if (!account || account.status !== 'active' || !account.depositPercent) return null
+    return <p className="text-[12.5px] leading-[1.45] text-muted">No deposit on this one{account.depositFrom ? `: deposits start at ${pounds(account.depositFrom)}` : ''}.</p>
+  }
+  const inv = find(book.invoices, d.invoiceId)
+  return (
+    <div className="flex flex-col gap-3 pt-3.5 shadow-[inset_0_1px_0_var(--line)]">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="cap">Deposit · {d.percent}%</span>
+        <span className="font-mono text-[15px] tabular">{pounds(d.amount, { always: true })}</span>
+      </div>
+      {d.status === 'requested' && (
+        <>
+          <StateMark dot="warn" className="text-[13.5px]">
+            Asked for, not paid yet
+          </StateMark>
+          {d.link && <LinkBox url={d.link.url} demo={demo} />}
+          <p className="text-[12.5px] leading-[1.45] text-muted">Send it with your thanks for the yes. Once paid, it comes off the final invoice.</p>
+        </>
+      )}
+      {d.status === 'paid' && (
+        <>
+          <StateMark dot="ok" className="text-[13.5px]">
+            Paid{d.paidAt ? ` ${shortDate(d.paidAt)}` : ''}
+          </StateMark>
+          <p className="text-[12.5px] leading-[1.45] text-muted">It comes off the invoice for {find(book.jobs, q.jobId)?.ref ?? 'the job'} when that's drafted.</p>
+        </>
+      )}
+      {d.status === 'deducted' && (
+        <StateMark dot="ok" className="text-[13.5px]">
+          <span>
+            Paid{d.paidAt ? ` ${shortDate(d.paidAt)}` : ''}, taken off{' '}
+            {inv ? (
+              <Link to={`/invoices/${inv.id}`} className={link}>
+                {inv.ref}
+              </Link>
+            ) : (
+              'the invoice'
+            )}
+          </span>
+        </StateMark>
+      )}
+    </div>
+  )
+}
+
+/** Before the answer: whether a yes asks for a deposit. */
+function DepositNote({ q }: { q: Quote }) {
+  const { account } = usePayments()
+  if (!account || account.status !== 'active' || !account.depositPercent) return null
+  const all = q.options ? q.options.map((o) => totals(o).total) : [totals(q).total]
+  const some = all.filter((t) => t >= account.depositFrom)
+  if (!some.length) return null
+  const what = some.length === all.length ? 'A yes' : `A yes to ${q.options!.filter((o) => totals(o).total >= account.depositFrom).map((o) => o.key).join(' or ')}`
+  return <p className="text-[12.5px] leading-[1.45] text-muted">{what} asks them for a {account.depositPercent}% deposit through a pay link. It comes off the final invoice.</p>
 }

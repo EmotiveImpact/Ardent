@@ -16,7 +16,7 @@ const KIND: Record<Approval['kind'], { label: string; yes: string; open: (a: App
   send_invoice: { label: 'Invoice to send', yes: 'Yes, send it', open: (a) => a.invoiceId && `/invoices/${a.invoiceId}` },
   chase_invoice: { label: 'Reminder', yes: 'Yes, remind them', open: (a) => a.invoiceId && `/invoices/${a.invoiceId}` },
   send_quote: { label: 'Quote to send', yes: 'Yes, send it', open: (a) => a.quoteId && `/quotes/${a.quoteId}` },
-  refund: { label: 'Refund', yes: 'Yes, refund it', open: (a) => a.invoiceId && `/invoices/${a.invoiceId}` },
+  refund: { label: 'Refund', yes: 'Yes, refund it', open: (a) => (a.invoiceId ? `/invoices/${a.invoiceId}` : a.jobId && `/jobs/${a.jobId}`) },
 }
 
 /** The owner's morning brief: yesterday, what's late, what's on, what waits. */
@@ -93,7 +93,7 @@ function ApprovalCard({ a }: { a: Approval }) {
           <span className="font-mono text-[11px] text-faint">Drafted {relative(a.createdAt)}</span>
         </div>
         <figure className="rounded-[12px] bg-background/60 px-4 py-3.5">
-          <figcaption className="cap pb-2 text-[11px] text-faint">What they'd get</figcaption>
+          <figcaption className="cap pb-2 text-[11px] text-faint">{a.kind === 'refund' ? 'What happens' : "What they'd get"}</figcaption>
           <blockquote className="text-[14px] leading-[21px] text-pretty">{a.preview}</blockquote>
         </figure>
         {saying !== undefined ? (
@@ -125,7 +125,7 @@ function ApprovalCard({ a }: { a: Approval }) {
             <button
               type="button"
               disabled={busy}
-              onClick={() => void go(client.approvals.approve(a.id, a.version), a.kind === 'chase_invoice' ? 'Reminder logged' : 'Marked as sent')}
+              onClick={() => void go(client.approvals.approve(a.id, a.version), a.kind === 'chase_invoice' ? 'Reminder logged' : a.kind === 'refund' ? 'Refunded. It reaches them in 5 to 10 days.' : 'Marked as sent')}
               className="inline-flex h-10 items-center rounded-lg bg-foreground px-4 text-[13px] font-medium text-background outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-50"
             >
               {k.yes}

@@ -19,7 +19,7 @@ export function Approvals() {
       />
       <PageHead
         title="Approvals"
-        sub="Ardent drafts these from your records when a job finishes, a quote is ready or an invoice runs late. Email isn't connected yet, so a yes marks it sent and logs who said so."
+        sub="Ardent drafts these from your records when a job finishes, a quote is ready or an invoice runs late. Refunds wait here too. Email isn't connected yet, so a yes on a message marks it sent and logs who said so; a yes on a refund sends the money back through Stripe."
         className="pb-0"
       >
         <Link to="/approvals/rules" className="mt-3 inline-block text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline sm:hidden">

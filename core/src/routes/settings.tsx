@@ -3,9 +3,10 @@ import { initials, pounds, trade as tradeName } from '@kit'
 import { PageBar } from '@/components/layout/bar'
 import { Icon } from '@/components/layout/icons'
 import { Card, Initials, PageHead, RowButton, SectionHead } from '@/components/ardent/parts'
-import { Fact, GreyButton, HoldEmber } from '@/components/ardent/money-parts'
+import { Fact, GreyButton, HoldEmber, StateMark } from '@/components/ardent/money-parts'
+import { usePayments } from '@/components/ardent/pay-parts'
 import { Pill } from '@/components/ardent/book-parts'
-import { greyButton } from '@/components/ardent/money-lib'
+import { greyButton, type Dot } from '@/components/ardent/money-lib'
 import { FormDialog } from '@/components/ardent/people-parts'
 import { solidButton } from '@/components/ardent/people-kit'
 import { kinds, kindWord, marginOf, penceOf, poundsBox, units, unitWord, usePriceList } from '@/components/ardent/price-parts'
@@ -13,7 +14,7 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog'
 import { fieldClass, selectClass } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { useArdent, useBook, useQuery } from '@/data/ardent'
-import type { PriceItem, Trade } from '@/data/model'
+import type { PaymentAccount, PriceItem, Trade } from '@/data/model'
 import { act } from '@/lib/act'
 import { find } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
@@ -46,7 +47,7 @@ export function Settings() {
   return (
     <div className="flex flex-col gap-10 pb-6">
       <PageBar crumbs={[{ label: 'Settings' }]} />
-      <PageHead title="Settings" book={book} sub="Your firm, report questions, your sign-in, who else can sign in, and your price list." className="pb-0" />
+      <PageHead title="Settings" book={book} sub="Your firm, payments, report questions, your sign-in, who else can sign in, and your price list." className="pb-0" />
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-5">
@@ -69,6 +70,8 @@ export function Settings() {
             </div>
             <p className="text-[12.5px] text-faint">Your address, VAT number and bank details aren't in Ardent yet, so invoices go out without them. The firm's name and payment terms can't be changed here yet.</p>
           </Card>
+
+          <PaymentsLink />
 
           <Card className="flex flex-col gap-3 p-6">
             <SectionHead title="Job report questions" aside={<RowButton to="/settings/questions">Open</RowButton>} className="pb-0" />
@@ -172,6 +175,33 @@ export function Settings() {
 
       <PriceList />
     </div>
+  )
+}
+
+/** Where the firm's Stripe account stands, one line, and the way in. */
+function PaymentsLink() {
+  const { account } = usePayments()
+  const state: Record<PaymentAccount['status'], { dot: Dot; text: string }> = {
+    not_started: { dot: 'grey', text: 'Not set up. Invoices show your bank details only.' },
+    onboarding: { dot: 'warn', text: "Stripe's sign-up isn't finished." },
+    needs_info: { dot: 'warn', text: `Stripe still needs ${account?.due.length ? account.due.join(', ').toLowerCase() : 'a few things'}.` },
+    active: { dot: 'ok', text: 'On. Every invoice carries a Pay now link.' },
+    paused: { dot: 'danger', text: 'Stripe has paused payments.' },
+  }
+  const s = account && state[account.status]
+  return (
+    <Card className="flex flex-col gap-3 p-6">
+      <SectionHead title="Payments" aside={<RowButton to="/settings/payments">Open</RowButton>} className="pb-0" />
+      <p className="text-[13.5px] text-muted">Customers pay by bank or card into your own Stripe account. Ardent's fee is 0.2% a payment, never more than £5. Deposits on quotes are set here too.</p>
+      {s && (
+        <StateMark dot={s.dot} className="text-[13.5px]">
+          {s.text}
+        </StateMark>
+      )}
+      <RowButton to="/settings/payments" className="self-start sm:hidden">
+        Payments
+      </RowButton>
+    </Card>
   )
 }
 

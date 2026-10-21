@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { pounds, shortDate } from '@kit'
 import { PageBar } from '@/components/layout/bar'
 import { Card, PageHead, RowButton, SectionHead, type Figure } from '@/components/ardent/parts'
-import { EmberButton, GreyButton, LineTable, MoneyLoading } from '@/components/ardent/money-parts'
-import { capDate, daysLate, daysUntil, isAre, isLate, OWING } from '@/components/ardent/money-lib'
+import { EmberButton, GreyButton, LineTable, MoneyLoading, StateMark } from '@/components/ardent/money-parts'
+import { capDate, daysLate, daysUntil, greyButton, isAre, isLate, OWING } from '@/components/ardent/money-lib'
+import { ardentFee } from '@kit/pay.ts'
+import { feeWord, LinkBox, methodPhrase, methodWord, RefundDialog, refundable, TestButton, TurnOnLine, usePayments, usePretend } from '@/components/ardent/pay-parts'
 import { useArdent, useBook, useQuery, type Book } from '@/data/ardent'
 import { useNow } from '@/hooks/use-now'
 import type { Invoice, PaymentMethod } from '@/data/model'
@@ -12,7 +14,6 @@ import { act } from '@/lib/act'
 import { find, invoiceOwed, invoiceTotal, jobNet } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 
-const methodWord: Record<PaymentMethod, string> = { bank_transfer: 'Bank transfer', cash: 'Cash', card: 'Card', tap: 'Tap to Pay', pay_by_bank: 'Pay by bank', direct_debit: 'Direct Debit' }
 
 /** The invoice's head sentence. */
 function sentence(inv: Invoice, book: Book): ReactNode {
@@ -103,7 +104,9 @@ function InvoicePage({ inv, book }: { inv: Invoice; book: Book }) {
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-3">
         <TheInvoice inv={inv} book={book} />
         <div className="flex min-w-0 flex-col gap-5">
+          <PayNow inv={inv} />
           <GetPaid inv={inv} book={book} />
+          <Payments inv={inv} book={book} />
           <History inv={inv} book={book} />
         </div>
       </div>
@@ -168,7 +171,7 @@ function TheInvoice({ inv, book }: { inv: Invoice; book: Book }) {
       />
 
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 pt-3.5 text-[13px] text-muted shadow-[inset_0_1px_0_var(--line)]">
-        <span>Ref {inv.ref}. Your address, VAT number and bank details aren't in Ardent yet.</span>
+        <span>Ref {inv.ref}. {inv.payLink ? 'Pay now by bank or card from the link. ' : ''}Your address, VAT number and bank details aren't in Ardent yet.</span>
         <span className="font-mono text-[11px] uppercase">Pay within 14 days</span>
       </div>
     </Card>
@@ -178,6 +181,7 @@ function TheInvoice({ inv, book }: { inv: Invoice; book: Book }) {
 /** The one thing to do: record what came in, or mark the draft as sent. */
 function GetPaid({ inv, book }: { inv: Invoice; book: Book }) {
   const { client } = useArdent()
+  const { account, on } = usePayments()
   const c = find(book.customers, inv.customerId)
   const owing = OWING.includes(inv.status)
   const [paidAlready, setPaidAlready] = useState(false)
@@ -216,9 +220,167 @@ function GetPaid({ inv, book }: { inv: Invoice; book: Book }) {
 
   return (
     <Card className="flex flex-col gap-3 px-[22px] py-5">
-      <span className="cap">Get paid</span>
+      <span className="cap">{on ? 'Paid some other way?' : 'Get paid'}</span>
       {owing && <PaymentForm inv={inv} ember />}
       {tel}
+      {account && !on && <TurnOnLine>Customers could pay this from a link on the invoice once payments are on.</TurnOnLine>}
+    </Card>
+  )
+}
+
+/**
+ * The customer's Pay now link: copy it, show the code to scan, and in the demo
+ * open the page the customer sees. Only while the firm takes payments.
+ */
+function PayNow({ inv }: { inv: Invoice }) {
+  const { client } = useArdent()
+  const { on, demo } = usePayments()
+  const [busy, setBusy] = useState(false)
+  if (!on || inv.status === 'paid' || inv.status === 'void') return null
+  const left = invoiceOwed(inv)
+  if (inv.status === 'draft')
+    return (
+      <Card className="flex flex-col gap-2.5 px-[22px] py-5">
+        <span className="cap">Pay now link</span>
+        <p className="text-[13.5px] leading-[1.45] text-muted">Goes on the invoice when you mark it as sent. Customers pay by bank or card, and the payment shows here the moment they do.</p>
+      </Card>
+    )
+  if (!inv.payLink)
+    return (
+      <Card className="flex flex-col gap-3 px-[22px] py-5">
+        <span className="cap">Pay now link</span>
+        <p className="text-[13.5px] leading-[1.45] text-muted">
+          {inv.payments?.some((p) => p.chargeId) ? `The link came off when it was paid in full. Make a new one for the ${pounds(left, { always: true })} left.` : 'This invoice went out before payments were on, so it has no link yet.'}
+        </p>
+        <GreyButton
+          disabled={busy}
+          className="w-full"
+          onClick={async () => {
+            setBusy(true)
+            await act(client.payments.link(inv.id), 'Pay now link ready')
+            setBusy(false)
+          }}
+        >
+          Make the Pay now link
+        </GreyButton>
+      </Card>
+    )
+  return (
+    <Card className="flex flex-col gap-3 px-[22px] py-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="cap">Pay now link</span>
+        <span className="font-mono text-[11px] text-muted uppercase">
+          {pounds(left, { always: true })} <span className="text-faint">·</span> Ardent's fee {feeWord(ardentFee(left))}
+        </span>
+      </div>
+      <LinkBox url={inv.payLink.url} demo={demo} />
+      <p className="text-[12.5px] leading-[1.45] text-muted">The link stays the same: opening it asks for whatever is left to pay. Send it with the invoice; Ardent's reminders carry it too.</p>
+    </Card>
+  )
+}
+
+/** Each payment in, how it came and what Ardent took; refunds and their state. */
+function Payments({ inv, book }: { inv: Invoice; book: Book }) {
+  const { data: overview, demo } = usePayments()
+  const pretend = usePretend()
+  const rows = (inv.payments ?? []).filter((p) => !p.refund)
+  if (!rows.length) return null
+  const chargeOf = (id?: string) => (id ? overview?.charges.find((c) => c.id === id) : undefined)
+  const chargeIds = new Set(rows.map((p) => p.chargeId).filter(Boolean))
+  const refunds = (overview?.refunds ?? []).filter((r) => chargeIds.has(r.chargeId))
+  const doneBack = refunds.filter((r) => r.status === 'done').reduce((t, r) => t + r.amount, 0)
+  const allBack = -(inv.payments ?? []).filter((p) => p.refund).reduce((t, p) => t + p.amount, 0)
+
+  return (
+    <Card className="px-[22px] pt-5 pb-2.5">
+      <SectionHead title={`Payments · ${rows.length}`} className="pb-1.5" />
+      <ol className="rows">
+        {[...rows].reverse().map((p, i) => {
+          const c = chargeOf(p.chargeId)
+          const quote = c?.quoteId ? find(book.quotes, c.quoteId) : undefined
+          const left = c && overview ? refundable(c, overview.refunds) : 0
+          const notes = [
+            p.deposit ? `Paid by ${methodPhrase(p.method)} on the quote, taken off this invoice` : c ? 'Through Stripe' : 'Recorded by hand',
+            c ? `Ardent's fee ${feeWord(c.fee - c.feeRefunded)}` : undefined,
+            c?.refunded ? `${pounds(c.refunded, { always: true })} refunded` : undefined,
+          ].filter(Boolean)
+          return (
+            <li key={i} className="flex flex-col gap-2.5 py-3">
+              <div className="flex gap-3.5">
+                <span className="w-[52px] shrink-0 pt-0.5 font-mono text-[11px] text-muted">{capDate(p.at)}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="text-[14px]">{p.deposit ? `Deposit on ${quote?.ref ?? 'the quote'}` : methodWord[p.method]}</span>
+                  <span className="text-[12.5px] text-muted">{notes.join(' · ')}</span>
+                  {c?.disputed && (
+                    <StateMark dot="danger" className="text-[12.5px] text-danger">
+                      Disputed with their bank. See Money.
+                    </StateMark>
+                  )}
+                </span>
+                <span className="shrink-0 font-mono text-[13px] tabular">{pounds(p.amount, { always: true })}</span>
+              </div>
+              {c && overview && (left > 0 || (demo && !c.disputed && (c.method === 'card' || c.method === 'tap'))) && (
+                <div className="flex flex-wrap gap-2 pl-[66px]">
+                  {left > 0 && (
+                    <RefundDialog charge={c} overview={overview}>
+                      <button type="button" className={cn(greyButton, 'h-8 px-3 text-[12.5px]')}>
+                        Refund
+                      </button>
+                    </RefundDialog>
+                  )}
+                  {demo && !c.disputed && (c.method === 'card' || c.method === 'tap') && (
+                    <TestButton onClick={() => void pretend({ kind: 'dispute', chargeId: c.id }, `Pretend dispute opened on ${c.label}. It's on Money with the evidence.`)}>Pretend a dispute</TestButton>
+                  )}
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+      {(refunds.length > 0 || allBack > doneBack) && (
+        <>
+          <h3 className="cap pt-4 pb-1.5">Refunds</h3>
+          <ol className="rows">
+            {refunds.map((r) => (
+              <li key={r.id} className="flex gap-3.5 py-3">
+                <span className="w-[52px] shrink-0 pt-0.5 font-mono text-[11px] text-muted">{capDate(r.doneAt ?? r.askedAt)}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  {r.status === 'waiting' ? (
+                    <StateMark dot="warn" className="text-[14px]">
+                      <span>
+                        Waiting for a yes in{' '}
+                        <Link to="/approvals" className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/60">
+                          Approvals
+                        </Link>
+                      </span>
+                    </StateMark>
+                  ) : r.status === 'done' ? (
+                    <StateMark dot="ok" className="text-[14px]">
+                      Refunded
+                    </StateMark>
+                  ) : (
+                    <StateMark dot="faint" className="text-[14px] text-muted">
+                      Turned down
+                    </StateMark>
+                  )}
+                  <span className="text-[12.5px] text-muted">
+                    {r.askedBy}: {r.reason}
+                    {r.status === 'done' && r.feeBack ? `. Ardent gave back ${feeWord(r.feeBack)} of its fee.` : ''}
+                  </span>
+                </span>
+                <span className={cn('shrink-0 font-mono text-[13px] tabular', r.status === 'turned_down' && 'text-muted line-through')}>-{pounds(r.amount, { always: true })}</span>
+              </li>
+            ))}
+            {allBack > doneBack && (
+              <li className="flex gap-3.5 py-3">
+                <span className="w-[52px] shrink-0 pt-0.5 font-mono text-[11px] text-muted">--</span>
+                <span className="min-w-0 flex-1 text-[14px]">Refunded from the Stripe dashboard</span>
+                <span className="shrink-0 font-mono text-[13px] tabular">-{pounds(allBack - doneBack, { always: true })}</span>
+              </li>
+            )}
+          </ol>
+        </>
+      )}
     </Card>
   )
 }
@@ -226,6 +388,7 @@ function GetPaid({ inv, book }: { inv: Invoice; book: Book }) {
 /** Amount and how it came in. Records only: Ardent takes no payments itself. */
 function PaymentForm({ inv, ember }: { inv: Invoice; ember?: boolean }) {
   const { client } = useArdent()
+  const { on } = usePayments()
   const left = invoiceOwed(inv)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<PaymentMethod>('bank_transfer')
@@ -279,7 +442,8 @@ function PaymentForm({ inv, ember }: { inv: Invoice; ember?: boolean }) {
         </GreyButton>
       )}
       <p className="text-[12.5px] leading-[1.45] text-muted">
-        Leave the amount empty to record the full {pounds(left, { always: true })}. Ardent doesn't take payments, card or otherwise. This records one you've already had.
+        Leave the amount empty to record the full {pounds(left, { always: true })}.{' '}
+        {on ? 'This is for money that came some other way, such as a transfer or cash. Payments from the Pay now link record themselves.' : "Ardent isn't taking payments for you yet, so this records one you've already had."}
       </p>
     </div>
   )
@@ -339,7 +503,7 @@ function History({ inv, book }: { inv: Invoice; book: Book }) {
           </li>
         ))}
       </ol>
-      <p className="pt-1 pb-2 text-[12px] text-faint">Payment dates and calls aren't kept in Ardent yet.</p>
+      <p className="pt-1 pb-2 text-[12px] text-faint">Calls aren't kept in Ardent yet.</p>
     </Card>
   )
 }
