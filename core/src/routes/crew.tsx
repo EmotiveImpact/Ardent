@@ -349,7 +349,7 @@ function CrewCard({ book, op, index, member, owner, membersKnown }: { book: Book
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <dt className="cap truncate text-[9px]">{label}</dt>
+      <dt className="cap truncate text-[11px]">{label}</dt>
       <dd className="op-number text-[20px]">{children}</dd>
     </div>
   )

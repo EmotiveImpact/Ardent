@@ -9,7 +9,7 @@ import { find } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 
 const order: Certificate['state'][] = ['overdue', 'due_soon', 'valid', 'draft']
-const dot: Record<Certificate['state'], string> = { overdue: 'bg-danger', due_soon: 'bg-warn', valid: 'bg-foreground', draft: 'bg-[#5f5f5f]' }
+const dot: Record<Certificate['state'], string> = { overdue: 'bg-danger', due_soon: 'bg-warn', valid: 'bg-foreground', draft: 'bg-faint' }
 const runsOutTone: Record<Certificate['state'], string> = { overdue: 'text-danger', due_soon: 'text-warn', valid: 'text-muted', draft: 'text-muted' }
 const kindName: Record<CertificateKind, string> = { CP12: 'CP12', EICR: 'EICR', PAT: 'PAT', BS5839: 'Fire alarm', 'Boiler service': 'Boiler service', Unvented: 'Unvented' }
 

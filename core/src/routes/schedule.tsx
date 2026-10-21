@@ -192,7 +192,7 @@ function tileState(job: Job) {
   return 'booked' as const
 }
 
-const dotFor = { done: 'bg-[#5f5f5f]', live: 'bg-ok', road: 'bg-info', paused: 'bg-warn', need: 'bg-warn', booked: '' } as const
+const dotFor = { done: 'bg-faint', live: 'bg-ok', road: 'bg-info', paused: 'bg-warn', need: 'bg-warn', booked: '' } as const
 const stateWord = { done: 'done', live: 'on site', road: 'on the road', paused: 'paused', need: 'nobody on it yet', booked: 'booked' } as const
 
 function JobTile({ job, from, drag, extra }: { job: Job; from?: string; drag: Hand; extra?: string }) {
@@ -226,7 +226,7 @@ function JobTile({ job, from, drag, extra }: { job: Job; from?: string; drag: Ha
         {dotFor[st] && <span className={cn('size-1.5 shrink-0 rounded-full', dotFor[st])} />}
       </span>
       <span className="line-clamp-2 text-[12px] leading-4 text-foreground">{job.title}</span>
-      {extra && <span className="truncate font-mono text-[10px] tracking-[.08em] text-muted">{extra}</span>}
+      {extra && <span className="truncate font-mono text-[11px] tracking-[.08em] text-muted">{extra}</span>}
     </Link>
   )
 }
@@ -300,7 +300,7 @@ function WeekGrid({ book, days, drag, rebook, openDay }: { book: Book; days: str
                   ) : (
                     <span className="truncate text-[13px] font-medium">{r.name}</span>
                   )}
-                  <span className="font-mono text-[10px] tracking-[.1em] text-muted uppercase">{r.meta}</span>
+                  <span className="font-mono text-[11px] tracking-[.1em] text-muted uppercase">{r.meta}</span>
                 </span>
               </div>
               {days.map((d) => {
@@ -355,7 +355,7 @@ function WeekAgenda({ book, days, openDay }: { book: Book; days: string[]; openD
                       <span className={cn('w-11 shrink-0 font-mono text-[12px]', st === 'need' ? 'text-warn' : 'text-muted')}>{st === 'need' && j.priority === 'emergency' ? 'ASAP' : clock(j.start)}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[14px]">{j.title}</span>
-                        <span className="mt-0.5 block font-mono text-[10.5px] tracking-[.08em] text-muted uppercase">
+                        <span className="mt-0.5 block font-mono text-[11px] tracking-[.08em] text-muted uppercase">
                           {j.ref}
                           {'   '}
                           {crew.length ? crew.join(' ') : <span className="text-warn">Nobody yet</span>}
@@ -442,7 +442,7 @@ function DayView({ book, day, drag, rebook }: { book: Book; day: string; drag: H
                 </span>
               ))}
               {isToday && NOW > START && NOW < END && (
-                <span className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded bg-ember px-1.5 py-0.5 font-mono text-[10px] font-medium text-black" style={{ left: `${pct(NOW)}%` }}>
+                <span className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded bg-ember px-1.5 py-0.5 font-mono text-[11px] font-medium text-black" style={{ left: `${pct(NOW)}%` }}>
                   {clock(new Date(nowMs).toISOString())}
                 </span>
               )}
@@ -457,7 +457,7 @@ function DayView({ book, day, drag, rebook }: { book: Book; day: string; drag: H
                     <Monogram>{o.initials}</Monogram>
                     <span className="flex min-w-0 flex-col gap-[3px]">
                       <span className="truncate text-[13px] font-medium">{o.name}</span>
-                      <span className="font-mono text-[10px] tracking-[.1em] text-muted uppercase">{hoursWord(hoursOn(book, day, o.id))} booked</span>
+                      <span className="font-mono text-[11px] tracking-[.1em] text-muted uppercase">{hoursWord(hoursOn(book, day, o.id))} booked</span>
                     </span>
                   </div>
                   <div
@@ -544,7 +544,7 @@ function DayView({ book, day, drag, rebook }: { book: Book; day: string; drag: H
                   <Icon name="forward" className="ml-auto size-3 text-muted" />
                 </span>
                 <span className="truncate text-[12px]">{j.title}</span>
-                <span className="truncate font-mono text-[10px] tracking-[.08em] text-muted uppercase">
+                <span className="truncate font-mono text-[11px] tracking-[.08em] text-muted uppercase">
                   {find(book.customers, j.customerId)?.name}
                   {'  '}
                   {onDay(j.start, day) ? 'this day' : `wanted ${new Date(j.start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })}`}

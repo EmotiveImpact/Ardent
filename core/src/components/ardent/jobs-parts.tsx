@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { Job, JobStatus } from '@/data/model'
+import { pressAgain, useHold } from '@/lib/use-hold'
 import { cn } from '@/lib/utils'
 
 /*
@@ -40,7 +41,7 @@ export function MiniTrack({ job }: { job: Pick<Job, 'status'> }) {
           </span>
         ))}
       </span>
-      <span className={cn('font-mono text-[10px] tracking-[.12em] text-muted', job.status === 'paused' && 'text-warn')}>{label}</span>
+      <span className={cn('font-mono text-[11px] tracking-[.12em] text-muted', job.status === 'paused' && 'text-warn')}>{label}</span>
     </span>
   )
 }
@@ -79,65 +80,18 @@ export function Fact({ label, children, className }: { label: string; children: 
  * site, so this is quiet: grey, small, and it only fires after a full hold.
  */
 export function OverrideHold({ label, onCommit, ms = 1400, className }: { label: string; onCommit: () => void; ms?: number; className?: string }) {
-  const [progress, setProgress] = useState(0)
-  const raf = useRef(0)
-  const held = useRef(false)
-  const commit = useRef(onCommit)
-  useEffect(() => {
-    commit.current = onCommit
-  })
-
-  const start = () => {
-    if (held.current) return
-    held.current = true
-    cancelAnimationFrame(raf.current)
-    let value = progress
-    let last = 0
-    // Fill at the hold rate, drain twice as fast.
-    const step = (t: number) => {
-      const dt = last ? t - last : 0
-      last = t
-      value = Math.min(1, Math.max(0, value + (held.current ? dt / ms : (-2 * dt) / ms)))
-      setProgress(value)
-      if (value >= 1 && held.current) {
-        held.current = false
-        navigator.vibrate?.(20)
-        commit.current()
-        setProgress(0)
-        return
-      }
-      if (held.current || value > 0) raf.current = requestAnimationFrame(step)
-    }
-    raf.current = requestAnimationFrame(step)
-  }
-  const stop = () => {
-    held.current = false
-  }
-  useEffect(() => () => cancelAnimationFrame(raf.current), [])
-
+  const { progress, armed, props } = useHold({ ms, onCommit, label })
   return (
     <button
-      type="button"
-      onPointerDown={start}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onKeyDown={(e) => {
-        if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
-          e.preventDefault()
-          start()
-        }
-      }}
-      onKeyUp={(e) => (e.key === ' ' || e.key === 'Enter') && stop()}
-      onContextMenu={(e) => e.preventDefault()}
-      aria-label={`${label}. Press and hold to confirm.`}
+      {...props}
       className={cn(
         'relative isolate inline-flex h-[34px] touch-none items-center overflow-hidden rounded-lg bg-inset px-3.5 text-[13px] text-muted select-none outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60',
+        armed && 'text-foreground',
         className,
       )}
     >
       <span aria-hidden className="absolute inset-y-0 left-0 -z-10 bg-foreground/20" style={{ width: `${progress * 100}%` }} />
-      {label}
+      {armed ? pressAgain : label}
     </button>
   )
 }
@@ -157,7 +111,7 @@ export function StageTimes({ times }: { times: { text: string; reached: boolean 
         const edge = i === 0 ? 'left-0 text-left' : i === trackLabels.length - 1 ? 'right-0 text-right' : 'left-1/2 -translate-x-1/2 text-center'
         return (
           <li key={label} className="relative">
-            <span aria-hidden className="cap invisible text-[9px]">{label}</span>
+            <span aria-hidden className="cap invisible text-[11px]">{label}</span>
             <span className={cn('absolute top-0 font-mono text-[11px] whitespace-nowrap uppercase', edge, t?.reached ? 'text-muted' : 'text-faint')}>{t?.text}</span>
           </li>
         )

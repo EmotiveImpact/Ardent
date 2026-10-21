@@ -345,7 +345,7 @@ function SlotRow({ s, name, on, onPick }: { s: Slot; name: string; on: boolean; 
         <span className="text-[14px]">{name}</span>
         <span className="text-[13px] text-muted">{s.why}</span>
       </span>
-      {s.tag && <span className={cn('cap shrink-0 text-[9px]', s.tag === 'Soonest' ? 'text-ok' : 'text-muted')}>{s.tag}</span>}
+      {s.tag && <span className={cn('cap shrink-0 text-[11px]', s.tag === 'Soonest' ? 'text-ok' : 'text-muted')}>{s.tag}</span>}
     </button>
   )
 }

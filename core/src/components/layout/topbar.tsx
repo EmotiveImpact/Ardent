@@ -127,7 +127,7 @@ function Bell() {
         className="relative flex size-[38px] shrink-0 items-center justify-center rounded-[10px] bg-surface text-foreground outline-none hover:bg-raised focus-visible:ring-2 focus-visible:ring-ring/60"
       >
         <Icon name="bell" />
-        {n > 0 && <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground px-[5px] font-mono text-[10px] font-medium text-background">{n}</span>}
+        {n > 0 && <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground px-[5px] font-mono text-[11px] font-medium text-background">{n}</span>}
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content align="end" sideOffset={10} className="z-50 max-h-[calc(100vh-110px)] w-[min(420px,calc(100vw-32px))] overflow-auto rounded-[14px] bg-surface pt-1.5 pb-2.5 shadow-[0_30px_80px_rgba(0,0,0,.65)] outline-none">
@@ -180,7 +180,7 @@ export function Topbar() {
         <button type="button" onClick={openCommandMenu} className="hidden h-[38px] min-w-0 flex-[0_1_380px] items-center gap-2.5 rounded-[10px] bg-surface px-3 text-[13px] text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 sm:flex">
           <Icon name="search" className="size-4" />
           <span className="min-w-0 flex-1 truncate text-left">Find a job, customer, postcode or invoice</span>
-          <kbd className="rounded bg-raised px-1.5 py-0.5 font-mono text-[10px] text-muted">⌘K</kbd>
+          <kbd className="rounded bg-raised px-1.5 py-0.5 font-mono text-[11px] text-muted">⌘K</kbd>
         </button>
         <button type="button" onClick={openCommandMenu} aria-label="Search" className={cn(barButton, 'px-0 size-[38px] justify-center sm:hidden')}>
           <Icon name="search" className="size-4" />

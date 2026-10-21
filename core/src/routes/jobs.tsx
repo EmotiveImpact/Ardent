@@ -149,7 +149,7 @@ function JobRow({ job, book, day }: { job: Job; book: Book; day: string }) {
         <Link to={to} className="truncate rounded text-[14px] outline-none group-hover:text-white focus-visible:ring-2 focus-visible:ring-ring/60" tabIndex={-1}>
           {job.title}
         </Link>
-        {flag && <span className={cn('shrink-0 font-mono text-[10px] tracking-[.12em] uppercase', flag[1])}>{flag[0]}</span>}
+        {flag && <span className={cn('shrink-0 font-mono text-[11px] tracking-[.12em] uppercase', flag[1])}>{flag[0]}</span>}
       </span>
       <span className="hidden truncate text-[13px] text-foreground/80 lg:block">
         {customer ? (
@@ -161,7 +161,7 @@ function JobRow({ job, book, day }: { job: Job; book: Book; day: string }) {
         )}
       </span>
       <span className="cap hidden truncate lg:block">{tradeWord[job.trade]}</span>
-      <span className={cn('op-title hidden truncate text-[10px] lg:block', nobody ? 'text-warn' : !crew.length && 'text-faint')}>{crewText}</span>
+      <span className={cn('op-title hidden truncate text-[11px] lg:block', nobody ? 'text-warn' : !crew.length && 'text-faint')}>{crewText}</span>
       <span className="hidden lg:block">
         <MiniTrack job={job} />
       </span>
@@ -180,9 +180,9 @@ function JobRow({ job, book, day }: { job: Job; book: Book; day: string }) {
         <div className="flex items-center justify-between gap-3 text-[13px] text-muted">
           <span className="min-w-0 truncate">
             {customer?.name ?? 'Unknown'}
-            {flag && <span className={cn('ml-2 font-mono text-[10px] tracking-[.12em] uppercase', flag[1])}>{flag[0]}</span>}
+            {flag && <span className={cn('ml-2 font-mono text-[11px] tracking-[.12em] uppercase', flag[1])}>{flag[0]}</span>}
           </span>
-          <span className={cn('op-title shrink-0 text-[10px]', nobody ? 'text-warn' : 'text-foreground')}>{crewText}</span>
+          <span className={cn('op-title shrink-0 text-[11px]', nobody ? 'text-warn' : 'text-foreground')}>{crewText}</span>
         </div>
         <div className="flex items-end justify-between gap-3">
           <MiniTrack job={job} />

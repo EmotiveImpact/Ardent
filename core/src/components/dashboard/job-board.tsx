@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { clock, duration, initials } from '@kit'
 import { Avatar } from '@/components/ui/avatar'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { HoldButton } from '@/components/ui/hold-button'
 import { useNow } from '@/hooks/use-now'
 import { useArdent, type Book } from '@/data/ardent'
@@ -10,7 +11,10 @@ import { act } from '@/lib/act'
 import { find, laneOf, onDay, today, type Lane } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 
-/* Today's jobs as a board. Drag a card to move the job on; tap an unassigned job to give it to someone. */
+/*
+ * Today's jobs as a board. Drag a card to move the job on, or use its Move button (for keyboards,
+ * screen readers and anyone who'd rather not drag); tap an unassigned job to give it to someone.
+ */
 
 export const columns: { key: Lane; label: string; to: JobStatus }[] = [
   { key: 'unassigned', label: 'Nobody yet', to: 'booked' },
@@ -42,6 +46,7 @@ function Card({
   onSelect,
   dragging,
   setDragging,
+  moveTo,
 }: {
   job: Job
   book: Book
@@ -49,6 +54,8 @@ function Card({
   onSelect?: (id: string) => void
   dragging: boolean
   setDragging: (id: string | null) => void
+  /** The other columns this card can move to. */
+  moveTo: { label: string; go: () => void }[]
 }) {
   const { client } = useArdent()
   const [open, setOpen] = useState(false)
@@ -87,13 +94,46 @@ function Card({
       </div>
       <p className="mt-1 truncate text-[13px] text-foreground">{job.title}</p>
       <div className="mt-2 flex items-center gap-1.5 font-mono text-[11px] text-faint tabular">
-        <span className="rounded-[4px] bg-raised px-1.5 py-0.5 text-[10px] text-foreground">{site?.postcode}</span>
+        <span className="rounded-[4px] bg-raised px-1.5 py-0.5 text-[11px] text-foreground">{site?.postcode}</span>
         <span>
           <LiveDetail job={job} op={crew[0]} />
         </span>
         <span className="ml-auto flex -space-x-1">
-          {crew.length ? crew.map((o) => <Avatar key={o.id} initials={o.initials} className="size-5 text-[9px]" />) : 'No one yet'}
+          {crew.length ? crew.map((o) => <Avatar key={o.id} initials={o.initials} className="size-5 text-[11px]" />) : 'No one yet'}
         </span>
+        {unassigned && (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={(e) => {
+              e.stopPropagation()
+              setOpen((o) => !o)
+            }}
+            className="-my-1 flex h-7 items-center rounded-md px-1.5 font-sans text-[12px] text-warn outline-none hover:bg-raised focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            Assign
+          </button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Move ${job.ref} to another column`}
+              onClick={(e) => e.stopPropagation()}
+              className="-my-1 -mr-1.5 flex h-7 items-center rounded-md px-1.5 font-sans text-[12px] text-muted outline-none hover:bg-raised hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              Move
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuLabel className="cap">Move {job.ref} to</DropdownMenuLabel>
+            {moveTo.map((m) => (
+              <DropdownMenuItem key={m.label} onSelect={m.go}>
+                {m.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {open && unassigned && chosen && (
         <div className="mt-2.5 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -166,7 +206,16 @@ export function JobBoard({ book, layout, selectedId, onSelect, className }: { bo
             </header>
             <div className={cn('flex flex-col gap-1.5', g.cols[0] === 'signed_off' && 'opacity-50')}>
               {list.map((j) => (
-                <Card key={j.id} job={j} book={book} selected={selectedId === j.id} onSelect={onSelect} dragging={dragging === j.id} setDragging={setDragging} />
+                <Card
+                  key={j.id}
+                  job={j}
+                  book={book}
+                  selected={selectedId === j.id}
+                  onSelect={onSelect}
+                  dragging={dragging === j.id}
+                  setDragging={setDragging}
+                  moveTo={groups.filter((o) => o !== g).map((o) => ({ label: o.label, go: () => move(j.id, o.to, o.label) }))}
+                />
               ))}
               {!list.length && <p className="py-8 text-center text-[12px] text-faint">Drop a job here</p>}
             </div>

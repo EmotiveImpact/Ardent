@@ -31,7 +31,7 @@ export const capDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB'
 export const capDay = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'Europe/London' }).toUpperCase().replace('SEPT', 'SEP')
 
 export type Dot = 'grey' | 'info' | 'ok' | 'warn' | 'danger' | 'faint'
-export const dotBg: Record<Dot, string> = { grey: 'bg-[#5f5f5f]', info: 'bg-info', ok: 'bg-ok', warn: 'bg-warn', danger: 'bg-danger', faint: 'bg-line-strong' }
+export const dotBg: Record<Dot, string> = { grey: 'bg-faint', info: 'bg-info', ok: 'bg-ok', warn: 'bg-warn', danger: 'bg-danger', faint: 'bg-line-strong' }
 
 /** What the screen calls an invoice's state. A sent invoice past its date is late. */
 export function invoiceState(inv: Invoice): { label: string; dot: Dot } {

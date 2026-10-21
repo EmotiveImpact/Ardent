@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { pounds, totals } from '@kit'
 import type { LineItem } from '@/data/model'
 import { dotBg, greyButton, type Dot } from './money-lib'
+import { pressAgain, useHold } from '@/lib/use-hold'
 import { cn } from '@/lib/utils'
 
 /*
@@ -59,62 +60,16 @@ export function GreyButton({ children, onClick, to, href, disabled, className }:
 
 /**
  * Press and hold to commit, in ember. A dark bar fills along the bottom;
- * let go early and it drains. Space and Enter hold too.
+ * let go early and it drains. Space and Enter hold too, and pressing twice works for anyone who can't hold.
  */
 export function HoldEmber({ label, onCommit, ms = 1200 }: { label: string; onCommit: () => void; ms?: number }) {
-  const [progress, setProgress] = useState(0)
-  const raf = useRef(0)
-  const value = useRef(0)
-  const last = useRef(0)
-  const held = useRef(false)
-
-  function tick(t: number) {
-    const dt = last.current ? t - last.current : 0
-    last.current = t
-    value.current = Math.min(1, Math.max(0, value.current + (held.current ? dt / ms : (-2 * dt) / ms)))
-    setProgress(value.current)
-    if (value.current >= 1 && held.current) {
-      held.current = false
-      onCommit()
-      value.current = 0
-      last.current = 0
-      setProgress(0)
-      return
-    }
-    if (held.current || value.current > 0) raf.current = requestAnimationFrame(tick)
-    else last.current = 0
-  }
-  const start = () => {
-    if (held.current) return
-    held.current = true
-    cancelAnimationFrame(raf.current)
-    last.current = 0
-    raf.current = requestAnimationFrame(tick)
-  }
-  const stop = () => {
-    held.current = false
-  }
-  useEffect(() => () => cancelAnimationFrame(raf.current), [])
-
+  const { progress, armed, props } = useHold({ ms, onCommit, label })
   return (
     <button
-      type="button"
-      onPointerDown={start}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onKeyDown={(e) => {
-        if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
-          e.preventDefault()
-          start()
-        }
-      }}
-      onKeyUp={(e) => (e.key === ' ' || e.key === 'Enter') && stop()}
-      onContextMenu={(e) => e.preventDefault()}
-      aria-label={`${label}. Press and hold to confirm.`}
+      {...props}
       className="relative flex h-14 w-full touch-none items-center justify-center overflow-hidden rounded-[14px] bg-ember font-display text-[11px] tracking-[.22em] text-[#070707] uppercase outline-none select-none focus-visible:ring-2 focus-visible:ring-foreground/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
     >
-      {label}
+      {armed ? pressAgain : label}
       <span aria-hidden className="absolute bottom-0 left-0 h-1 bg-[#070707]/45" style={{ width: `${progress * 100}%` }} />
     </button>
   )

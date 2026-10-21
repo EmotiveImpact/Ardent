@@ -95,7 +95,7 @@ export function Settings() {
                 const crew = find(book?.operators, m.operatorId)
                 return (
                   <li key={m.userId} className="flex items-center gap-3.5 py-3">
-                    <Initials className="font-display text-[10px]">{initials(m.name)}</Initials>
+                    <Initials className="font-display text-[11px]">{initials(m.name)}</Initials>
                     <span className="flex min-w-0 flex-1 flex-col gap-1">
                       <span className="truncate text-[14px]">
                         {m.name}

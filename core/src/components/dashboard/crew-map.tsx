@@ -63,7 +63,7 @@ function Marker({ op, job, x, y, onSelect }: { op: Operator; job?: Job; x: numbe
     >
       <span className="relative flex">
         {op.state !== 'on_call' && <span className="absolute inset-0 animate-pulse-ring rounded-full" style={{ background: colour }} />}
-        <Avatar initials={op.initials} className="relative size-7 bg-[#141414] text-[10px] shadow-[0_0_0_2px_var(--c)]" />
+        <Avatar initials={op.initials} className="relative size-7 bg-[#141414] text-[11px] shadow-[0_0_0_2px_var(--c)]" />
       </span>
       <span
         className="pointer-events-none absolute left-9 flex items-center gap-2 rounded-md bg-[#111]/95 px-2 py-1 text-[12px] whitespace-nowrap shadow-xl shadow-black/60 transition-colors group-hover:bg-[#1a1a1a]"
@@ -194,7 +194,7 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
       </div>
       {!street && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className={cn('cap text-[10px]', !failed && 'animate-pulse')}>{failed ? 'The map could not load' : 'Loading the map'}</span>
+          <span className={cn('cap text-[11px]', !failed && 'animate-pulse')}>{failed ? 'The map could not load' : 'Loading the map'}</span>
         </div>
       )}
       {street && overlay(street)}
@@ -279,7 +279,7 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
         {booked.map((j) => {
           const [x, y] = at(siteAt(find(sites, j.siteId)))
           return (
-            <span key={j.id} className="pointer-events-none absolute font-mono text-[10px] text-muted" style={{ left: x + 8, top: y - 7 }}>
+            <span key={j.id} className="pointer-events-none absolute font-mono text-[11px] text-muted" style={{ left: x + 8, top: y - 7 }}>
               {j.ref} · {clock(j.start)}
             </span>
           )
@@ -288,7 +288,7 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
         {/* Yard */}
         <div className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center" style={{ left: yard[0], top: yard[1] }}>
           <span className="size-3 rotate-45 rounded-[2px] bg-white shadow-[0_0_16px_#ffffff80]" />
-          <span className="caps mt-2 text-[9px] text-foreground">Yard</span>
+          <span className="caps mt-2 text-[11px] text-foreground">Yard</span>
         </div>
 
         {operators.map((op) => {
@@ -344,7 +344,7 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
               </span>
             ))
           )}
-          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="text-[10px] text-faint hover:text-muted">
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="text-[11px] text-faint hover:text-muted">
             © OpenStreetMap
           </a>
         </div>

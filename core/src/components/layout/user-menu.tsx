@@ -17,7 +17,7 @@ export function UserMenu({ side = 'right', className }: { side?: 'right' | 'bott
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`${me.user.name}, account`}
-        className={cn('flex size-8 items-center justify-center rounded-full bg-raised font-mono text-[10px] text-foreground outline-none hover:bg-[#262626] focus-visible:ring-2 focus-visible:ring-ring/60', className)}
+        className={cn('flex size-8 items-center justify-center rounded-full bg-raised font-mono text-[11px] text-foreground outline-none hover:bg-[#262626] focus-visible:ring-2 focus-visible:ring-ring/60', className)}
       >
         {initials(me.user.name)}
       </DropdownMenuTrigger>

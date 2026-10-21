@@ -79,7 +79,7 @@ export function Money() {
                     tab === t ? 'bg-foreground text-background' : 'bg-raised text-foreground hover:bg-[#262626]',
                   )}
                 >
-                  {t === 'invoices' ? 'Invoices' : 'Quotes'} <span className={cn('font-mono', tab === t ? 'text-[#5f5f5f]' : 'text-muted')}>{t === 'invoices' ? book.invoices.length : book.quotes.length}</span>
+                  {t === 'invoices' ? 'Invoices' : 'Quotes'} <span className={cn('font-mono', tab === t ? 'text-faint' : 'text-muted')}>{t === 'invoices' ? book.invoices.length : book.quotes.length}</span>
                 </button>
               ))}
             </div>
@@ -275,7 +275,7 @@ function CashChart({ book }: { book: Book }) {
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-8 gap-2.5 font-mono text-[10px] text-muted">
+      <div className="grid grid-cols-8 gap-2.5 font-mono text-[11px] text-muted">
         {data.map((w, i) => (
           <span key={w.week} className={cn('truncate', hover === i && 'text-foreground')}>
             {w.day}

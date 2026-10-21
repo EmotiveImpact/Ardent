@@ -18,8 +18,9 @@ export const color = {
   line: '#1c1c1c',
   lineStrong: '#2e2e2e',
   fg: '#f2f2f2',
-  fgMuted: '#9a9a9a',
-  fgFaint: '#5f5f5f',
+  fgMuted: '#a3a3a3',
+  /** The faintest text. #858585 is the darkest grey that still passes WCAG AA (4.5:1) on raised controls. */
+  fgFaint: '#858585',
   /** The one brand accent. Use sparingly: active state, primary signal, live things. */
   ember: '#ff6a1a',
   emberSoft: 'rgba(255, 106, 26, 0.15)',

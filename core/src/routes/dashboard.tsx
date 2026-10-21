@@ -172,7 +172,7 @@ function LiveClock() {
         <span className="absolute inset-0 animate-pulse-ring rounded-full bg-ok" />
         <span className="relative size-1.5 rounded-full bg-ok" />
       </span>
-      <span className="cap text-[9.5px]">Live</span>
+      <span className="cap text-[11px]">Live</span>
       <span className="font-mono text-[12px] text-foreground tabular">{clock(new Date(now).toISOString(), true)}</span>
     </span>
   )
@@ -257,7 +257,7 @@ function NeedsYou({ needs }: { needs?: Need[] }) {
             <span className="flex size-[26px] shrink-0 items-center justify-center rounded-full font-mono text-[11px] text-muted shadow-[inset_0_0_0_1.5px_var(--line-strong)]">{i + 1}</span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px]">{x.title}</span>
-              <span className={cn('mt-1 block truncate font-mono text-[10.5px] tracking-[.08em] uppercase', x.tone === 'danger' ? 'text-danger' : 'text-muted')}>{x.meta.join('   ')}</span>
+              <span className={cn('mt-1 block truncate font-mono text-[11px] tracking-[.08em] uppercase', x.tone === 'danger' ? 'text-danger' : 'text-muted')}>{x.meta.join('   ')}</span>
             </span>
             <RowButton to={x.to}>{x.action}</RowButton>
           </li>
@@ -281,7 +281,7 @@ function FromTheVans({ book }: { book: Book }) {
             <span className="w-6 shrink-0 pt-0.5 font-mono text-[12px] text-muted">{v.initials}</span>
             <span className="min-w-0 flex-1">
               <span className={cn('block truncate text-[14px]', v.tone === 'warn' && 'text-warn')}>{v.title}</span>
-              <span className="mt-1 block truncate font-mono text-[10.5px] tracking-[.08em] text-muted uppercase">{v.meta.filter(Boolean).join('   ')}</span>
+              <span className="mt-1 block truncate font-mono text-[11px] tracking-[.08em] text-muted uppercase">{v.meta.filter(Boolean).join('   ')}</span>
             </span>
           </li>
         ))}

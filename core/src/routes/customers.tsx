@@ -269,7 +269,7 @@ function CustomerRow({ book, c, on }: { book: Book; c: Customer; on: boolean }) 
       <Monogram className="size-[38px]">{initialsOf(c.name)}</Monogram>
       <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <span className="truncate text-[14px]">{c.name}</span>
-        <span className="truncate font-mono text-[10px] tracking-[.12em] whitespace-pre text-muted uppercase">
+        <span className="truncate font-mono text-[11px] tracking-[.12em] whitespace-pre text-muted uppercase">
           {customerKind[c.kind]}
           {site?.town ? `  ${site.town}` : ''}
         </span>
@@ -480,11 +480,11 @@ function JobLine({ job }: { job: Job }) {
             ))}
           </span>
         )}
-        <span className="font-mono text-[10px] tracking-[.12em] text-muted">{word}</span>
+        <span className="font-mono text-[11px] tracking-[.12em] text-muted">{word}</span>
       </span>
       <span className="text-right font-mono text-[12px] text-muted">
         {when}
-        <span className="mt-0.5 block text-[10px] tracking-[.1em] sm:hidden">{word}</span>
+        <span className="mt-0.5 block text-[11px] tracking-[.1em] sm:hidden">{word}</span>
       </span>
     </Link>
   )

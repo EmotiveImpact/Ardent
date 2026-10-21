@@ -48,7 +48,7 @@ export function Sidebar() {
   return (
     <aside aria-label="Ardent Core" className="hidden w-14 shrink-0 flex-col items-center py-3.5 md:flex">
       <ArdentMark />
-      <nav className="mt-7 flex flex-col items-center gap-1.5">
+      <nav aria-label="Main" className="mt-7 flex flex-col items-center gap-1.5">
         {nav.map((item, i) => (item ? <RailLink key={item.to} {...item} active={here === item} /> : <span key={i} className="my-2.5 h-px w-5 bg-line-strong" />))}
       </nav>
       <div className="mt-auto flex flex-col items-center gap-3">

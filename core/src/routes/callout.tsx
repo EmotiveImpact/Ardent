@@ -257,7 +257,7 @@ function CrewRow({ c, on, best, onPick }: { c: Candidate; on: boolean; best: boo
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-center gap-2 text-[15px]">
           {c.op.name}
-          <span className={cn('cap text-[9px]', tag.cls)}>{tag.text}</span>
+          <span className={cn('cap text-[11px]', tag.cls)}>{tag.text}</span>
         </span>
         <span className="text-[13px] text-muted">{c.why}</span>
       </span>

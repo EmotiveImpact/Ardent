@@ -14,7 +14,7 @@ export function Monogram({ children, size = 'md', tone, className }: { children:
       aria-hidden
       className={cn(
         'op-title flex shrink-0 items-center justify-center bg-raised tracking-[.08em]',
-        size === 'lg' ? 'size-[84px] rounded-[14px] text-[20px]' : 'size-9 rounded-[8px] text-[10px]',
+        size === 'lg' ? 'size-[84px] rounded-[14px] text-[20px]' : 'size-9 rounded-[8px] text-[11px]',
         tone === 'warn' ? 'text-warn' : 'text-foreground',
         className,
       )}

@@ -172,7 +172,7 @@ export function Readout({
       <div className="flex items-center justify-between gap-2">
         <p className="cap truncate">{label}</p>
         {hover !== null && labels && (
-          <span className="shrink-0 font-mono text-[10.5px] text-foreground">
+          <span className="shrink-0 font-mono text-[11px] text-foreground">
             {labels[hover]} <span className="text-muted">·</span> {barFormat(bars[hover])}
           </span>
         )}
@@ -214,7 +214,7 @@ const lineStages: { key: JobStatus; label: string }[] = [
   { key: 'enquiry', label: 'Enquiry' },
   { key: 'quoted', label: 'Quoted' },
   { key: 'booked', label: 'Booked' },
-  { key: 'en_route', label: 'On the road' },
+  { key: 'en_route', label: 'Road' },
   { key: 'on_site', label: 'On site' },
   { key: 'complete', label: 'Done' },
   { key: 'invoiced', label: 'Invoiced' },
@@ -246,9 +246,9 @@ export function TheLine({ book, compact }: { book: Book; compact?: boolean }) {
           const jobs = at(s.key)
           const here = s.key === 'on_site'
           return (
-            <li key={s.key} className="relative flex flex-col gap-2.5">
+            <li key={s.key} className="relative flex min-w-0 flex-col gap-2.5">
               <span className={cn('size-[11px] rounded-full', here ? 'bg-foreground ring-4 ring-surface' : 'bg-line-strong ring-4 ring-surface')} />
-              <span className={cn('cap text-[9.5px]', here && 'text-foreground')}>{s.label}</span>
+              <span className={cn('cap truncate text-[11px]', here && 'text-foreground')}>{s.label}</span>
               <span className="op-number text-[24px]">{jobs.length}</span>
               <span className="font-mono text-[11px] text-muted">{pounds(jobs.reduce((n, j) => n + jobNet(j), 0))}</span>
             </li>
@@ -278,7 +278,7 @@ export function StageTrack({ job }: { job: Job }) {
       {track.map((t, i) => (
         <li key={t.key} className={cn('relative flex flex-col gap-2.5', i === 0 ? 'items-start' : i === track.length - 1 ? 'items-end' : 'items-center')} aria-current={i === at ? 'step' : undefined}>
           {i === at ? <span className="size-[13px] rounded-full bg-surface shadow-[inset_0_0_0_1.5px_var(--fg),inset_0_0_0_3.5px_var(--surface),inset_0_0_0_13px_var(--fg)]" /> : <span className={cn('mt-[2px] size-[9px] rounded-full', i < at ? 'bg-foreground' : 'bg-line-strong')} />}
-          <span className={cn('cap text-[9px]', i === at ? 'text-foreground' : i > at && 'text-faint')}>{t.label}</span>
+          <span className={cn('cap text-[11px]', i === at ? 'text-foreground' : i > at && 'text-faint')}>{t.label}</span>
         </li>
       ))}
     </ol>
@@ -331,7 +331,7 @@ export function ChecksRow({ job, editable = true }: { job: Job; editable?: boole
       {job.checks.map((c) => {
         const body = (
           <>
-            <span className="cap block truncate text-[9.5px]">{c.label}</span>
+            <span className="cap block truncate text-[11px]">{c.label}</span>
             <span className="mt-2.5 flex items-center justify-between gap-2">
               <span className={cn('truncate text-[13px]', c.state === 'pending' && 'text-warn', c.state === 'fail' && 'text-danger')}>{c.detail ?? checkWord[c.state]}</span>
               <span
