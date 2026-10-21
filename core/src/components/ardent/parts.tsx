@@ -291,16 +291,16 @@ export interface Step {
   state: 'done' | 'live' | 'next'
 }
 
-/** Numbered rings: filled with a tick when done, outlined when live, faded when next. */
+/** Numbered rings: a green tick on a dark disc when done, outlined when live, faded when next. */
 export function StepRings({ steps }: { steps: Step[] }) {
   return (
     <ol className="flex flex-col">
       {steps.map((s, i) => (
-        <li key={i} className={cn('flex items-center gap-3.5 py-2.5', s.state === 'next' && 'opacity-50', s.state === 'done' && 'opacity-75')}>
+        <li key={i} className={cn('flex items-center gap-3.5 py-2.5', s.state === 'next' && 'opacity-50')}>
           <svg width="26" height="26" viewBox="0 0 30 30" aria-hidden className="shrink-0">
-            <circle cx="15" cy="15" r="13" fill={s.state === 'done' ? 'var(--fg)' : 'transparent'} stroke={s.state === 'next' ? 'var(--line-strong)' : 'var(--fg)'} strokeWidth="1.5" />
+            <circle cx="15" cy="15" r="13" fill={s.state === 'done' ? 'var(--raised)' : 'transparent'} stroke={s.state === 'done' ? 'none' : s.state === 'next' ? 'var(--line-strong)' : 'var(--fg)'} strokeWidth="1.5" />
             {s.state === 'done' ? (
-              <path d="M10 15.2l3.4 3.4 6.6-7" fill="none" stroke="var(--bg)" strokeWidth="1.9" />
+              <path d="M10 15.2l3.4 3.4 6.6-7" fill="none" stroke="var(--ok)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
             ) : (
               <text x="15" y="19" textAnchor="middle" fontFamily="Geist Mono Variable, monospace" fontSize="12" fill="var(--fg)">
                 {i + 1}
