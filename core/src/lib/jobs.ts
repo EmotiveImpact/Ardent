@@ -61,3 +61,12 @@ export function focusJob(jobs: Job[], now = Date.now()) {
     todays[0]
   )
 }
+
+/** Hours booked on a UK day: one person's, or everyone's (a job with two on it counts twice). */
+export const hoursOf = (book: { jobs: Job[] }, d: string, opId?: string) =>
+  book.jobs
+    .filter((j) => onDay(j.start, d) && j.status !== 'cancelled' && (!opId || j.operatorIds.includes(opId)))
+    .reduce((s, j) => s + ((Date.parse(j.end) - Date.parse(j.start)) / 3_600_000) * (opId ? 1 : Math.max(1, j.operatorIds.length)), 0)
+
+/** A working week is five eight-hour days. */
+export const WEEK_HOURS = 40

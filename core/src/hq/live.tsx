@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useNavigate } from 'react-router'
 import { X } from 'lucide-react'
 import { clock, jobStatus, longDate, operatorState, relative, trade as TRADE, window as timeWindow } from '@kit'
 import { PageBar } from '@/components/layout/bar'
@@ -11,30 +11,14 @@ import { cn } from '@/lib/utils'
 import { useEvery, useHqQuery } from './data'
 import { HqMap, type Picked } from './map'
 import { Chip, Dot, Failed, isDone, isLive, jobTone, State, Tag, toneText, vanColour } from './parts'
+import { emergencyOpen, fits, SHOWS, useLiveFilters } from './show'
 
 /*
  * Live: the master map. Every job today and every van now across every firm,
  * with what needs a look beside it. Looks again every 20 seconds.
  */
 
-export const SHOWS = [
-  { key: 'all', label: 'Everything' },
-  { key: 'live', label: 'Live now' },
-  { key: 'booked', label: 'Booked' },
-  { key: 'done', label: 'Done' },
-  { key: 'emergency', label: 'Emergencies' },
-] as const
-export type Show = (typeof SHOWS)[number]['key']
-
-export const emergencyOpen = (j: LiveJob) => j.priority === 'emergency' && !isDone(j.status)
-
-export function fits(j: LiveJob, show: Show) {
-  if (show === 'live') return isLive(j.status)
-  if (show === 'booked') return j.status === 'booked'
-  if (show === 'done') return isDone(j.status)
-  if (show === 'emergency') return emergencyOpen(j)
-  return true
-}
+export { SHOWS, emergencyOpen, fits, useLiveFilters, type Show } from './show'
 
 /** The numbers across the top of the live map and the wall. */
 export function counts(board: LiveBoard, firms: FirmSummary[]) {
@@ -48,25 +32,6 @@ export function counts(board: LiveBoard, firms: FirmSummary[]) {
     onRoad: board.jobs.filter((j) => j.status === 'en_route').length,
     emergencies: board.jobs.filter(emergencyOpen).length,
   }
-}
-
-/** Firm and state filters, kept in the address so back, forward and the wall keep them. */
-export function useLiveFilters() {
-  const [params, setParams] = useSearchParams()
-  const firmIds = (params.get('firm') ?? '').split(',').filter(Boolean)
-  const show = (SHOWS.some((s) => s.key === params.get('show')) ? params.get('show') : 'all') as Show
-  const vans = params.get('vans') !== 'off'
-  const jobId = params.get('job') ?? undefined
-  const vanId = params.get('van') ?? undefined
-  const set = (patch: Record<string, string | undefined>) => {
-    const next = new URLSearchParams(params)
-    for (const [k, v] of Object.entries(patch)) {
-      if (v) next.set(k, v)
-      else next.delete(k)
-    }
-    setParams(next, { replace: true })
-  }
-  return { firmIds, show, vans, jobId, vanId, set, query: params.toString() }
 }
 
 export function Live() {

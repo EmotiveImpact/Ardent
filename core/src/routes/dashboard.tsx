@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { clock, dayDate, pounds, shortDate } from '@kit'
 import { PageBar, useShell } from '@/components/layout/bar'
@@ -9,9 +9,10 @@ import { CrewTiles, LiveJobSheet } from '@/components/ardent/job-live'
 import { CrewMap } from '@/components/dashboard/crew-map'
 import { JobBoard } from '@/components/dashboard/job-board'
 import { BriefOnToday } from '@/components/ardent/brief'
+import { OwnerView, ownerSummary, useOwner } from '@/components/dashboard/owner'
 import { useArdent, useBook, type Book } from '@/data/ardent'
 import { useNeeds, useVanFeed, type Need } from '@/lib/needs'
-import { addDays, find, focusJob, invoiceOwed, invoiceTotal, isDone, onDay, today, weekStart } from '@/lib/jobs'
+import { addDays, find, focusJob, hoursOf, invoiceOwed, invoiceTotal, isDone, onDay, today, WEEK_HOURS, weekStart } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 import { useNow } from '@/hooks/use-now'
 
@@ -40,8 +41,16 @@ export function Dashboard() {
   const [picked, setPicked] = useState<string>()
   const live = book && (find(book.jobs, picked) ?? focusJob(book.jobs))
   const [params, setParams] = useSearchParams()
-  const view = (views.some((v) => v.key === params.get('view')) ? params.get('view') : 'overview') as View
-  const setView = (v: View) => setParams(v === 'overview' ? {} : { view: v }, { replace: true })
+  // The owner gets their own view first, and lands on it; everyone else starts on Overview.
+  const isOwner = me?.role === 'owner'
+  const shown = views.filter((v) => isOwner || v.key !== 'owner')
+  const home: View = isOwner ? 'owner' : 'overview'
+  const view = (shown.some((v) => v.key === params.get('view')) ? params.get('view') : home) as View
+  const setView = (v: View) => setParams(v === home ? {} : { view: v }, { replace: true })
+  const firm = useMemo(() => (isOwner && me ? { id: me.organisation.id, name: me.organisation.name } : undefined), [isOwner, me])
+  const owner = useOwner(book, needs, firm)
+  const name = me?.user.name.split(' ')[0]
+  const sub = !book || !needs ? ' ' : view === 'owner' && owner.look ? ownerSummary(book, owner.extras, owner.look.length, greeting(ukHour()), name) : summary(book, needs.length, name)
   const sheet = live ? <LiveJobSheet job={live} book={book} /> : <Card className="py-12 text-center text-[13px] text-muted">No jobs booked today.</Card>
 
   return (
@@ -54,13 +63,16 @@ export function Dashboard() {
           </button>
         }
       />
-      <PageHead title="Today" book={book} sub={book && needs ? summary(book, needs.length, me?.user.name.split(' ')[0]) : ' '} className="pb-0" aside={<ViewSwitch view={view} onChange={setView} />} />
+      <PageHead title="Today" book={book} sub={sub} className="pb-0" aside={<ViewSwitch views={shown} view={view} onChange={setView} />} />
 
       {!book ? (
         <Loading />
       ) : (
         <>
-          {view === 'overview' && <BriefOnToday />}
+          {(view === 'overview' || view === 'owner') && <BriefOnToday />}
+
+          {view === 'owner' && (owner.board && owner.look ? <OwnerView book={book} board={owner.board} look={owner.look} extras={owner.extras} wall={wall} clock={<LiveClock />} /> : <Loading />)}
+
           {view === 'overview' && <Readouts book={book} />}
 
           {view === 'overview' && (
@@ -130,14 +142,16 @@ export function Dashboard() {
 }
 
 const views = [
+  { key: 'owner', label: 'Owner' },
   { key: 'overview', label: 'Overview' },
   { key: 'dispatch', label: 'Dispatch' },
   { key: 'map', label: 'Map' },
 ] as const
-type View = (typeof views)[number]['key']
+type ViewDef = (typeof views)[number]
+type View = ViewDef['key']
 
-/** Three ways to look at the day. Kept in the address, so back and forward and wall mode keep it. */
-function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+/** Ways to look at the day; the owner gets a fourth. Kept in the address, so back and forward and wall mode keep it. */
+function ViewSwitch({ views, view, onChange }: { views: readonly ViewDef[]; view: View; onChange: (v: View) => void }) {
   return (
     <div role="tablist" aria-label="View" className="inline-flex gap-1 rounded-[11px] bg-surface p-1">
       {views.map((v) => (
@@ -189,14 +203,6 @@ function Loading() {
     </div>
   )
 }
-
-const hoursOf = (book: Book, d: string, opId?: string) =>
-  book.jobs
-    .filter((j) => onDay(j.start, d) && j.status !== 'cancelled' && (!opId || j.operatorIds.includes(opId)))
-    .reduce((s, j) => s + ((Date.parse(j.end) - Date.parse(j.start)) / 3_600_000) * (opId ? 1 : Math.max(1, j.operatorIds.length)), 0)
-
-/** A working week is five eight-hour days. */
-const WEEK_HOURS = 40
 
 function Readouts({ book }: { book: Book }) {
   const day = today()

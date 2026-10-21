@@ -84,13 +84,13 @@ const JOB_FILL = {
   paused: 'var(--warn)',
 } as Record<string, string>
 
-function JobPin({ job, picked, big, onPick }: { job: LiveJob; picked: boolean; big: boolean; onPick: () => void }) {
+function JobPin({ job, picked, big, oneFirm, onPick }: { job: LiveJob; picked: boolean; big: boolean; oneFirm: boolean; onPick: () => void }) {
   const done = isDone(job.status) || job.status === 'cancelled'
   const emergency = job.priority === 'emergency' && !done
   const fill = emergency ? 'var(--danger)' : done ? '#4a4a4a' : (JOB_FILL[job.status] ?? '#777')
   const ring = job.status === 'booked' && !emergency ? '#9a9a9a' : 'transparent'
   const size = big ? (done ? 12 : 18) : done ? 9 : 13
-  const label = `${job.ref}, ${job.title}, ${job.firmName}, ${emergency ? 'emergency, ' : ''}${jobStatus[job.status].label}`
+  const label = `${job.ref}, ${job.title}, ${oneFirm ? '' : `${job.firmName}, `}${emergency ? 'emergency, ' : ''}${jobStatus[job.status].label}`
   return (
     <button type="button" aria-label={label} onPointerDown={(e) => e.stopPropagation()} onClick={onPick} className="group relative flex size-8 items-center justify-center outline-none focus-visible:[&>span:first-child]:shadow-[0_0_0_3px_var(--ember)]">
       {emergency && <span className="absolute animate-pulse-ring rounded-full bg-danger" style={{ width: size, height: size }} />}
@@ -111,7 +111,8 @@ function JobPin({ job, picked, big, onPick }: { job: LiveJob; picked: boolean; b
             <span className="font-mono text-muted">{job.ref}</span> {job.title}
           </span>
           <span className="text-[11px] text-muted">
-            {job.firmName} · {emergency ? 'Emergency · ' : ''}
+            {!oneFirm && `${job.firmName} · `}
+            {emergency ? 'Emergency · ' : ''}
             {jobStatus[job.status].label}
           </span>
         </span>
@@ -120,10 +121,10 @@ function JobPin({ job, picked, big, onPick }: { job: LiveJob; picked: boolean; b
   )
 }
 
-function VanPin({ van, picked, big, onPick }: { van: LiveVan; picked: boolean; big: boolean; onPick: () => void }) {
+function VanPin({ van, picked, big, oneFirm, onPick }: { van: LiveVan; picked: boolean; big: boolean; oneFirm: boolean; onPick: () => void }) {
   const colour = vanColour[van.state]
   const moving = van.state === 'en_route' || van.state === 'delayed'
-  const label = `${van.name}, ${van.firmName}, ${operatorState[van.state].label}${van.etaMinutes ? `, ${van.etaMinutes} minutes away` : ''}`
+  const label = `${van.name}, ${oneFirm ? '' : `${van.firmName}, `}${operatorState[van.state].label}${van.etaMinutes ? `, ${van.etaMinutes} minutes away` : ''}`
   return (
     <button type="button" aria-label={label} onPointerDown={(e) => e.stopPropagation()} onClick={onPick} className={cn('group relative flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring', van.from === 'base' && 'opacity-75')}>
       {moving && <span className="absolute inset-0 animate-pulse-ring rounded-full" style={{ background: colour }} />}
@@ -138,7 +139,7 @@ function VanPin({ van, picked, big, onPick }: { van: LiveVan; picked: boolean; b
         <span className="text-[11px]" style={{ color: colour }}>
           {operatorState[van.state].label}
           {van.etaMinutes ? ` · ${van.etaMinutes} min away` : ''}
-          <span className="text-muted"> · {van.firmName}</span>
+          {!oneFirm && <span className="text-muted"> · {van.firmName}</span>}
         </span>
       </span>
     </button>
@@ -176,6 +177,7 @@ export function HqMap({
   onPick,
   fitKey,
   big = false,
+  oneFirm = false,
   controls,
   className,
 }: {
@@ -189,6 +191,8 @@ export function HqMap({
   fitKey?: string
   /** The wall: bigger pins for reading across a room. */
   big?: boolean
+  /** One firm's own map (the owner's view in Core): no firm names on pins or patches. */
+  oneFirm?: boolean
   controls?: ReactNode
   className?: string
 }) {
@@ -303,7 +307,7 @@ export function HqMap({
       .filter((i) => i.x > -30 && i.y > -30 && i.x < w + 30 && i.y < h + 30)
     drawn = layout(placed, big ? 34 : 24, zoom)
   }
-  const patchNames = street && zoom < 12.2 ? firms.map((f) => ({ f, p: street.project([f.centre.lng, f.centre.lat]) })) : []
+  const patchNames = street && zoom < 12.2 && !oneFirm ? firms.map((f) => ({ f, p: street.project([f.centre.lng, f.centre.lat]) })) : []
   const pick = (i: Item) => onPick?.(picked && picked.kind === i.kind && picked.id === i.id ? undefined : { kind: i.kind, id: i.id })
 
   return (
@@ -338,9 +342,9 @@ export function HqMap({
               {d.kind === 'group' ? (
                 <GroupPin items={d.items} big={big} onOpen={() => openGroup(d.items)} />
               ) : d.item.job ? (
-                <JobPin job={d.item.job} big={big} picked={picked?.kind === 'job' && picked.id === d.item.id} onPick={() => pick(d.item)} />
+                <JobPin job={d.item.job} big={big} oneFirm={oneFirm} picked={picked?.kind === 'job' && picked.id === d.item.id} onPick={() => pick(d.item)} />
               ) : (
-                <VanPin van={d.item.van!} big={big} picked={picked?.kind === 'van' && picked.id === d.item.id} onPick={() => pick(d.item)} />
+                <VanPin van={d.item.van!} big={big} oneFirm={oneFirm} picked={picked?.kind === 'van' && picked.id === d.item.id} onPick={() => pick(d.item)} />
               )}
             </div>
           ))}
