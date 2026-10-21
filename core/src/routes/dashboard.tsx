@@ -167,8 +167,8 @@ function NeedsYou({ needs }: { needs?: Need[] }) {
           <li key={x.id} className="flex items-center gap-4 py-3">
             <span className="flex size-[26px] shrink-0 items-center justify-center rounded-full font-mono text-[11px] text-muted shadow-[inset_0_0_0_1.5px_var(--line-strong)]">{i + 1}</span>
             <span className="min-w-0 flex-1">
-              <span className={cn('block truncate text-[14px]', x.tone === 'danger' && 'text-danger')}>{x.title}</span>
-              <span className="mt-1 block truncate font-mono text-[10.5px] tracking-[.08em] text-muted uppercase">{x.meta.join('   ')}</span>
+              <span className="block truncate text-[14px]">{x.title}</span>
+              <span className={cn('mt-1 block truncate font-mono text-[10.5px] tracking-[.08em] uppercase', x.tone === 'danger' ? 'text-danger' : 'text-muted')}>{x.meta.join('   ')}</span>
             </span>
             <RowButton to={x.to}>{x.action}</RowButton>
           </li>
