@@ -250,7 +250,7 @@ const FITTED = /\b(swapped|replaced|fitted|installed|changed|put in|added|renewe
 const WORK = /\b(swapped|replaced|fitted|installed|changed|put in|added|renewed|repaired|fixed|ran|wired|connected|re-?made|re-?piped|cleared|serviced)\b/i
 
 /** Sentences in a segment, with where each sits in the segment's text. */
-function sentences(text: string): { text: string; start: number; end: number }[] {
+export function sentences(text: string): { text: string; start: number; end: number }[] {
   const out: { text: string; start: number; end: number }[] = []
   const re = /[^.!?]+[.!?]*/g
   for (let m = re.exec(text); m; m = re.exec(text)) {
@@ -490,7 +490,10 @@ export function buildReport({ segments, trade, priceList, van }: ReportInput): B
       let topic: ReportTopic = 'work'
       // An answer to one question belongs to it, whatever words it uses ("all working fine" after "What did you test?").
       // Parts said while answering "What did you do?" still go under parts.
-      if (seg.topic) topic = seg.topic === 'work' && rule?.topic === 'parts' && !WORK.test(sen.text) ? 'parts' : seg.topic
+      // A sentence a follow-up moved ("Add that as a fault?") goes where they said.
+      const moved = seg.moved?.find((m) => sen.start >= m.start && sen.end <= m.end)
+      if (moved) topic = moved.topic
+      else if (seg.topic) topic = seg.topic === 'work' && rule?.topic === 'parts' && !WORK.test(sen.text) ? 'parts' : seg.topic
       else if (rule?.topic === 'none_left') {
         covered.add('left')
         lines.left.push({ text, from })
@@ -501,7 +504,7 @@ export function buildReport({ segments, trade, priceList, van }: ReportInput): B
         lines.next.push({ text, from })
         continue
       }
-      if (rule && !seg.topic) {
+      if (rule && !seg.topic && !moved) {
         topic = rule.topic as ReportTopic
         // "Replaced the faulty socket" is work done, not a fault left behind.
         if (topic === 'left' && DID_FIRST.test(sen.text) && !STILL_WRONG.test(sen.text)) topic = 'work'
@@ -565,7 +568,8 @@ export function buildReport({ segments, trade, priceList, van }: ReportInput): B
         lines.tests.push({ text, from })
         continue
       }
-      if (chatter(text) && topic === 'work') continue
+      // Words a follow-up wrote are never chatter, however short ("EIC done.").
+      if (chatter(text) && topic === 'work' && !seg.followUp) continue
       covered.add(topic)
       lines[topic].push({ text, from })
     }

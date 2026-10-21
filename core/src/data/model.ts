@@ -376,6 +376,10 @@ export interface ReportSegment {
   at: string
   /** The question it answered, when they were asked one thing at a time. */
   topic?: ReportTopic
+  /** Sentences a follow-up moved to another topic: "You said the light has no earth. Add that as a fault?" */
+  moved?: { start: number; end: number; topic: ReportTopic }[]
+  /** The follow-up rule that asked for these words, when one did. */
+  followUp?: string
 }
 
 /** Where something in the report came from: a segment, and the characters within it. */

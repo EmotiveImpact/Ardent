@@ -1726,8 +1726,17 @@ export function createEngine(store: Store, platform: Platform) {
         if (!text) throw invalid('every part of the report needs words')
         if (text.length > 4000) throw invalid('one part of the report is too long')
         if (typeof seg.at !== 'string' || Number.isNaN(Date.parse(seg.at))) throw invalid('every part of the report needs a time')
-        if (seg.topic !== undefined && !['work', 'parts', 'tests', 'left', 'next'].includes(seg.topic)) throw invalid('unknown report topic')
-        return { text, at: seg.at, ...(seg.topic ? { topic: seg.topic } : {}) }
+        const topics = ['work', 'parts', 'tests', 'left', 'next']
+        if (seg.topic !== undefined && !topics.includes(seg.topic)) throw invalid('unknown report topic')
+        if (seg.moved !== undefined && (!Array.isArray(seg.moved) || seg.moved.length > 50 || seg.moved.some((m) => !topics.includes(m?.topic) || !(Number.isInteger(m.start) && Number.isInteger(m.end) && m.start >= 0 && m.start < m.end && m.end <= text.length)))) throw invalid('a moved sentence must point at its words')
+        if (seg.followUp !== undefined && !(typeof seg.followUp === 'string' && /^[a-z0-9-]{1,60}$/.test(seg.followUp))) throw invalid('unknown follow-up')
+        return {
+          text,
+          at: seg.at,
+          ...(seg.topic ? { topic: seg.topic } : {}),
+          ...(seg.moved?.length ? { moved: seg.moved.map(({ start, end, topic }) => ({ start, end, topic })) } : {}),
+          ...(seg.followUp ? { followUp: seg.followUp } : {}),
+        }
       })
     }
 

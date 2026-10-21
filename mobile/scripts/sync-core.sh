@@ -14,7 +14,7 @@ pairs=(
   "core/src/data/client.ts:src/data/core/client.ts"
   "core/src/data/mock.ts:src/data/core/mock.ts"
 )
-for f in tokens states format copy index report; do pairs+=("engine/kit/$f.ts:src/kit/$f.ts"); done
+for f in tokens states format copy index report questions; do pairs+=("engine/kit/$f.ts:src/kit/$f.ts"); done
 for f in connect engine http-client office platform seed store; do pairs+=("engine/src/$f.ts:src/engine/$f.ts"); done
 for p in "${pairs[@]}"; do
   src="${p%%:*}" dest="${p##*:}"

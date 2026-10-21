@@ -12,7 +12,8 @@ import { Icon } from '@/components/Icon';
 import { Back, Dock, Input } from '@/components/ui';
 import type { Job, JobReport, ReportLine, ReportPart, ReportSegment, ReportSource, ReportTick, ReportTopic } from '@/data/types';
 import { clock } from '@/kit/format';
-import { buildReport, cantSign, coveredSoFar, keepFixes, needed, pickedPart, promptsFor, TICKS, tradeWords } from '@/kit/report';
+import { answered, applyReply, type Explained, nextFollowUp, type Reply } from '@/kit/questions';
+import { buildReport, cantSign, coveredSoFar, keepFixes, needed, pickedPart, promptsFor, TICKS, tradeWords, withTicks } from '@/kit/report';
 import * as act from '@/sync/actions';
 import { useField } from '@/sync/hooks';
 import { GAS_TRADES } from '@/sync/pull';
@@ -28,9 +29,9 @@ const buzz = (type: Haptics.NotificationFeedbackType) => {
 // A browser preview can't use a phone's recogniser, so holding plays what an engineer might say instead.
 const SAMPLE: Partial<Record<Job['trade'], Partial<Record<ReportTopic, string>>>> = {
   electrical: {
-    work: 'Swapped the old fuse board for a ten-way dual RCD unit. Added two thirty-two amp breakers for the kitchen and the shower circuit.',
+    work: "Swapped the old fuse board for a ten-way dual RCD unit. Added two thirty-two amp breakers for the kitchen and the shower circuit. The bathroom light's got no earth at the fitting.",
     parts: 'Took the board and the breakers off the van, plus about two metres of two point five mil twin and earth.',
-    tests: "Tested everything. Zs on the shower's nought point three eight, RCDs tripping at twenty-two and twenty-five milliseconds, insulation's over two hundred meg on all circuits.",
+    tests: 'Tested everything, all working fine.',
     left: "One thing, the bathroom light's got no earth at the fitting. I've left it as it was and told her.",
     next: 'She wants a quote for an extra socket in the garage.',
   },
@@ -41,11 +42,18 @@ const SAMPLE: Partial<Record<Job['trade'], Partial<Record<ReportTopic, string>>>
     next: 'Told her to keep an eye on the cupboard for a day or two.',
   },
   gas: {
-    work: 'Serviced the boiler and cleaned the condensate trap.',
-    tests: 'Working pressure twenty millibar, tightness test passed. CO2 nine point two percent, ratio nought point nought nought zero four.',
-    left: 'Nothing left to do.',
+    work: "Serviced the boiler and cleaned the condensate trap. The flue's corroded at the joint, it needs replacing.",
+    tests: "Tightness test passed and the flue's sound.",
+    left: "The flue's corroded so I've made it safe.",
     next: 'She wants us back to look at the radiators upstairs.',
   },
+};
+/** What a preview engineer says when a follow-up asks them to talk. */
+const SAMPLE_FOLLOW: Record<string, string> = {
+  'electrical-readings': "Zs on the shower's nought point three eight, RCDs tripping at twenty-two and twenty-five milliseconds, insulation's over two hundred meg.",
+  'gas-readings': 'Working pressure twenty millibar. CO2 nine point two percent, ratio nought point nought nought zero four.',
+  'heating-readings': 'System pressure one point five bar, flow temperature sixty-five degrees.',
+  'which-boiler': 'A Worcester Bosch Greenstar 4000.',
 };
 const BARS = 36;
 /** The end of what they've said, so the newest words are always on screen. */
@@ -85,7 +93,12 @@ export default function JobReportScreen() {
   const [picking, setPicking] = useState(false);
   const [other, setOther] = useState('');
   /** Which ticked question they're on. */
-  const [qi, setQi] = useState(0);
+  const [cur, setCur] = useState<ReportTopic>('work');
+  /** A follow-up Ardent is asking about the last answer, the rules already asked, and how many this answer has had. */
+  const [follow, setFollow] = useState<Explained>();
+  const [askedRules, setAskedRules] = useState<string[]>([]);
+  const [followCount, setFollowCount] = useState(0);
+  const [why, setWhy] = useState(false);
   const words = useMemo(() => (day && job ? tradeWords({ trade: job.trade, priceList: day.priceList, van: day.stock }) : []), [day?.priceList, day?.stock, job?.trade]);
   const ear = useListen(words);
   const preview = Platform.OS === 'web' && ear.hearing !== 'listening';
@@ -139,20 +152,58 @@ export default function JobReportScreen() {
   const covered = coveredSoFar(input(live ? [...segments, { text: live, at: new Date().toISOString() }] : segments));
   // Once they've ticked, each ticked thing is its own question, one at a time.
   const asking = report?.ticked ? needed(report.ticked) : undefined;
-  const asked = asking?.[Math.min(qi, asking.length - 1)];
+  const asked = asking ? (asking.includes(cur) ? cur : asking[0]) : undefined;
+  const qi = asking && asked ? asking.indexOf(asked) : 0;
   const askedPrompt = asked ? allPrompts.find((p) => p.topic === asked)! : undefined;
-  const answer = asked ? segments.filter((g) => g.topic === asked).at(-1) : segments.at(-1);
+  /** The follow-up's own talk button, when it has one. */
+  const followTalk = follow?.rule.replies.find((r): r is Extract<Reply, { does: 'talk' }> => r.does === 'talk');
+  const answer = follow ? segments.filter((g) => g.followUp === follow.rule.id).at(-1) : asked ? segments.filter((g) => g.topic === asked).at(-1) : segments.at(-1);
   const samples = Object.values(sampleFor(job.trade));
-  const nextSample = asked ? sampleOn(job.trade, asked) : samples[segments.length % samples.length];
-  const lastQuestion = !!asking && qi >= asking.length - 1;
-  const nextQuestion = () => {
-    if (!lastQuestion) return setQi(qi + 1);
-    setStep('check');
-    if (asking?.includes('parts')) setPicking(true);
+  const nextSample = follow ? (SAMPLE_FOLLOW[follow.rule.id] ?? "That's all sorted.") : asked ? sampleOn(job.trade, asked) : samples[segments.length % samples.length];
+  /** The report as these words and ticks would build it, for working out what to ask next. */
+  const built = (segs: ReportSegment[], ticked: ReportTick[]) => {
+    const b = buildReport(input(segs));
+    return withTicks(b, report ? keepFixes(b.parts, report.parts) : b.parts, ticked);
   };
+  /** The next ticked question after this one that has nothing said for it yet. */
+  const upcoming = (segs: ReportSegment[], ticked: ReportTick[], from: ReportTopic | undefined) => {
+    const list = needed(ticked);
+    const done = answered(built(segs, ticked));
+    const at = from ? list.indexOf(from) : -1;
+    return list.find((t, i) => i > at && !done.includes(t));
+  };
+  const ticksNow = report?.ticked ?? [];
+  const lastQuestion = !!asking && !upcoming(segments, ticksNow, asked);
+  /** After an answer: a follow-up if a rule asks for one, otherwise the next question. */
+  const nextQuestion = (segs = segments, ticked = ticksNow, n = followCount, rules = askedRules) => {
+    setWhy(false);
+    setElapsed(0);
+    const f = asked ? nextFollowUp({ trade: job.trade, answering: asked, segments: segs, report: built(segs, ticked) }, rules, n) : undefined;
+    if (f) {
+      setFollow(f);
+      setAskedRules([...rules, f.rule.id]);
+      setFollowCount(n + 1);
+      return;
+    }
+    setFollow(undefined);
+    setFollowCount(0);
+    const next = upcoming(segs, ticked, asked);
+    if (next) return setCur(next);
+    setStep('check');
+    if (needed(ticked).includes('parts')) setPicking(true);
+  };
+  /** A button on a follow-up: change the report the way the rule says, then carry on. */
+  const reply = (r: Reply) =>
+    run(async () => {
+      if (!follow) return;
+      const out = applyReply(segments, ticksNow, follow, r, new Date().toISOString());
+      if (out.segments !== segments || out.ticked !== ticksNow) await act.saveReport(job, out.segments, report ? keepFixes(buildReport(input(out.segments)).parts, report.parts) : undefined, out.ticked);
+      nextQuestion(out.segments, out.ticked);
+    });
   const ask = (t: ReportTopic) => {
-    const i = asking?.indexOf(t) ?? -1;
-    if (i >= 0) setQi(i);
+    setFollow(undefined);
+    setFollowCount(0);
+    setCur(t);
     setStep('talk');
   };
   const site = day.sites.find((x) => x.id === job.siteId);
@@ -181,6 +232,8 @@ export default function JobReportScreen() {
   const add = (text: string) => {
     const t = text.trim();
     if (!t) return;
+    // Words said to a follow-up keep its id.
+    if (follow && followTalk) return void run(() => save(applyReply(segments, ticksNow, follow, followTalk, new Date().toISOString(), t).segments));
     void run(() => save([...segments, { text: t, at: new Date().toISOString(), ...(asked ? { topic: asked } : {}) }]));
   };
   const fix = (i: number, change: Partial<ReportPart>) => report && run(() => act.saveReport(job, report.segments, report.parts.map((p, j) => (j === i ? { ...p, ...change } : p))));
@@ -210,7 +263,9 @@ export default function JobReportScreen() {
   const confirmTicks = () =>
     run(async () => {
       await act.saveReport(job, segments, report?.parts, ticks);
-      setQi(0);
+      setCur('work');
+      setFollow(undefined);
+      setFollowCount(0);
       setStep(segments.length ? 'check' : 'talk');
     });
 
@@ -380,7 +435,7 @@ export default function JobReportScreen() {
         <View style={styles.pad}>
           <TopRow
             left={
-              step === 'check' ? <Back label="Talk" onPress={() => setStep('talk')} /> : step === 'talk' ? <Back label="Back" onPress={() => (asking && qi > 0 ? setQi(qi - 1) : setStep('what'))} /> : <Back label={job.ref} />
+              step === 'check' ? <Back label="Talk" onPress={() => setStep('talk')} /> : step === 'talk' ? <Back label="Back" onPress={() => (follow ? setFollow(undefined) : asking && qi > 0 ? setCur(asking[qi - 1]) : setStep('what'))} /> : <Back label={job.ref} />
             }
             right={`${job.ref}   ${clock(new Date().toISOString())}`}
           />
@@ -441,18 +496,44 @@ export default function JobReportScreen() {
                     <View key={t} style={[styles.progressBit, i <= qi && { backgroundColor: color.fg }]} />
                   ))}
                 </View>
-                <Text style={styles.question}>{askedPrompt.title}</Text>
-                <Text style={styles.questionHint}>{asked === 'parts' ? 'Say them, or pick them from your van next' : askedPrompt.hint}</Text>
+                {follow ? (
+                  <Animated.View key={follow.rule.id} entering={FadeIn.duration(220)} style={{ alignItems: 'center' }}>
+                    <Text style={[styles.eyebrow, { marginBottom: 12 }]}>Quick check</Text>
+                    <Text style={styles.question}>{follow.question}</Text>
+                    {!!follow.rule.hint && <Text style={[styles.questionHint, { marginBottom: 0 }]}>{follow.rule.hint}</Text>}
+                    <Pressable onPress={() => setWhy(!why)} accessibilityRole="button" hitSlop={8} style={{ marginTop: 10, marginBottom: 20 }}>
+                      <Text style={[styles.questionHint, { margin: 0, color: color.fgMuted }]}>{why ? follow.rule.why : 'Why Ardent asks'}</Text>
+                    </Pressable>
+                  </Animated.View>
+                ) : (
+                  <>
+                    <Text style={styles.question}>{askedPrompt.title}</Text>
+                    <Text style={styles.questionHint}>{asked === 'parts' ? 'Say them, or pick them from your van next' : askedPrompt.hint}</Text>
+                  </>
+                )}
               </>
             )}
-            <Text style={styles.eyebrow}>
-              {`${asking ? `${qi + 1} of ${asking.length}` : 'Job update'}  ·  ${listening ? 'Recording' : answer ? 'Said' : 'Ready'}`}
-            </Text>
-            <Wave bars={bars} live={listening} />
-            <Text style={styles.timer} accessibilityLabel={`${Math.floor(elapsed / 60)} minutes ${elapsed % 60} seconds`}>{`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`}</Text>
-            <Text style={[styles.quote, !live && !answer && { color: color.fgFaint }]} accessibilityLiveRegion="polite">
-              {live ? `“${tail(live)}”` : answer ? `“${tail(answer.text)}”` : asking ? 'Hold the button and answer.' : 'Hold the button and talk it through, the way you would tell the office.'}
-            </Text>
+            {(!follow || followTalk) && (
+              <>
+                <Text style={styles.eyebrow}>
+                  {`${follow ? '' : `${asking ? `${qi + 1} of ${asking.length}` : 'Job update'}  ·  `}${listening ? 'Recording' : answer ? 'Said' : 'Ready'}`}
+                </Text>
+                <Wave bars={bars} live={listening} />
+                <Text style={styles.timer} accessibilityLabel={`${Math.floor(elapsed / 60)} minutes ${elapsed % 60} seconds`}>{`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`}</Text>
+                <Text style={[styles.quote, !live && !answer && { color: color.fgFaint }]} accessibilityLiveRegion="polite">
+                  {live ? `“${tail(live)}”` : answer ? `“${tail(answer.text)}”` : follow ? 'Hold the button and answer, or pick below.' : asking ? 'Hold the button and answer.' : 'Hold the button and talk it through, the way you would tell the office.'}
+                </Text>
+              </>
+            )}
+            {follow && !answer && (
+              <View style={styles.replies}>
+                {follow.rule.replies
+                  .filter((r) => r.does !== 'talk')
+                  .map((r) => (
+                    <Plain key={r.label} title={r.label} quiet={r.does === 'skip'} onPress={() => void reply(r)} disabled={busy || listening} />
+                  ))}
+              </View>
+            )}
             {!asking && <View style={styles.marks} accessibilityLabel={prompts.map((p) => `${p.chip} ${covered.has(p.topic) ? 'covered' : 'still to say'}`).join(', ')}>
               {prompts.map((p) => {
                 const done = covered.has(p.topic);
@@ -604,7 +685,7 @@ export default function JobReportScreen() {
 
         <Dock>
           {step === 'what' && <Go label={busy ? 'Saving' : 'Next: talk it through'} icon="arrow" onPress={() => void confirmTicks()} disabled={busy} />}
-          {step === 'talk' && (
+          {step === 'talk' && (!follow || followTalk) && (
             <View style={styles.micRow}>
               <View style={styles.micWrap}>
                 <Animated.View pointerEvents="none" style={[styles.micRing, ring]} />
@@ -620,15 +701,15 @@ export default function JobReportScreen() {
                   <View style={[styles.micCore, listening && styles.micCoreOn]} />
                 </Pressable>
               </View>
-              <Text style={styles.micLabel}>{listening ? 'Release to finish' : busy ? 'Saving' : 'Hold to talk'}</Text>
+              <Text style={styles.micLabel}>{listening ? 'Release to finish' : busy ? 'Saving' : followTalk ? `Hold to ${followTalk.label.toLowerCase()}` : 'Hold to talk'}</Text>
               {(asking ? !!answer || (asked === 'parts' && !!report?.parts.length) : segments.length > 0) && !listening && (
-                <Pressable onPress={asking ? nextQuestion : () => setStep('check')} accessibilityRole="button" hitSlop={10} style={styles.next}>
+                <Pressable onPress={asking ? () => nextQuestion() : () => setStep('check')} accessibilityRole="button" hitSlop={10} style={styles.next}>
                   <Text style={styles.nextText}>{!asking ? 'Check it over' : !lastQuestion ? 'Next question' : asking.includes('parts') ? 'Next: check the parts' : 'Check it over'}</Text>
                   <Icon name="arrow" size={15} tint={color.fg} />
                 </Pressable>
               )}
-              {asked === 'parts' && !answer && !listening && (
-                <Pressable onPress={nextQuestion} accessibilityRole="button" hitSlop={10} style={styles.next}>
+              {asked === 'parts' && !follow && !answer && !listening && (
+                <Pressable onPress={() => nextQuestion()} accessibilityRole="button" hitSlop={10} style={styles.next}>
                   <Text style={[styles.nextText, { color: color.fgMuted }]}>Pick them from the van instead</Text>
                 </Pressable>
               )}
@@ -702,6 +783,7 @@ const styles = StyleSheet.create({
   next: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, paddingVertical: 6 },
   nextText: { color: color.fg, fontFamily: font.sansMedium, fontSize: 15 },
   micRow: { alignItems: 'center', gap: 10, marginBottom: 12 },
+  replies: { alignSelf: 'stretch', gap: 8, marginTop: 18 },
   micWrap: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
   micRing: { position: 'absolute', width: 84, height: 84, borderRadius: 42, backgroundColor: color.emberSoft },
   mic: { width: 84, height: 84, borderRadius: 42, backgroundColor: color.ember, alignItems: 'center', justifyContent: 'center' },
