@@ -13,9 +13,9 @@ import { cn } from '@/lib/utils'
 /* Today's jobs as a board. Drag a card to move the job on; tap an unassigned job to give it to someone. */
 
 export const columns: { key: Lane; label: string; to: JobStatus }[] = [
-  { key: 'unassigned', label: 'Unassigned', to: 'booked' },
+  { key: 'unassigned', label: 'Nobody yet', to: 'booked' },
   { key: 'booked', label: 'Booked', to: 'booked' },
-  { key: 'en_route', label: 'En route', to: 'en_route' },
+  { key: 'en_route', label: 'On the road', to: 'en_route' },
   { key: 'on_site', label: 'On site', to: 'on_site' },
   { key: 'signed_off', label: 'Signed off', to: 'complete' },
 ]
@@ -56,7 +56,7 @@ function Card({
   const site = find(book.sites, job.siteId)
   const crew = job.operatorIds.map((id) => find(book.operators, id)).filter((o): o is Operator => !!o)
   const late = crew.some((o) => o.state === 'delayed' && o.currentJobId === job.id)
-  const flag = job.priority === 'emergency' ? ['Emergency', 'text-ember'] : late ? ['Running late', 'text-warn'] : job.priority === 'high' ? ['High', 'text-muted'] : null
+  const flag = job.priority === 'emergency' ? ['Emergency', 'text-danger'] : late ? ['Running late', 'text-warn'] : job.priority === 'high' ? ['High', 'text-muted'] : null
   const unassigned = !crew.length
   // Free hands first: on call or in the workshop.
   const free = [...book.operators].sort((a, b) => Number(!['on_call', 'workshop'].includes(a.state)) - Number(!['on_call', 'workshop'].includes(b.state))).filter((o) => o.state !== 'off_shift')
@@ -75,12 +75,12 @@ function Card({
         if (unassigned) setOpen((o) => !o)
       }}
       className={cn(
-        'animate-rise relative cursor-grab overflow-hidden rounded-md bg-[#101010] px-3 py-2.5 transition-[background-color,opacity] hover:bg-[#161616] active:cursor-grabbing',
-        selected && 'bg-[#181818]',
+        'animate-rise relative cursor-grab overflow-hidden rounded-[10px] bg-raised/70 px-3 py-2.5 transition-[background-color,opacity] hover:bg-raised active:cursor-grabbing',
+        selected && 'bg-raised',
         dragging && 'opacity-40',
       )}
     >
-      {job.priority === 'emergency' && <span className="absolute inset-y-0 left-0 w-[2px] bg-ember" />}
+      {job.priority === 'emergency' && <span className="absolute inset-y-0 left-0 w-[2px] bg-danger" />}
       <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
         <span className="text-faint">{job.ref}</span>
         {flag && <span className={flag[1]}>{flag[0]}</span>}
@@ -158,10 +158,10 @@ export function JobBoard({ book, layout, selectedId, onSelect, className }: { bo
               setOver(null)
               setDragging(null)
             }}
-            className={cn('flex min-h-[200px] flex-col rounded-lg p-1.5 transition-colors', over === g.label ? 'bg-white/[0.03]' : 'bg-transparent')}
+            className={cn('flex min-h-[200px] flex-col rounded-[12px] p-1.5 transition-colors', over === g.label ? 'bg-white/[0.04]' : 'bg-inset')}
           >
             <header className="flex h-8 items-center gap-2 px-1.5">
-              <h3 className="caps text-muted">{g.label}</h3>
+              <h3 className={cn('cap', waiting && 'text-warn')}>{g.label}</h3>
               <span className={cn('font-mono text-[12px] tabular', waiting ? 'text-foreground' : 'text-faint')}>{list.length}</span>
             </header>
             <div className={cn('flex flex-col gap-1.5', g.cols[0] === 'signed_off' && 'opacity-50')}>

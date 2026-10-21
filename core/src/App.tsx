@@ -13,6 +13,10 @@ import { Certificates } from '@/routes/certificates'
 import { Crew } from '@/routes/crew'
 import { Settings } from '@/routes/settings'
 import { FieldOnly, SignIn } from '@/routes/sign-in'
+import { Callout } from '@/routes/callout'
+import { NewJob } from '@/routes/new-job'
+import { QuoteDetail } from '@/routes/quote'
+import { InvoiceDetail, NewInvoice } from '@/routes/invoice'
 
 const router = createHashRouter([
   {
@@ -20,7 +24,12 @@ const router = createHashRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'jobs', element: <Jobs /> },
+      { path: 'jobs/new', element: <NewJob /> },
       { path: 'jobs/:id', element: <JobDetail /> },
+      { path: 'callout', element: <Callout /> },
+      { path: 'quotes/:id', element: <QuoteDetail /> },
+      { path: 'invoices/new', element: <NewInvoice /> },
+      { path: 'invoices/:id', element: <InvoiceDetail /> },
       { path: 'schedule', element: <Schedule /> },
       { path: 'customers', element: <Customers /> },
       { path: 'customers/:id', element: <CustomerDetail /> },

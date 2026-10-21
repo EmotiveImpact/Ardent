@@ -1,85 +1,88 @@
 import { useState } from 'react'
-import { CalendarRange, Clock, LayoutGrid, PoundSterling, ShieldAlert, Wrench } from 'lucide-react'
-import { dayDate, longDate, pounds } from '@kit'
-import { PageHeader, Panel, PanelHeader, Well } from '@/components/ui/panel'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { KpiCard } from '@/components/dashboard/kpi-card'
-import { LiveBoard } from '@/components/dashboard/live-board'
-import { JobSheet } from '@/components/dashboard/job-sheet'
+import { clock, pounds } from '@kit'
+import { PageBar, useShell } from '@/components/layout/bar'
+import { barButton } from '@/components/layout/topbar'
+import { Icon } from '@/components/layout/icons'
+import { Card, PageHead, Readout, RowButton, SectionHead, TheLine } from '@/components/ardent/parts'
+import { CrewTiles, LiveJobSheet } from '@/components/ardent/job-live'
+import { CrewMap } from '@/components/dashboard/crew-map'
 import { JobBoard } from '@/components/dashboard/job-board'
-import { ExceptionsTable } from '@/components/dashboard/exceptions-table'
 import { useArdent, useBook, type Book } from '@/data/ardent'
+import { useNeeds, useVanFeed, type Need } from '@/lib/needs'
 import { addDays, find, focusJob, invoiceOwed, invoiceTotal, isDone, onDay, today, weekStart } from '@/lib/jobs'
+import { cn } from '@/lib/utils'
 
 const greeting = (hour: number) => (hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening')
 const ukHour = () => Number(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Europe/London' }))
+const words = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']
+const say = (n: number) => words[n] ?? String(n)
+
+/** The day in one sentence, the way the owner would say it. */
+function summary(book: Book, needs: number, name?: string) {
+  const onTools = book.operators.filter((o) => o.state === 'on_site').length
+  const late = book.operators.filter((o) => o.state === 'delayed')
+  const bits = [`${say(onTools).replace(/^No$/, 'Nobody')} on the tools`]
+  if (late.length === 1) bits.push(`${late[0].name.split(' ')[0]}'s running late`)
+  else if (late.length > 1) bits.push(`${say(late.length).toLowerCase()} running late`)
+  bits.push(needs ? `${say(needs).toLowerCase()} ${needs === 1 ? 'thing needs' : 'things need'} you` : 'nothing needs you')
+  const last = bits.pop()
+  return `${greeting(ukHour())}${name ? `, ${name}` : ''}. ${bits.join(', ')}${bits.length ? ', and ' : ''}${last}.`
+}
 
 export function Dashboard() {
   const { me } = useArdent()
   const { data: book } = useBook()
-  const [tab, setTab] = useState('overview')
+  const needs = useNeeds()
+  const { setWall, wall } = useShell()
   const [picked, setPicked] = useState<string>()
-  const now = new Date().toISOString()
-  const out = book?.operators.filter((o) => ['en_route', 'on_site', 'delayed'].includes(o.state)).length ?? 0
   const live = book && (find(book.jobs, picked) ?? focusJob(book.jobs))
 
   return (
-    <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader
-        eyebrow={`${greeting(ukHour())}, ${me?.user.name.split(' ')[0]}. ${longDate(now)}`}
-        title="Today"
-        aside={
-          <span className="caps flex h-8 items-center gap-2 rounded-md bg-surface px-3 text-muted">
-            <span className={out ? 'size-1.5 rounded-full bg-ok' : 'size-1.5 rounded-full bg-faint'} />
-            {out} {out === 1 ? 'van' : 'vans'} out
-          </span>
+    <div className="flex flex-col gap-10 pb-6">
+      <PageBar
+        crumbs={[{ label: 'Today' }]}
+        actions={
+          <button type="button" className={barButton} onClick={() => setWall(true)}>
+            <Icon name="wall" className="size-4" /> Wall mode
+          </button>
         }
       />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="overview">
-              <LayoutGrid /> Overview
-            </TabsTrigger>
-            <TabsTrigger value="dispatch">
-              <CalendarRange /> Dispatch
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      <PageHead title="Today" book={book} sub={book && needs ? summary(book, needs.length, me?.user.name.split(' ')[0]) : ' '} className="pb-0" />
 
       {!book ? (
         <Loading />
-      ) : tab === 'dispatch' ? (
-        <Panel>
-          <PanelHeader icon={<CalendarRange />} title="Today's jobs" />
-          <Well className="p-1">
-            <JobBoard book={book} layout="full" onSelect={setPicked} selectedId={live?.id} />
-          </Well>
-          {live && (
-            <div className="mt-3">
-              <JobSheet job={live} book={book} title="Job sheet" />
-            </div>
-          )}
-        </Panel>
       ) : (
         <>
-          <KpiRow book={book} />
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-            <div className="flex min-w-0 flex-col gap-3">
-              <LiveBoard book={book} withBoard onSelect={setPicked} selectedId={live?.id} />
-              <ExceptionsTable />
+          <Readouts book={book} />
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <NeedsYou needs={needs} />
+            <FromTheVans book={book} />
+          </div>
+
+          <section>
+            <SectionHead title="The crew" aside={!wall && 'Pick someone on the map or the list to open their job'} />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="flex min-w-0 flex-col gap-3">
+                <div className="relative hidden h-[420px] overflow-hidden rounded-[14px] bg-inset sm:block">
+                  <CrewMap operators={book.operators} jobs={book.jobs} sites={book.sites} onSelect={setPicked} />
+                </div>
+                <CrewTiles book={book} onPick={setPicked} picked={live?.id} />
+              </div>
+              <div className="min-w-0">{live ? <LiveJobSheet job={live} book={book} /> : <Card className="py-12 text-center text-[13px] text-muted">No jobs booked today.</Card>}</div>
             </div>
-            <div className="min-w-0 xl:sticky xl:top-0 xl:max-h-[calc(100vh-8.5rem)]">
-              {live ? (
-                <JobSheet job={live} book={book} />
-              ) : (
-                <Panel>
-                  <PanelHeader title="Live job sheet" />
-                  <Well className="px-3 py-10 text-center text-[13px] text-faint">No jobs booked today.</Well>
-                </Panel>
-              )}
-            </div>
+          </section>
+
+          <section>
+            <SectionHead title="Today's jobs" aside="Drag a job across, or click one with nobody on it to hand it to someone" />
+            <Card className="p-2">
+              <JobBoard book={book} layout="full" onSelect={setPicked} selectedId={live?.id} />
+            </Card>
+          </section>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+            <TheLine book={book} />
+            <ThisWeek book={book} />
           </div>
         </>
       )}
@@ -89,95 +92,142 @@ export function Dashboard() {
 
 function Loading() {
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="h-[132px] animate-pulse rounded-xl bg-surface/60" />
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className="h-[150px] animate-pulse rounded-[14px] bg-surface/60" />
       ))}
     </div>
   )
 }
 
-/** The four headline numbers for the day, worked out from the records. */
-export function KpiRow({ book }: { book: Book }) {
+const hoursOf = (book: Book, d: string, opId?: string) =>
+  book.jobs
+    .filter((j) => onDay(j.start, d) && j.status !== 'cancelled' && (!opId || j.operatorIds.includes(opId)))
+    .reduce((s, j) => s + ((Date.parse(j.end) - Date.parse(j.start)) / 3_600_000) * (opId ? 1 : Math.max(1, j.operatorIds.length)), 0)
+
+/** A working week is five eight-hour days. */
+const WEEK_HOURS = 40
+
+function Readouts({ book }: { book: Book }) {
   const day = today()
   const days = Array.from({ length: 8 }, (_, i) => addDays(day, i - 7))
   const todays = book.jobs.filter((j) => onDay(j.start, day) && j.status !== 'cancelled')
   const done = todays.filter(isDone).length
   const onSite = book.operators.filter((o) => o.state === 'on_site').length
-  const enRoute = book.operators.filter((o) => o.state === 'en_route' || o.state === 'delayed').length
+  const onRoad = book.operators.filter((o) => o.state === 'en_route' || o.state === 'delayed').length
 
-  const hoursOn = (d: string) =>
-    book.jobs.filter((j) => onDay(j.start, d) && j.status !== 'cancelled').reduce((s, j) => s + ((Date.parse(j.end) - Date.parse(j.start)) / 3_600_000) * Math.max(1, j.operatorIds.length), 0)
+  const crewToday = new Set(todays.flatMap((j) => j.operatorIds)).size
 
   const weeks = Array.from({ length: 8 }, (_, i) => addDays(weekStart(day), (i - 7) * 7))
   const invoicedIn = (w: string) => book.invoices.filter((inv) => inv.issuedAt && weekStart(inv.issuedAt.slice(0, 10)) === w).reduce((s, inv) => s + invoiceTotal(inv), 0)
   const owing = book.invoices.filter((i) => ['sent', 'part_paid', 'overdue'].includes(i.status))
   const owed = owing.reduce((s, i) => s + invoiceOwed(i), 0)
-  const overdue = owing.filter((i) => i.status === 'overdue' || (i.dueAt && i.dueAt < new Date().toISOString()))
+  const late = owing.filter((i) => i.status === 'overdue' || (i.dueAt && i.dueAt < new Date().toISOString())).reduce((s, i) => s + invoiceOwed(i), 0)
 
-  const certs = book.certificates
-  const ahead = Array.from({ length: 8 }, (_, i) => addDays(weekStart(day), i * 7))
-  const expiringIn = (w: string) => certs.filter((c) => weekStart(c.expires) === w).length
-  const lapsed = certs.filter((c) => c.state === 'overdue').length
-  const dueSoon = certs.filter((c) => c.state === 'due_soon').length
+  const ahead = Array.from({ length: 8 }, (_, i) => addDays(weekStart(day), (i - 7) * 7))
+  const lapsedBy = (w: string) => book.certificates.filter((c) => c.expires < addDays(w, 7)).length
+  const lapsed = book.certificates.filter((c) => c.state === 'overdue').length
+  const dueSoon = book.certificates.filter((c) => c.state === 'due_soon').length
+
+  const mon = weekStart(day)
+  const week = Array.from({ length: 5 }, (_, i) => addDays(mon, i))
+  const crew = book.operators.filter((o) => o.state !== 'off_shift')
+  const bookedPct = (w: string) => {
+    const d5 = Array.from({ length: 5 }, (_, i) => addDays(w, i))
+    const h = d5.reduce((s, d) => s + hoursOf(book, d), 0)
+    return Math.round((h / Math.max(1, crew.length * WEEK_HOURS)) * 100)
+  }
+  // A free slot is a crew member with half a day or more open, from today to Friday.
+  const free = week.filter((d) => d >= day).reduce((s, d) => s + crew.filter((o) => hoursOf(book, d, o.id) <= 4).length, 0)
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-      <KpiCard
-        icon={<Wrench />}
-        title="Jobs done today"
-        value={done}
-        format={(n) => String(Math.round(n))}
-        unit={`of ${todays.length}`}
-        index={0}
-        series={days.map((d) => book.jobs.filter((j) => onDay(j.start, d) && isDone(j)).length)}
-        labels={days.map(dayDate)}
-        color="var(--fg)"
-        note={`${onSite} on site, ${enRoute} on the way`}
-      />
-      <KpiCard
-        icon={<Clock />}
-        title="Hours booked"
-        value={hoursOn(day)}
-        format={(n) => (Math.round(n * 2) / 2).toString()}
-        unit="h"
-        index={1}
-        series={days.map(hoursOn)}
-        labels={days.map(dayDate)}
-        color="var(--fg)"
-        note={`Across ${new Set(todays.flatMap((j) => j.operatorIds)).size} of the crew today`}
-      />
-      <KpiCard
-        icon={<PoundSterling />}
-        title="Owed to you"
-        prefix="£"
-        value={owed}
-        format={(n) => (Math.round(n) / 100).toLocaleString('en-GB', { maximumFractionDigits: 0 })}
-        index={2}
-        series={weeks.map(invoicedIn)}
-        labels={weeks.map((w) => `w/c ${dayDate(w)}`)}
-        color="var(--fg)"
-        note={
-          overdue.length ? (
-            <>
-              <span className="text-warn">{pounds(overdue.reduce((s, i) => s + invoiceOwed(i), 0))}</span> overdue on {overdue.length} {overdue.length === 1 ? 'invoice' : 'invoices'}
-            </>
-          ) : (
-            'Nothing overdue'
-          )
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <Readout index={0} label="Jobs done today" value={done} unit={`of ${todays.length}`} bars={days.map((d) => book.jobs.filter((j) => onDay(j.start, d) && isDone(j)).length)} note={`${onSite} on site, ${onRoad} on the road`} action={{ label: 'Jobs', to: '/jobs' }} />
+      <Readout index={1} label="Hours booked" value={(Math.round(hoursOf(book, day) * 2) / 2).toString()} unit="h" bars={days.map((d) => hoursOf(book, d))} note={`${crewToday === crew.length ? 'All' : crewToday} of the ${crew.length} crew`} action={{ label: 'Diary', to: '/schedule' }} />
+      <Readout index={2} label="Owed to you" value={pounds(owed)} bars={weeks.map(invoicedIn)} note={late ? `${pounds(late)} late` : 'Nothing late'} action={{ label: 'Record payment', to: '/money' }} />
+      <Readout index={3} label="Certs run out" value={lapsed} tone={lapsed ? 'danger' : undefined} bars={ahead.map(lapsedBy)} note={`${dueSoon} more in 30 days`} action={{ label: 'Book', to: '/certificates' }} />
+      <Readout index={4} label="Crew booked, week" value={bookedPct(mon)} unit="%" bars={weeks.map(bookedPct)} note={`${free} free ${free === 1 ? 'slot' : 'slots'}`} action={{ label: 'Diary', to: '/schedule' }} />
+    </div>
+  )
+}
+
+function NeedsYou({ needs }: { needs?: Need[] }) {
+  return (
+    <Card>
+      <SectionHead
+        title={
+          <>
+            Needs you <span className="text-faint">·</span> <span className="text-foreground">{needs?.length ?? ''}</span>
+          </>
         }
       />
-      <KpiCard
-        icon={<ShieldAlert />}
-        title="Overdue certificates"
-        value={lapsed}
-        format={(n) => String(Math.round(n))}
-        index={3}
-        series={ahead.map(expiringIn)}
-        labels={ahead.map((w) => `w/c ${dayDate(w)}`)}
-        color={lapsed ? 'var(--danger)' : 'var(--fg)'}
-        note={`${dueSoon} more due in the next 30 days`}
-      />
-    </div>
+      {needs?.length === 0 && <p className="py-6 text-[14px] text-muted">Nothing needs you. The day is running itself.</p>}
+      <ol className="rows">
+        {needs?.slice(0, 6).map((x, i) => (
+          <li key={x.id} className="flex items-center gap-4 py-3">
+            <span className="flex size-[26px] shrink-0 items-center justify-center rounded-full font-mono text-[11px] text-muted shadow-[inset_0_0_0_1.5px_var(--line-strong)]">{i + 1}</span>
+            <span className="min-w-0 flex-1">
+              <span className={cn('block truncate text-[14px]', x.tone === 'danger' && 'text-danger')}>{x.title}</span>
+              <span className="mt-1 block truncate font-mono text-[10.5px] tracking-[.08em] text-muted uppercase">{x.meta.join('   ')}</span>
+            </span>
+            <RowButton to={x.to}>{x.action}</RowButton>
+          </li>
+        ))}
+      </ol>
+      {needs && needs.length > 6 && <p className="pt-3 text-[13px] text-muted">{needs.length - 6} more in the bell, top right.</p>}
+    </Card>
+  )
+}
+
+function FromTheVans({ book }: { book: Book }) {
+  const feed = useVanFeed(book, 6)
+  return (
+    <Card>
+      <SectionHead title="From the vans" />
+      {feed?.length === 0 && <p className="py-6 text-[14px] text-muted">Nothing in from the vans yet today.</p>}
+      <ol className="rows">
+        {feed?.map((v) => (
+          <li key={v.id} className="flex gap-4 py-3">
+            <span className="w-10 shrink-0 pt-0.5 font-mono text-[12px] text-muted">{clock(v.at)}</span>
+            <span className="w-6 shrink-0 pt-0.5 font-mono text-[12px] text-muted">{v.initials}</span>
+            <span className="min-w-0 flex-1">
+              <span className={cn('block truncate text-[14px]', v.tone === 'warn' && 'text-warn')}>{v.title}</span>
+              <span className="mt-1 block truncate font-mono text-[10.5px] tracking-[.08em] text-muted uppercase">{v.meta.filter(Boolean).join('   ')}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  )
+}
+
+/** Each crew member's booked hours this week, as ten blocks out of forty. */
+function ThisWeek({ book }: { book: Book }) {
+  const mon = weekStart(today())
+  const week = Array.from({ length: 5 }, (_, i) => addDays(mon, i))
+  const crew = book.operators.filter((o) => o.state !== 'off_shift')
+  return (
+    <Card>
+      <SectionHead title="This week" aside={<a href="#/schedule" className="text-muted hover:text-foreground">Open diary</a>} />
+      <ul className="flex flex-col gap-4 pt-1">
+        {crew.map((o) => {
+          const h = week.reduce((s, d) => s + hoursOf(book, d, o.id), 0)
+          const filled = Math.round((h / WEEK_HOURS) * 10)
+          return (
+            <li key={o.id}>
+              <div className="flex justify-between text-[14px]">
+                <span>{o.name.split(' ')[0]}</span>
+                <span className="font-mono text-[12px] text-muted">{Math.round(h)}h</span>
+              </div>
+              <div aria-hidden className="mt-2 flex gap-[3px]">
+                {Array.from({ length: 10 }, (_, i) => (
+                  <span key={i} className={cn('h-[3px] flex-1 rounded-full', i < filled ? 'bg-foreground' : 'bg-line-strong')} />
+                ))}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </Card>
   )
 }

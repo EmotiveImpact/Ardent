@@ -4,6 +4,7 @@ import { Command } from 'cmdk'
 import { Dialog as D } from 'radix-ui'
 import { CornerDownLeft, MapPin, Search, User, Wrench } from 'lucide-react'
 import { nav } from '@/components/layout/sidebar'
+import { Icon } from '@/components/layout/icons'
 import { Badge } from '@/components/ui/badge'
 import { jobStatus } from '@kit'
 import { useBook } from '@/data/ardent'
@@ -107,10 +108,9 @@ export function CommandMenu() {
               <Command.Group heading="Go to" className={groupClass}>
                 {nav.filter(Boolean).map((n) => {
                   if (!n) return null
-                  const Icon = n.icon
                   return (
                     <Command.Item key={n.to} value={`go ${n.label}`} onSelect={() => go(n.to)} className={itemClass}>
-                      <Icon />
+                      <Icon name={n.icon} className="size-4" />
                       <span className="text-foreground">{n.label}</span>
                     </Command.Item>
                   )

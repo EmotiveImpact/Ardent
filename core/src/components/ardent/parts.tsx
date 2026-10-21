@@ -1,0 +1,323 @@
+import type { ReactNode } from 'react'
+import { Link } from 'react-router'
+import { pounds } from '@kit'
+import { useArdent, type Book } from '@/data/ardent'
+import type { ComplianceCheck, Job, JobStatus } from '@/data/model'
+import { useNow } from '@/hooks/use-now'
+import { act } from '@/lib/act'
+import { jobNet } from '@/lib/jobs'
+import { cn } from '@/lib/utils'
+
+/*
+ * The parts the operator look is built from. No borders anywhere: surfaces,
+ * spacing and hairline rows do the separating. One ember thing per screen.
+ */
+
+const ZONE = 'Europe/London'
+
+/** "Operation · Tuesday 20 Oct · 09:04 · 4 crew out" */
+export function OpLine({ book }: { book?: Book }) {
+  const now = useNow(15_000)
+  const d = new Date(now)
+  const day = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: ZONE })
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: ZONE })
+  const out = book?.operators.filter((o) => ['en_route', 'on_site', 'delayed'].includes(o.state)).length
+  return (
+    <p className="cap flex flex-wrap items-center gap-x-2.5 gap-y-1">
+      <span>Operation</span>
+      <Dot />
+      <span>{day}</span>
+      <Dot />
+      <span className="text-foreground">{time}</span>
+      {out !== undefined && (
+        <>
+          <Dot />
+          <span>{out} crew out</span>
+        </>
+      )}
+    </p>
+  )
+}
+
+const Dot = () => <span className="text-faint">·</span>
+
+export interface Figure {
+  label: string
+  value: ReactNode
+  unit?: string
+  tone?: 'warn' | 'danger' | 'ok' | 'ember'
+}
+
+const toneText = { warn: 'text-warn', danger: 'text-danger', ok: 'text-ok', ember: 'text-ember' } as const
+
+/**
+ * A screen's head: the op line (main pages) or a small eyebrow (detail pages),
+ * the Michroma title, one plain sentence, and optional big figures on the right.
+ */
+export function PageHead({ title, sub, book, eyebrow, figures, className }: { title: string; sub?: ReactNode; book?: Book; eyebrow?: ReactNode; figures?: Figure[]; className?: string }) {
+  return (
+    <div className={cn('animate-rise flex flex-wrap items-end justify-between gap-x-10 gap-y-6 pt-8 pb-8', className)}>
+      <div className="min-w-0">
+        {eyebrow ? <div className="cap flex flex-wrap items-center gap-x-2.5 gap-y-1">{eyebrow}</div> : <OpLine book={book} />}
+        <h1 className="op-title mt-4 text-[28px] text-foreground sm:text-[38px]">{title}</h1>
+        {sub && <p className="mt-3.5 max-w-[68ch] text-[15px] text-foreground/90">{sub}</p>}
+      </div>
+      {figures && figures.length > 0 && (
+        <dl className="flex flex-wrap gap-x-12 gap-y-5">
+          {figures.map((f) => (
+            <div key={f.label} className="flex flex-col gap-3">
+              <dt className="cap">{f.label}</dt>
+              <dd className={cn('op-number text-[30px]', f.tone && toneText[f.tone])}>
+                {f.value}
+                {f.unit && <span className="ml-2 font-mono text-[13px] text-muted">{f.unit}</span>}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  )
+}
+
+/** A quiet surface. Never bordered. */
+export function Card({ className, ...props }: React.ComponentProps<'section'>) {
+  return <section className={cn('animate-rise min-w-0 rounded-[14px] bg-surface p-5', className)} {...props} />
+}
+
+/** A section's name on the left and a hint or link on the right. */
+export function SectionHead({ title, aside, className }: { title: ReactNode; aside?: ReactNode; className?: string }) {
+  return (
+    <div className={cn('flex items-center justify-between gap-4 pb-3', className)}>
+      <h2 className="cap flex items-center gap-2.5">{title}</h2>
+      {aside && <div className="text-[13px] text-muted">{aside}</div>}
+    </div>
+  )
+}
+
+/** The small grey button used in rows: Book, Chase, Renew. */
+export function RowButton({ to, onClick, children, className }: { to?: string; onClick?: () => void; children: ReactNode; className?: string }) {
+  const cls = cn('inline-flex h-[34px] shrink-0 items-center rounded-lg bg-raised px-3.5 text-[13px] text-foreground outline-none transition-colors hover:bg-[#262626] focus-visible:ring-2 focus-visible:ring-ring/60', className)
+  return to ? (
+    <Link to={to} className={cls}>
+      {children}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} className={cls}>
+      {children}
+    </button>
+  )
+}
+
+/** A headline number with eight bars of history and the one thing to do about it. */
+export function Readout({
+  label,
+  value,
+  unit,
+  bars,
+  tone,
+  note,
+  action,
+  index = 0,
+}: {
+  label: string
+  value: ReactNode
+  unit?: string
+  bars: number[]
+  tone?: 'danger' | 'warn'
+  note: ReactNode
+  action?: { label: string; to: string }
+  index?: number
+}) {
+  const max = Math.max(1, ...bars)
+  return (
+    <Card className="flex flex-col gap-4 p-4 sm:p-5" style={{ '--i': index } as React.CSSProperties}>
+      <p className="cap">{label}</p>
+      <p className={cn('op-number text-[32px]', tone && toneText[tone])}>
+        {value}
+        {unit && <span className="ml-2.5 font-mono text-[13px] text-muted">{unit}</span>}
+      </p>
+      <div aria-hidden className="flex h-[22px] items-end gap-[3px]">
+        {bars.map((b, i) => {
+          const last = i === bars.length - 1
+          return <span key={i} className={cn('flex-1 rounded-[1px]', last ? (tone === 'danger' ? 'bg-danger' : tone === 'warn' ? 'bg-warn' : 'bg-foreground') : 'bg-[#2a2a2a]')} style={{ height: `${Math.max(8, (b / max) * 100)}%` }} />
+        })}
+      </div>
+      <div className="flex items-center justify-between gap-3 text-[12.5px]">
+        <span className="min-w-0 truncate text-muted">{note}</span>
+        {action && (
+          <Link to={action.to} className="shrink-0 text-foreground hover:text-white hover:underline">
+            {action.label}
+          </Link>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+const lineStages: { key: JobStatus; label: string }[] = [
+  { key: 'enquiry', label: 'Enquiry' },
+  { key: 'quoted', label: 'Quoted' },
+  { key: 'booked', label: 'Booked' },
+  { key: 'en_route', label: 'On the road' },
+  { key: 'on_site', label: 'On site' },
+  { key: 'complete', label: 'Done' },
+  { key: 'invoiced', label: 'Invoiced' },
+  { key: 'paid', label: 'Paid' },
+]
+
+/** Every open job on one line from enquiry to paid, with the money sitting at each stop. */
+export function TheLine({ book, compact }: { book: Book; compact?: boolean }) {
+  const live = book.jobs.filter((j) => j.status !== 'cancelled')
+  const at = (k: JobStatus) => live.filter((j) => (k === 'on_site' ? j.status === 'on_site' || j.status === 'paused' : j.status === k))
+  const total = live.reduce((s, j) => s + jobNet(j), 0)
+  return (
+    <Card>
+      <SectionHead
+        title={
+          <>
+            The line <span className="text-faint">·</span> Enquiry to paid
+          </>
+        }
+        aside={
+          <span className="cap">
+            {live.length} jobs <span className="ml-2">{pounds(total)} of work</span>
+          </span>
+        }
+      />
+      <ol className={cn('relative mt-2 grid grid-cols-4 gap-y-6 sm:grid-cols-8', compact && 'sm:grid-cols-8')}>
+        <span aria-hidden className="absolute top-[5px] right-[4%] left-[5px] hidden h-px bg-line-strong sm:block" />
+        {lineStages.map((s) => {
+          const jobs = at(s.key)
+          const here = s.key === 'on_site'
+          return (
+            <li key={s.key} className="relative flex flex-col gap-2.5">
+              <span className={cn('size-[11px] rounded-full', here ? 'bg-foreground ring-4 ring-surface' : 'bg-line-strong ring-4 ring-surface')} />
+              <span className={cn('cap text-[9.5px]', here && 'text-foreground')}>{s.label}</span>
+              <span className="op-number text-[24px]">{jobs.length}</span>
+              <span className="font-mono text-[11px] text-muted">{pounds(jobs.reduce((n, j) => n + jobNet(j), 0))}</span>
+            </li>
+          )
+        })}
+      </ol>
+    </Card>
+  )
+}
+
+const track: { key: JobStatus; label: string }[] = [
+  { key: 'booked', label: 'Booked' },
+  { key: 'en_route', label: 'Road' },
+  { key: 'on_site', label: 'On site' },
+  { key: 'complete', label: 'Done' },
+  { key: 'paid', label: 'Paid' },
+]
+
+/** Booked, road, on site, done, paid: dots on a line, the current one ringed. */
+export function StageTrack({ job }: { job: Job }) {
+  const pos = { booked: 0, en_route: 1, on_site: 2, paused: 2, complete: 3, invoiced: 3, paid: 4 } as Partial<Record<JobStatus, number>>
+  const at = pos[job.status] ?? -1
+  return (
+    <ol className="relative flex justify-between" aria-label="Where the job is">
+      <span aria-hidden className="absolute top-[6px] right-1.5 left-1.5 h-px bg-line-strong" />
+      <span aria-hidden className="absolute top-[6px] left-1.5 h-px bg-foreground" style={{ width: at > 0 ? `calc(${(at / (track.length - 1)) * 100}% - 12px)` : 0 }} />
+      {track.map((t, i) => (
+        <li key={t.key} className={cn('relative flex flex-col gap-2.5', i === 0 ? 'items-start' : i === track.length - 1 ? 'items-end' : 'items-center')} aria-current={i === at ? 'step' : undefined}>
+          {i === at ? <span className="size-[13px] rounded-full bg-surface shadow-[inset_0_0_0_1.5px_var(--fg),inset_0_0_0_3.5px_var(--surface),inset_0_0_0_13px_var(--fg)]" /> : <span className={cn('mt-[2px] size-[9px] rounded-full', i < at ? 'bg-foreground' : 'bg-line-strong')} />}
+          <span className={cn('cap text-[9px]', i === at ? 'text-foreground' : i > at && 'text-faint')}>{t.label}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+export interface Step {
+  title: string
+  time?: string
+  state: 'done' | 'live' | 'next'
+}
+
+/** Numbered rings: filled with a tick when done, outlined when live, faded when next. */
+export function StepRings({ steps }: { steps: Step[] }) {
+  return (
+    <ol className="flex flex-col">
+      {steps.map((s, i) => (
+        <li key={i} className={cn('flex items-center gap-3.5 py-2.5', s.state === 'next' && 'opacity-50', s.state === 'done' && 'opacity-75')}>
+          <svg width="26" height="26" viewBox="0 0 30 30" aria-hidden className="shrink-0">
+            <circle cx="15" cy="15" r="13" fill={s.state === 'done' ? 'var(--fg)' : 'transparent'} stroke={s.state === 'next' ? 'var(--line-strong)' : 'var(--fg)'} strokeWidth="1.5" />
+            {s.state === 'done' ? (
+              <path d="M10 15.2l3.4 3.4 6.6-7" fill="none" stroke="var(--bg)" strokeWidth="1.9" />
+            ) : (
+              <text x="15" y="19" textAnchor="middle" fontFamily="Geist Mono Variable, monospace" fontSize="12" fill="var(--fg)">
+                {i + 1}
+              </text>
+            )}
+          </svg>
+          <span className="min-w-0 flex-1 truncate text-[14px]">{s.title}</span>
+          <span className="font-mono text-[12px] text-muted">{s.state === 'live' ? 'NOW' : (s.time ?? '--:--')}</span>
+          <span className="sr-only">{s.state === 'done' ? 'done' : s.state === 'live' ? 'in progress' : 'to do'}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+const nextCheck: Record<ComplianceCheck['state'], ComplianceCheck['state']> = { pending: 'pass', pass: 'fail', fail: 'n/a', 'n/a': 'pending' }
+const checkWord: Record<ComplianceCheck['state'], string> = { pass: 'Passed', fail: 'Failed', pending: 'Still to do', 'n/a': 'Not needed' }
+
+/**
+ * The job's checks as tiles: Gas Safe, RAMS, tightness test. The engineer sets
+ * them on site; the office can override one by clicking it.
+ */
+export function ChecksRow({ job, editable = true }: { job: Job; editable?: boolean }) {
+  const { client } = useArdent()
+  if (!job.checks.length) return null
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      {job.checks.map((c) => {
+        const body = (
+          <>
+            <span className="cap block truncate text-[9.5px]">{c.label}</span>
+            <span className="mt-2.5 flex items-center justify-between gap-2">
+              <span className={cn('truncate text-[13px]', c.state === 'pending' && 'text-warn', c.state === 'fail' && 'text-danger')}>{c.detail ?? checkWord[c.state]}</span>
+              <span
+                aria-label={checkWord[c.state]}
+                className={cn(
+                  'size-[9px] shrink-0 rounded-full',
+                  c.state === 'pass' && 'bg-ok',
+                  c.state === 'fail' && 'bg-danger',
+                  c.state === 'pending' && 'shadow-[inset_0_0_0_1.5px_var(--warn)]',
+                  c.state === 'n/a' && 'bg-line-strong',
+                )}
+              />
+            </span>
+          </>
+        )
+        return editable ? (
+          <button
+            key={c.key}
+            type="button"
+            title="Office override: click to change"
+            onClick={() => void act(client.jobs.setCheck(job.id, c.key, nextCheck[c.state], c.detail))}
+            className="rounded-[10px] bg-inset px-3.5 py-3 text-left outline-none transition-colors hover:bg-[#101010] focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            {body}
+          </button>
+        ) : (
+          <div key={c.key} className="rounded-[10px] bg-inset px-3.5 py-3">
+            {body}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Two-letter crew tile. */
+export function Initials({ children, className }: { children: ReactNode; className?: string }) {
+  return <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-raised font-mono text-[11px] text-foreground', className)}>{children}</span>
+}
+
+/** A status dot in the crew colours. */
+export function StateDot({ tone, className }: { tone: 'ok' | 'info' | 'warn' | 'danger' | 'faint'; className?: string }) {
+  const bg = { ok: 'bg-ok', info: 'bg-info', warn: 'bg-warn', danger: 'bg-danger', faint: 'bg-[#6b6b6b]' }[tone]
+  return <span className={cn('inline-block size-[7px] shrink-0 rounded-full', bg, className)} />
+}
