@@ -345,6 +345,10 @@ export interface Invoice {
   issuedAt?: string
   dueAt?: string
   paidAmount: number
+  /** Each payment as it came in. */
+  payments?: { amount: number; method: PaymentMethod; at: string }[]
+  /** Reminders sent about it, newest last. */
+  reminders?: string[]
 }
 
 /** Customer sign-off captured on the phone. */
@@ -360,3 +364,63 @@ export interface Signature {
 }
 
 export type PaymentMethod = 'card' | 'bank_transfer' | 'cash'
+
+/**
+ * How far Ardent goes on its own with an action. read: looks and tells you.
+ * draft: prepares it for a person. approve: ready, waits for one tap. auto:
+ * runs alone inside the firm's rules. never: only a person does it.
+ */
+export type Autonomy = 'read' | 'draft' | 'approve' | 'auto' | 'never'
+
+/** One thing that happened in the firm, done by a person or by Ardent. */
+export interface ActionEntry {
+  id: string
+  at: string
+  /** A person by name, or Ardent itself. */
+  by: { kind: 'person'; name: string; userId: string } | { kind: 'ardent' }
+  /** The engine call, e.g. invoices.send. */
+  action: string
+  /** In words: "Sent INV-2207". */
+  summary: string
+  /** For Ardent's own actions: the level it ran at. */
+  level?: Autonomy
+  jobId?: string
+  /** The approval it carried out, when a person said yes to Ardent's draft. */
+  approvalId?: string
+}
+
+/** Something Ardent has ready that waits for a person's yes. */
+export interface Approval {
+  id: string
+  kind: 'send_invoice' | 'chase_invoice' | 'send_quote'
+  status: 'waiting' | 'approved' | 'rejected' | 'stale'
+  /** "Send INV-2207 to Harlow Lettings" */
+  title: string
+  /** What it's based on: "J-1042 finished yesterday, 4 lines, £1,240 with VAT." */
+  why: string
+  /** What goes out, word for word, for checking. */
+  preview: string
+  /** Changes when what it's based on changes; a yes on an old version is turned down. */
+  version: string
+  jobId?: string
+  invoiceId?: string
+  quoteId?: string
+  createdAt: string
+  decidedAt?: string
+  decidedBy?: string
+  /** Why it was turned down or went stale. */
+  note?: string
+}
+
+/** The owner's start to the day: yesterday's numbers, what needs a look, what waits for a yes. */
+export interface MorningBrief {
+  /** The UK day it's for. */
+  day: string
+  /** Two or three sentences, written by the engine from the numbers. */
+  headline: string
+  numbers: { key: 'done' | 'invoiced' | 'cash' | 'overdue' | 'today'; label: string; value: number; money?: boolean; note?: string }[]
+  /** What needs a look, worst first. */
+  items: { tone: 'danger' | 'warn' | 'info'; text: string; jobId?: string; invoiceId?: string }[]
+  /** Approvals waiting. */
+  waiting: number
+}

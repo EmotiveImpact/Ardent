@@ -9,6 +9,7 @@ import { JobDetail } from '@/routes/job-detail'
 import { Schedule } from '@/routes/schedule'
 import { Customers, CustomerDetail } from '@/routes/customers'
 import { Money } from '@/routes/money'
+import { Approvals } from '@/routes/approvals'
 import { Certificates } from '@/routes/certificates'
 import { Crew } from '@/routes/crew'
 import { Settings } from '@/routes/settings'
@@ -34,6 +35,7 @@ const router = createHashRouter([
       { path: 'customers', element: <Customers /> },
       { path: 'customers/:id', element: <CustomerDetail /> },
       { path: 'money', element: <Money /> },
+      { path: 'approvals', element: <Approvals /> },
       { path: 'certificates', element: <Certificates /> },
       { path: 'crew', element: <Crew /> },
       { path: 'settings', element: <Settings /> },

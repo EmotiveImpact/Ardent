@@ -5,6 +5,7 @@ import { PageBar } from '@/components/layout/bar'
 import { fieldClass } from '@/components/ui/field'
 import { barButton } from '@/components/layout/topbar'
 import { RequestBoard, wantsRequest } from '@/components/ardent/job-request'
+import { ActivityLog } from '@/components/ardent/office'
 import { Card, ChecksRow, RowButton, SectionHead, StageTrack, StateDot, StepRings } from '@/components/ardent/parts'
 import { BookedTime, OnSiteClock, jobSteps, useJobField, type JobField } from '@/components/ardent/job-live'
 import { Fact, OverrideHold, StageTimes } from '@/components/ardent/jobs-parts'
@@ -110,6 +111,7 @@ export function JobDetail() {
           <div className="flex min-w-0 flex-col gap-4">
             <Paperwork job={job} book={book} />
             <TimeCard job={job} book={book} field={fieldData} />
+            <ActivityLog jobId={job.id} limit={30} />
           </div>
         </div>
       </section>

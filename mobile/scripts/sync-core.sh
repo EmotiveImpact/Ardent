@@ -15,7 +15,7 @@ pairs=(
   "core/src/data/mock.ts:src/data/core/mock.ts"
 )
 for f in tokens states format copy index; do pairs+=("engine/kit/$f.ts:src/kit/$f.ts"); done
-for f in connect engine http-client platform seed store; do pairs+=("engine/src/$f.ts:src/engine/$f.ts"); done
+for f in connect engine http-client office platform seed store; do pairs+=("engine/src/$f.ts:src/engine/$f.ts"); done
 for p in "${pairs[@]}"; do
   src="${p%%:*}" dest="${p##*:}"
   mkdir -p "$(dirname "$dest")"
@@ -25,6 +25,7 @@ for p in "${pairs[@]}"; do
     sed -i \
       -e "s#'\.\./\.\./core/src/data/\([a-z]*\)\.ts'#'../data/core/\1'#" \
       -e "s#\(from '\./[a-z-]*\)\.ts'#\1'#" \
+      -e "s#\(from '\.\./kit/[a-z-]*\)\.ts'#\1'#" \
       "$dest"
   fi
   if [[ $dest == src/engine/* ]]; then

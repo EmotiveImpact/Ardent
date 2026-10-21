@@ -1,6 +1,6 @@
 import { clock, pounds, totals } from '@kit'
 import { useBook, useQuery, type Book } from '@/data/ardent'
-import type { Exception } from '@/data/model'
+import type { Approval, Exception } from '@/data/model'
 import { find, invoiceOwed, onDay, today } from '@/lib/jobs'
 
 /*
@@ -24,9 +24,12 @@ const days = (from: string, to = Date.now()) => Math.max(0, Math.round((to - Dat
 const first = (name: string) => name.split(' ')[0]
 const strip = (id: string, prefix: string) => id.slice(prefix.length)
 
-export function needsFrom(book: Book, attention: Exception[]): Need[] {
+export function needsFrom(book: Book, attention: Exception[], waiting: Approval[] = []): Need[] {
   const out: Need[] = []
   const day = today()
+
+  // Ardent's drafts, as one line: the page holds the detail.
+  if (waiting.length) out.push({ id: 'approvals', title: `Ardent has ${waiting.length} ${waiting.length === 1 ? 'draft' : 'drafts'} waiting for your yes`, meta: [...new Set(waiting.map((a) => a.kind === 'chase_invoice' ? 'reminder' : a.kind === 'send_quote' ? 'quote' : 'invoice'))], action: 'Look', to: '/approvals' })
 
   // Today's jobs with nobody on them come first: someone is waiting in.
   for (const j of book.jobs.filter((x) => onDay(x.start, day) && !x.operatorIds.length && !['cancelled', 'complete', 'invoiced', 'paid'].includes(x.status))) {
@@ -76,7 +79,8 @@ export function needsFrom(book: Book, attention: Exception[]): Need[] {
 export function useNeeds() {
   const { data: book } = useBook()
   const { data: attention } = useQuery((c) => c.attention.list())
-  return book && attention ? needsFrom(book, attention) : undefined
+  const { data: waiting } = useQuery((c) => c.approvals.list())
+  return book && attention ? needsFrom(book, attention, waiting) : undefined
 }
 
 export interface VanNews {

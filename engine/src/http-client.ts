@@ -36,6 +36,9 @@ export const METHODS = {
   stock: ['list', 'set'],
   gasRecords: ['list', 'forJob', 'create', 'saveAppliance', 'removeAppliance', 'setInstallation', 'issue'],
   attention: ['list'],
+  approvals: ['list', 'approve', 'reject'],
+  log: ['list'],
+  brief: ['get'],
   signatures: ['add', 'forJob'],
   invoices: ['list', 'forJob', 'create', 'send', 'recordPayment'],
 } as const satisfies { [K in keyof ArdentClient]: readonly (keyof ArdentClient[K])[] }

@@ -1,4 +1,4 @@
-import type { Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobRequest, JobStatus, LineItem, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, Standby, StockLevel, TimeEntry, VanFix, Verdict } from './model'
+import type { ActionEntry, Approval, Certificate, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobRequest, JobStatus, LineItem, MorningBrief, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, Standby, StockLevel, TimeEntry, VanFix, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -116,13 +116,27 @@ export interface ArdentClient {
     /** Checks it's complete, stamps it, and puts a CP12 certificate on the site for twelve months. */
     issue(id: string): Promise<GasSafetyRecord>
   }
+  /**
+   * What Ardent has ready for a person's yes: invoices to send, reminders to
+   * chase, quotes to send. Worked out from the records. Office only.
+   */
+  approvals: {
+    list(filter?: { status?: Approval['status'][] }): Promise<Approval[]>
+    /** Carry it out. version is the one the person saw; if it has changed since, it's turned down. */
+    approve(id: string, version: string): Promise<Approval>
+    reject(id: string, note?: string): Promise<Approval>
+  }
+  /** Everything done in the firm, newest first: by whom, and whether Ardent drafted it. Office only. */
+  log: { list(filter?: { jobId?: string; limit?: number }): Promise<ActionEntry[]> }
+  /** The owner's morning brief for a UK day (today unless given). Office only. */
+  brief: { get(opts?: { day?: string }): Promise<MorningBrief> }
   /** What needs the office's attention now, worked out from the records. Newest first. */
   attention: { list(): Promise<Exception[]> }
   signatures: { add(sig: Omit<Signature, 'id'>): Promise<Signature>; forJob(jobId: string): Promise<Signature[]> }
   invoices: {
     list(): Promise<Invoice[]>
     forJob(jobId: string): Promise<Invoice[]>
-    /** Draft invoice copying the job's lines. vatRate in basis points, default 2000. */
+    /** Draft invoice copying the job's lines, or the draft already there. vatRate in basis points, default 2000. */
     create(jobId: string, opts?: { vatRate?: number }): Promise<Invoice>
     /** Marks it sent, stamps issuedAt, sets dueAt 14 days on. */
     send(id: string, via: 'email' | 'sms'): Promise<Invoice>

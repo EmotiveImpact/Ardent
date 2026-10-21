@@ -22,7 +22,9 @@
  * rules checked in one place) and its customer, site and job records.
  */
 import type { ArdentClient } from '../../core/src/data/client.ts'
-import type { ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, StockLevel, Trade, VanFix, Verdict } from '../../core/src/data/model.ts'
+import type { ActionEntry, Approval, ComplianceCheck, Customer, DeclineReason, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobOffer, JobRequest, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, StockLevel, Trade, VanFix, Verdict } from '../../core/src/data/model.ts'
+import { pounds, shortDate, ukDay } from '../kit/format.ts'
+import { composeBrief, describe, type Look } from './office.ts'
 import type { Platform } from './platform.ts'
 import type { Data, Membership, OperatorRow, Organisation, Owned, Role, Store, User } from './store.ts'
 
@@ -106,6 +108,10 @@ const FIX_FRESH_MS = 30 * 60 * 1000
 const ROAD_TIMED = 5
 /** Road times are kept this long before asking again. */
 const ROAD_KEEP_MS = 3 * 60 * 1000
+
+const DONE_JOB: JobStatus[] = ['complete', 'invoiced', 'paid']
+/** Everything done is kept this many entries per store; the oldest go first. */
+const LOG_KEEP = 20000
 
 /** Seconds each engineer gets to answer a job request, unless the office says. */
 const OFFER_WAIT = 45
@@ -462,7 +468,9 @@ export function createEngine(store: Store, platform: Platform) {
             if (!isOffice() && job.status !== status && (CLOSED.includes(job.status) || !FIELD_STATUSES.includes(status))) {
               throw forbidden(`field can't move a job from ${job.status} to ${status}`)
             }
+            const was = job.status
             job.status = status
+            if (status === 'complete' && was !== 'complete') draftInvoice(job)
             return job
           }).then((job) => done(out(job))),
         addLine: (jobId, line) =>
@@ -552,6 +560,84 @@ export function createEngine(store: Store, platform: Platform) {
             db.sites.push(site)
             return site
           }).then((s) => done(out(s))),
+      },
+
+      approvals: {
+        list: (f = {}) =>
+          run(() => {
+            requireOffice('see what waits for a yes')
+            if (syncApprovals()) store.commit()
+            return db.approvals
+              .filter((a) => a.orgId === orgId && (f.status ? f.status.includes(a.status) : a.status === 'waiting'))
+              .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+              .map((a) => out(a) as Approval)
+          }),
+        approve: async (id, version) => {
+          const a = await run(() => {
+            requireOffice('approve what Ardent drafted')
+            syncApprovals()
+            const row = db.approvals.find((x) => x.id === id && x.orgId === orgId)
+            if (!row) throw notFound('approval')
+            if (row.status !== 'waiting') throw invalid(row.status === 'stale' ? `no longer needed: ${row.note ?? 'it changed'}` : `already ${row.status}`)
+            if (row.version !== version) throw invalid('it has changed since you looked: check it again')
+            return row
+          })
+          if (a.kind === 'send_invoice') await client.invoices.send(a.invoiceId!, 'email')
+          else if (a.kind === 'send_quote') await client.quotes.send(a.quoteId!, 'email')
+          else if (a.kind === 'chase_invoice') {
+            const inv = db.invoices.find((i) => i.id === a.invoiceId && i.orgId === orgId)
+            if (inv) (inv.reminders ??= []).push(new Date().toISOString())
+          }
+          a.status = 'approved'
+          a.decidedAt = new Date().toISOString()
+          a.decidedBy = me().name
+          return done(out(a) as Approval)
+        },
+        reject: (id, note) =>
+          run(() => {
+            requireOffice('turn down what Ardent drafted')
+            const row = db.approvals.find((x) => x.id === id && x.orgId === orgId)
+            if (!row) throw notFound('approval')
+            if (row.status !== 'waiting') throw invalid(`already ${row.status}`)
+            row.status = 'rejected'
+            row.decidedAt = new Date().toISOString()
+            row.decidedBy = me().name
+            if (note?.trim()) row.note = note.trim()
+            return row
+          }).then((a) => done(out(a) as Approval)),
+      },
+
+      log: {
+        list: (f = {}) =>
+          run(() => {
+            requireOffice('see the log')
+            const limit = Math.min(500, Math.max(1, f.limit ?? 100))
+            const rows: ActionEntry[] = []
+            for (let i = db.actions.length - 1; i >= 0 && rows.length < limit; i--) {
+              const e = db.actions[i]
+              if (e.orgId === orgId && (!f.jobId || e.jobId === f.jobId)) rows.push(out(e) as ActionEntry)
+            }
+            return rows
+          }),
+      },
+
+      brief: {
+        get: async (opts = {}) => {
+          const day = opts.day ?? ukDay(new Date().toISOString())
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw invalid('day is YYYY-MM-DD')
+          const attention = await client.attention.list()
+          const waiting = (await client.approvals.list()).length
+          return run(() =>
+            composeBrief({
+              day,
+              now: new Date().toISOString(),
+              jobs: db.jobs.filter((j) => j.orgId === orgId).map((j) => out(j) as Job),
+              invoices: db.invoices.filter((i) => i.orgId === orgId).map((i) => out(i) as Invoice),
+              attention,
+              waiting,
+            }),
+          )
+        },
       },
 
       attention: {
@@ -1114,6 +1200,9 @@ export function createEngine(store: Store, platform: Platform) {
           run(() => {
             const job = findJob(jobId)
             if (job.status === 'cancelled') throw invalid('job is cancelled')
+            // Ardent drafts one when the job is finished; asking again hands that one over.
+            const drafted = db.invoices.find((i) => i.jobId === jobId && i.orgId === orgId && i.status === 'draft')
+            if (drafted) return drafted
             const inv: Owned<Invoice> = {
               id: newId('inv'),
               ref: `INV-${nextNumber(orgId, 'invoice')}`,
@@ -1139,12 +1228,14 @@ export function createEngine(store: Store, platform: Platform) {
             findJob(inv.jobId).status = 'invoiced'
             return inv
           }).then((i) => done(out(i))),
-        recordPayment: (id, amount) =>
+        recordPayment: (id, amount, method) =>
           run(() => {
             const inv = findInvoice(id)
             if (!Number.isInteger(amount) || amount <= 0) throw invalid('payment is whole pence above zero')
             if (inv.status === 'void') throw invalid('invoice is void')
             const total = invoiceTotals(inv).total
+            const taken = Math.min(total - inv.paidAmount, amount)
+            if (taken > 0) (inv.payments ??= []).push({ amount: taken, method: method ?? 'bank_transfer', at: new Date().toISOString() })
             inv.paidAmount = Math.min(total, inv.paidAmount + amount)
             inv.status = inv.paidAmount >= total ? 'paid' : 'part_paid'
             inv.issuedAt ??= new Date().toISOString()
@@ -1152,6 +1243,124 @@ export function createEngine(store: Store, platform: Platform) {
             return inv
           }).then((i) => done(out(i))),
       },
+    }
+
+    const me = () => db.users.find((u) => u.id === userId) ?? { id: userId, name: 'Someone' }
+
+    /**
+     * What Ardent has ready for a yes, worked out from the records: draft
+     * invoices and quotes to send, overdue invoices to chase. A waiting one
+     * follows its record as it changes; one no longer needed goes stale; one
+     * turned down stays down until its record changes. True when anything moved.
+     */
+    function syncApprovals() {
+      const now = new Date()
+      const iso = now.toISOString()
+      const firm = db.orgs.find((o) => o.id === orgId)?.name ?? 'us'
+      const wanted: Omit<Approval, 'id' | 'status' | 'createdAt'>[] = []
+      const customer = (id: string) => db.customers.find((c) => c.id === id && c.orgId === orgId)
+      const hello = (id: string) => {
+        const c = customer(id)
+        return c && (c.kind === 'homeowner' || c.kind === 'landlord') ? `Hi ${c.name.split(' ')[0]}` : 'Hello'
+      }
+      for (const inv of db.invoices.filter((i) => i.orgId === orgId)) {
+        const job = db.jobs.find((j) => j.id === inv.jobId)
+        const c = customer(inv.customerId)
+        const total = invoiceTotals(inv).total
+        if (inv.status === 'draft' && inv.lines.length && job && job.status !== 'cancelled') {
+          const site = db.sites.find((x) => x.id === job.siteId)
+          wanted.push({
+            kind: 'send_invoice',
+            title: `Send ${inv.ref} to ${c?.name ?? 'the customer'}`,
+            why: `${job.ref} ${job.title}${DONE_JOB.includes(job.status) ? ', finished' : ''}. ${inv.lines.length} ${inv.lines.length === 1 ? 'line' : 'lines'}, ${pounds(total)} with VAT.`,
+            preview: `${hello(inv.customerId)}, thanks for having us${site ? ` at ${site.line1}` : ''}. Your invoice ${inv.ref} for ${pounds(total)} is attached, due within 14 days. ${firm}`,
+            version: `${total}.${inv.lines.length}.${inv.customerId}`,
+            jobId: job.id,
+            invoiceId: inv.id,
+          })
+        }
+        const last = inv.reminders?.at(-1)
+        if (OWING.includes(inv.status) && inv.dueAt && inv.dueAt < iso && (!last || now.getTime() - Date.parse(last) > 7 * DAY)) {
+          const late = Math.floor((now.getTime() - Date.parse(inv.dueAt)) / DAY)
+          const owed = total - inv.paidAmount
+          const firmer = late >= 14
+          wanted.push({
+            kind: 'chase_invoice',
+            title: `Remind ${c?.name ?? 'the customer'} about ${inv.ref}`,
+            why: `${pounds(owed)} owed, ${late} ${late === 1 ? 'day' : 'days'} past due${inv.reminders?.length ? `, ${inv.reminders.length} reminder${inv.reminders.length === 1 ? '' : 's'} so far` : ', no reminder yet'}.`,
+            preview: firmer
+              ? `${hello(inv.customerId)}, invoice ${inv.ref} for ${pounds(owed)} is now ${late} days overdue. Please pay it this week, or reply if something's wrong with it. ${firm}`
+              : `${hello(inv.customerId)}, a friendly reminder that invoice ${inv.ref} for ${pounds(owed)} was due on ${shortDate(inv.dueAt)}. If you've already paid, thank you and please ignore this. ${firm}`,
+            version: `${owed}.${inv.reminders?.length ?? 0}`,
+            jobId: inv.jobId,
+            invoiceId: inv.id,
+          })
+        }
+      }
+      for (const q of db.quotes.filter((x) => x.orgId === orgId && x.status === 'draft' && x.lines.length)) {
+        const job = db.jobs.find((j) => j.id === q.jobId)
+        const net = q.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
+        wanted.push({
+          kind: 'send_quote',
+          title: `Send ${q.ref} to ${customer(q.customerId)?.name ?? 'the customer'}`,
+          why: `${job ? `${job.ref} ${job.title}. ` : ''}${q.options ? `${q.options.length} options, from ${pounds(Math.min(...q.options.map((o) => o.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0))))}` : pounds(net)} before VAT, valid until ${shortDate(`${q.validUntil}T12:00:00Z`)}.`,
+          preview: `${hello(q.customerId)}, here's our quote ${q.ref}${q.options ? ` with ${q.options.length} options to choose from` : ''}. It's valid until ${shortDate(`${q.validUntil}T12:00:00Z`)}. Reply or ring us with any questions. ${firm}`,
+          version: `${net}.${q.options?.length ?? 0}.${q.lines.length}`,
+          jobId: q.jobId,
+          quoteId: q.id,
+        })
+      }
+
+      let changed = false
+      const target = (a: Pick<Approval, 'kind' | 'invoiceId' | 'quoteId'>) => `${a.kind}:${a.invoiceId ?? a.quoteId}`
+      const keys = new Set(wanted.map(target))
+      for (const a of db.approvals.filter((x) => x.orgId === orgId && x.status === 'waiting' && !keys.has(target(x)))) {
+        a.status = 'stale'
+        a.note = 'done another way, or no longer needed'
+        a.decidedAt = iso
+        changed = true
+      }
+      for (const w of wanted) {
+        const mine = db.approvals.filter((x) => x.orgId === orgId && target(x) === target(w))
+        const open = mine.find((x) => x.status === 'waiting')
+        if (open) {
+          if (open.version !== w.version || open.preview !== w.preview || open.why !== w.why) {
+            Object.assign(open, w)
+            changed = true
+          }
+          continue
+        }
+        if (mine.some((x) => x.version === w.version && (x.status === 'rejected' || x.status === 'approved'))) continue
+        db.approvals.push({ ...w, id: newId('apr'), status: 'waiting', createdAt: iso, orgId })
+        changed = true
+      }
+      return changed
+    }
+
+    /**
+     * A finished job with nothing billed gets a draft invoice from Ardent: the
+     * parts and work on the job, and the time on site when no labour is
+     * priced yet, at the firm's hourly rate. It waits for a yes before it goes.
+     */
+    function draftInvoice(job: Owned<Job>) {
+      if (db.invoices.some((i) => i.jobId === job.id && i.orgId === orgId && i.status !== 'void')) return
+      const lines = structuredClone(job.lines)
+      let hours = 0
+      if (!lines.some((l) => l.kind === 'labour')) {
+        const ms = db.time
+          .filter((t) => t.orgId === orgId && t.jobId === job.id && t.kind === 'labour' && t.end)
+          .reduce((sum, t) => sum + Date.parse(t.end!) - Date.parse(t.start), 0)
+        hours = Math.ceil(ms / (15 * 60_000)) / 4
+        const rate = db.priceList.find((i) => i.orgId === orgId && i.kind === 'labour' && i.unit === 'hour' && !i.archived)
+        if (hours > 0 && rate) lines.push({ id: newId('li'), kind: 'labour', description: `Time on site, ${hours} ${hours === 1 ? 'hour' : 'hours'}`, quantity: hours, unitPrice: rate.price, itemId: rate.id })
+        else hours = 0
+      }
+      if (!lines.length) return
+      const inv: Owned<Invoice> = { id: newId('inv'), ref: `INV-${nextNumber(orgId, 'invoice')}`, jobId: job.id, customerId: job.customerId, lines, vatRate: 2000, status: 'draft', paidAmount: 0, orgId }
+      db.invoices.push(inv)
+      const parts = lines.filter((l) => l.kind === 'material').length
+      const from = [parts ? `${parts} ${parts === 1 ? 'part' : 'parts'}` : '', hours ? `${hours} ${hours === 1 ? 'hour' : 'hours'} on site` : ''].filter(Boolean).join(' and ')
+      db.actions.push({ id: newId('act'), at: new Date().toISOString(), by: { kind: 'ardent' }, action: 'invoices.create', summary: `Drafted ${inv.ref} for ${job.ref}${from ? ` from ${from}` : ''}, waiting for a yes`, level: 'draft', jobId: job.id, orgId })
     }
 
     /** Put an offer in front of one engineer, with their time to answer. */
@@ -1418,7 +1627,50 @@ export function createEngine(store: Store, platform: Platform) {
         }),
     }
 
-    return { client, admin }
+    const look: Look = {
+      job: (id) => db.jobs.find((j) => j.id === id && j.orgId === orgId),
+      customer: (id) => db.customers.find((c) => c.id === id && c.orgId === orgId),
+      operator: (id) => db.operators.find((o) => o.id === id && o.orgId === orgId),
+      invoice: (id) => db.invoices.find((i) => i.id === id && i.orgId === orgId),
+      quote: (id) => db.quotes.find((q) => q.id === id && q.orgId === orgId),
+    }
+    /** Every change through the client goes in the firm's log once it has worked. */
+    function record(method: string, args: unknown[], result: unknown) {
+      const person = { kind: 'person' as const, name: me().name, userId }
+      let entry: Omit<ActionEntry, 'id' | 'at'>
+      if (method === 'approvals.approve') {
+        const a = result as Approval
+        entry = { by: person, action: method, summary: `Said yes to Ardent's draft: ${a.title}`, level: 'approve', jobId: a.jobId, approvalId: a.id }
+      } else if (method === 'approvals.reject') {
+        const a = result as Approval
+        entry = { by: person, action: method, summary: `Said no to Ardent's draft: ${a.title}`, jobId: a.jobId, approvalId: a.id }
+      } else {
+        const { summary, jobId } = describe(method, args, result, look)
+        if (!summary) return
+        entry = { by: person, action: method, summary, ...(jobId ? { jobId } : {}) }
+      }
+      db.actions.push({ ...entry, id: newId('act'), at: new Date().toISOString(), orgId })
+      if (db.actions.length > LOG_KEEP) db.actions.splice(0, db.actions.length - LOG_KEEP)
+      store.commit()
+    }
+    const logged = Object.fromEntries(
+      Object.entries(client).map(([area, group]) => [
+        area,
+        Object.fromEntries(
+          Object.entries(group as Record<string, (...a: unknown[]) => Promise<unknown>>).map(([name, fn]) => {
+            const method = `${area}.${name}`
+            if (/^(list|get|forJob|me)$/.test(name)) return [name, fn]
+            return [name, async (...args: unknown[]) => {
+              const result = await fn(...args)
+              record(method, args, result)
+              return result
+            }]
+          }),
+        ),
+      ]),
+    ) as unknown as ArdentClient
+
+    return { client: logged, admin }
   }
 
   return { addUser, createOrganisation, organisationsFor, signUp, login, logout, userForToken, recall, remember, photoForLink, as, data: db }

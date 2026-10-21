@@ -11,6 +11,7 @@ export const nav: ({ to: string; label: string; icon: IconName; end?: boolean } 
   { to: '/schedule', label: 'Diary', icon: 'diary' },
   { to: '/customers', label: 'Customers', icon: 'customers' },
   { to: '/money', label: 'Money', icon: 'money' },
+  { to: '/approvals', label: 'Approvals', icon: 'approvals' },
   null,
   { to: '/certificates', label: 'Certs', icon: 'certs' },
   { to: '/crew', label: 'Crew', icon: 'crew' },
