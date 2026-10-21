@@ -77,7 +77,8 @@ export interface ArdentClient {
   priceList: {
     list(opts?: { archived?: boolean }): Promise<PriceItem[]>
     create(input: Omit<PriceItem, 'id'>): Promise<PriceItem>
-    update(id: string, patch: Partial<Omit<PriceItem, 'id'>>): Promise<PriceItem>
+    /** null clears code, cost or trade (undefined is lost on the way over the wire). */
+    update(id: string, patch: Partial<Omit<PriceItem, 'id' | 'code' | 'cost' | 'trade'>> & { code?: string | null; cost?: number | null; trade?: PriceItem['trade'] | null }): Promise<PriceItem>
   }
   /** What's on each van. Field sees their own; the office sees and sets every van. */
   stock: {

@@ -579,10 +579,13 @@ export function createEngine(store: Store, platform: Platform) {
             requireOffice('keep the price list')
             const item = db.priceList.find((i) => i.id === id && i.orgId === orgId)
             if (!item) throw notFound('price list item')
-            const { id: _i, orgId: _o, ...rest } = structuredClone(patch) as Partial<Owned<PriceItem>>
+            const { id: _i, orgId: _o, ...rest } = structuredClone(patch) as Record<string, unknown>
+            const cleared = (['code', 'cost', 'trade'] as const).filter((k) => k in rest && (rest[k] === null || rest[k] === undefined))
+            for (const k of cleared) delete rest[k]
             const next = checkItem({ ...out(item), ...rest } as PriceItem)
+            for (const k of cleared) delete next[k]
             Object.assign(item, next)
-            if (rest.cost === undefined && 'cost' in rest) delete item.cost
+            for (const k of cleared) delete item[k]
             return item
           }).then((i) => done(out(i) as PriceItem)),
       },

@@ -201,7 +201,8 @@ function QuoteRow({ q, book, day }: { q: Quote; book: Book; day: string }) {
   const job = find(book.jobs, q.jobId)
   const what = job?.title ?? q.lines[0]?.description ?? 'Quote'
   const till = capDate(`${q.validUntil}T12:00:00Z`)
-  const total = pounds(totals(q).total, { always: true })
+  // Options not yet answered: the cheapest is what it starts from.
+  const total = q.options && !q.chosen ? `FROM ${pounds(Math.min(...q.options.map((o) => totals(o).total)))}` : pounds(totals(q).total, { always: true })
   return (
     <Link
       to={`/quotes/${q.id}`}

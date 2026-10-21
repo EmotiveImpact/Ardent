@@ -115,3 +115,13 @@ test("field can't start a gas record on someone else's job", async () => {
   await assert.rejects(kofi.gasRecords.create('job_1048', 'opr_02'))
   assert.deepEqual(await kofi.gasRecords.list({ siteId: 'sit_03' }), [], "nor see records for sites they've never worked")
 })
+
+test('emptying a cost, code or trade clears it, as it would over the wire', async () => {
+  const jo = demo().as('jo').client
+  const wire = JSON.parse(JSON.stringify({ cost: null, code: null, trade: null }))
+  const item = await jo.priceList.update('itm_02', wire)
+  assert.equal(item.cost, undefined)
+  assert.equal(item.code, undefined)
+  assert.equal(item.trade, undefined)
+  assert.equal(item.price, 14500, 'the rest is kept')
+})
