@@ -1,32 +1,58 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Action } from '@/components/Action';
+import { Card, Cap, Chip, Choice, Go, Line, Num, openMaps, Plain, ring, ringName, Section, StageTrack, Tile, TopRow, type Verdict } from '@/components/ardent';
 import { Atmosphere } from '@/components/Atmosphere';
 import { HoldToCommit } from '@/components/HoldToCommit';
+import { Icon } from '@/components/Icon';
 import { PhotoThumb } from '@/components/PhotoThumb';
 import { pickPhoto } from '@/components/pickPhoto';
-import { Back, Dock, Input, Label, Panel, Row, StateText } from '@/components/ui';
+import { Back, Dock, Input } from '@/components/ui';
 import type { ComplianceCheck, OperatorState, Photo } from '@/data/types';
 import { copy } from '@/kit/copy';
 import { clock, pounds, window as slot } from '@/kit/format';
 import { checkState, jobStatus, priority } from '@/kit/states';
 import * as act from '@/sync/actions';
-import { card, elapsed, hms, useField, useNow } from '@/sync/hooks';
-import { color, font, glass, radius, space, toneColor, tracking } from '@/theme/tokens';
+import { card, elapsed, hms, stageOf, useField, useNow } from '@/sync/hooks';
+import { color, font, radius, space, toneColor } from '@/theme/tokens';
 
 const STAGES: Photo['stage'][] = ['before', 'during', 'after'];
-/** Tapping a check moves it on: to do, pass, fail, back to to do. */
-const NEXT_CHECK: Record<ComplianceCheck['state'], ComplianceCheck['state']> = { pending: 'pass', pass: 'fail', fail: 'pending', 'n/a': 'pending' };
+type Sheet = 'photo' | 'part' | 'note';
+
+/** One check: a ring that ticks once it's answered, and Pass, Fail or N/A beside it. */
+function CheckRow({ check, now, onPick }: { check: ComplianceCheck; now: boolean; onPick?: (v: Verdict) => void }) {
+  const answered = check.state !== 'pending';
+  const failed = check.state === 'fail';
+  const st = checkState[check.state];
+  return (
+    <View style={styles.check}>
+      <View style={[styles.ring, answered && !failed && styles.ringDone, failed && { backgroundColor: color.danger }, now && styles.ringNow]}>
+        {answered && <Icon name={failed ? 'cross' : 'check'} size={13} tint={failed ? color.fg : color.bg} strokeWidth={2.2} />}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.checkLabel, !answered && !now && { color: color.fgMuted }]} numberOfLines={2}>
+          {check.label}
+        </Text>
+        {check.detail ? <Text style={styles.checkDetail}>{check.detail}</Text> : null}
+      </View>
+      {onPick ? (
+        <Choice value={answered ? (check.state as Verdict) : undefined} onChange={onPick} label={check.label} />
+      ) : (
+        <Text style={[styles.checkState, { color: toneColor[st.tone] }]}>{st.label.toUpperCase()}</Text>
+      )}
+    </View>
+  );
+}
 
 export default function JobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { state, day } = useField();
-  const [stage, setStage] = useState<Photo['stage']>('before');
+  const [sheet, setSheet] = useState<Sheet>();
+  const [stage, setStage] = useState<Photo['stage']>();
   const [draft, setDraft] = useState('');
   const [mat, setMat] = useState({ description: '', qty: '1', price: '' });
   const [problem, setProblem] = useState('');
@@ -39,7 +65,7 @@ export default function JobScreen() {
     return (
       <View style={styles.root}>
         <Atmosphere state="on_call" />
-        <SafeAreaView style={{ flex: 1, padding: space[6] }}>
+        <SafeAreaView style={{ flex: 1, padding: 22 }}>
           <Back label="Today" />
           <Text style={[styles.addr, { marginTop: space[8] }]}>This job isn't on your phone. It may have moved to someone else.</Text>
         </SafeAreaView>
@@ -56,9 +82,11 @@ export default function JobScreen() {
   const uploading = new Set(state.outbox.flatMap((o) => (o.kind === 'upload' ? [o.photoId] : [])));
   const open = !['invoiced', 'paid', 'cancelled'].includes(job.status);
   const beforeArrival = job.status === 'booked' || job.status === 'en_route';
-  // The one ember thing: the dock button when there is one, otherwise the running clock.
-  const emberDock = ['booked', 'en_route', 'paused', 'complete', 'invoiced'].includes(job.status);
   const mood: OperatorState = job.status === 'en_route' ? 'en_route' : job.status === 'on_site' ? 'on_site' : job.status === 'paused' ? 'delayed' : 'on_call';
+  const answered = job.checks.filter((c) => c.state !== 'pending').length;
+  const firstOpen = job.checks.find((c) => c.state === 'pending')?.key;
+  // Before, during or after, from where the job is, unless the engineer picks.
+  const shotStage = stage ?? (job.status === 'on_site' || job.status === 'paused' ? (photos.some((p) => p.stage === 'during') ? 'after' : 'during') : job.status === 'complete' ? 'after' : 'before');
 
   const tryIt = async (fn: () => Promise<unknown>) => {
     try {
@@ -72,7 +100,7 @@ export default function JobScreen() {
   const snap = () =>
     tryIt(async () => {
       const picked = await pickPhoto();
-      if (picked) await act.addPhoto(job, picked, stage);
+      if (picked) await act.addPhoto(job, picked, shotStage);
     });
 
   const addMaterial = () => {
@@ -92,204 +120,216 @@ export default function JobScreen() {
     void tryIt(() => act.addNote(job, body));
   };
 
+  const toggle = (to: Sheet) => setSheet((s) => (s === to ? undefined : to));
+
   const dock = () => {
     switch (job.status) {
       case 'booked':
-        return <Action title={copy.setOff} tone="ember" onPress={() => tryIt(() => act.setOff(job))} />;
+        return <HoldToCommit label="Hold to set off" icon="route" onCommit={() => tryIt(() => act.setOff(job))} />;
       case 'en_route':
-        return <Action title={copy.arrived} tone="ember" onPress={() => tryIt(() => act.arrived(job))} />;
+        return <HoldToCommit label="Hold, I've arrived" icon="pin" onCommit={() => tryIt(() => act.arrived(job))} />;
       case 'paused':
-        return <Action title={copy.resume} tone="ember" onPress={() => tryIt(() => act.backOnIt(job))} />;
+        return <HoldToCommit label={`Hold, ${copy.resume.toLowerCase()}`} icon="arrow" onCommit={() => tryIt(() => act.backOnIt(job))} />;
       case 'on_site':
         return (
-          <View style={styles.dockRow}>
-            <Action title={copy.pause} onPress={() => tryIt(() => act.pause(job))} />
-            <View style={{ flex: 1 }}>
-              <HoldToCommit
-                label={copy.holdToFinish}
-                onCommit={() =>
-                  tryIt(async () => {
-                    await act.finish(job);
-                    router.replace({ pathname: '/wrap/[id]', params: { id: job.id } });
-                  })
-                }
-              />
-            </View>
-          </View>
+          <HoldToCommit
+            label="Hold to wrap up"
+            icon="check"
+            onCommit={() =>
+              tryIt(async () => {
+                await act.finish(job);
+                router.replace({ pathname: '/wrap/[id]', params: { id: job.id } });
+              })
+            }
+          />
         );
       case 'complete':
-        return <Action title={copy.getSignOff} tone="ember" onPress={() => router.push({ pathname: '/wrap/[id]', params: { id: job.id } })} />;
+        return <Go label={copy.getSignOff} icon="arrow" onPress={() => router.push({ pathname: '/wrap/[id]', params: { id: job.id } })} />;
       case 'invoiced':
-        return <Action title={copy.takePayment} tone="ember" onPress={() => router.push({ pathname: '/wrap/[id]', params: { id: job.id } })} />;
+        return <Go label={copy.takePayment} icon="pound" onPress={() => router.push({ pathname: '/wrap/[id]', params: { id: job.id } })} />;
       default:
         return null;
     }
   };
   const docked = dock();
 
+  const live = running?.kind;
+  const big = live ? hms(elapsed(time, live, now)) : beforeArrival ? clock(job.start) : hms(elapsed(time, 'labour', now));
+  const bigUnit = live === 'travel' ? 'travel' : live === 'labour' ? undefined : beforeArrival ? `to ${clock(job.end)}` : job.status === 'paused' ? 'paused' : 'on the tools';
+
   return (
     <View style={styles.root}>
       <Atmosphere state={mood} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <Back label="Today" />
-          <StateText label={s.label} tone={s.tone} />
+        <View style={styles.pad}>
+          <TopRow
+            left={
+              <View style={styles.topLeft}>
+                <Back label="Today" />
+                <Chip label={s.label} tint={toneColor[s.tone]} />
+              </View>
+            }
+            right={job.ref}
+          />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Animated.View entering={FadeInDown.duration(400)}>
-            <View style={styles.refRow}>
-              <Text style={styles.ref}>{job.ref}</Text>
-              {flag && <Text style={[styles.flag, { color: toneColor[flag.tone] }]}>{flag.label.toUpperCase()}</Text>}
-              <Text style={styles.ref}>{slot(job.start, job.end)}</Text>
-            </View>
-            <Text style={styles.title}>{job.title}</Text>
-            {customer && site && (
-              <Text style={styles.addr}>
-                {customer.name} · {site.line1}, {site.town} <Text style={styles.mono}>{site.postcode}</Text>
-              </Text>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Animated.View entering={FadeInDown.duration(400)}>
+              <Num size={live === 'labour' ? 56 : 48} unit={bigUnit}>
+                {big}
+              </Num>
+              <View style={styles.refRow}>
+                {flag && <Cap tint={toneColor[flag.tone]}>{flag.label}</Cap>}
+                {!beforeArrival && <Cap tint={color.fgFaint}>{slot(job.start, job.end)}</Cap>}
+              </View>
+              <Text style={styles.title}>{job.title}</Text>
+              {customer && site && (
+                <Text style={styles.addr}>
+                  {customer.name}, {site.line1}, {site.town} {site.postcode}
+                </Text>
+              )}
+            </Animated.View>
+
+            <StageTrack at={stageOf(job.status)} style={{ marginTop: 22 }} />
+
+            {(site || customer) && (
+              <View style={styles.pair}>
+                {site && <Plain title="Directions" icon="route" onPress={() => openMaps(`${site.line1}, ${site.postcode}`)} flex />}
+                {customer && <Plain title={`Ring ${ringName(customer)}`} icon="phone" onPress={() => ring(customer.phone)} flex />}
+              </View>
             )}
-          </Animated.View>
 
-          <View style={styles.actions}>
-            {customer && <Action title="Call" onPress={() => Linking.openURL(`tel:${customer.phone.replace(/\s/g, '')}`)} />}
-            {site && (
-              <Action
-                title="Navigate"
-                onPress={() => {
-                  const where = encodeURIComponent(`${site.line1}, ${site.postcode}`);
-                  void Linking.openURL(Platform.OS === 'ios' ? `maps:?daddr=${where}` : `https://www.google.com/maps/dir/?api=1&destination=${where}`);
-                }}
-              />
+            {(site?.accessNotes || job.notes) && (
+              <Card style={{ marginTop: 14, gap: 14 }}>
+                {site?.accessNotes && (
+                  <View style={{ gap: 6 }}>
+                    <Cap>Getting in</Cap>
+                    <Text style={styles.body}>{site.accessNotes}</Text>
+                  </View>
+                )}
+                {job.notes && (
+                  <View style={{ gap: 6 }}>
+                    <Cap>From the office</Cap>
+                    <Text style={styles.body}>{job.notes}</Text>
+                  </View>
+                )}
+              </Card>
             )}
-          </View>
 
-          {site?.accessNotes && (
-            <View style={styles.note}>
-              <Label>Access</Label>
-              <Text style={styles.body}>{site.accessNotes}</Text>
-            </View>
-          )}
-          {job.notes && (
-            <View style={styles.note}>
-              <Label>From the office</Label>
-              <Text style={styles.body}>{job.notes}</Text>
-            </View>
-          )}
+            {job.checks.length > 0 && (
+              <>
+                <Section label={`Checks · ${answered} of ${job.checks.length}`} />
+                {job.checks.map((c) => (
+                  <CheckRow key={c.key} check={c} now={open && c.key === firstOpen} onPick={open ? (v) => tryIt(() => act.setCheck(job, c.key, v, c.detail)) : undefined} />
+                ))}
+              </>
+            )}
 
-          <View style={styles.clocks}>
-            {(['travel', 'labour'] as const).map((k) => {
-              const live = running?.kind === k;
-              return (
-                <View key={k} style={{ flex: 1 }}>
-                  <Text style={[styles.clockValue, !live && styles.clockIdle, live && !emberDock && { color: color.ember }]}>{hms(elapsed(time, k, now))}</Text>
-                  <Text style={styles.clockLabel}>
-                    {k === 'travel' ? 'Travel' : copy.onTheTools}
-                    {live ? ' · running' : ''}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-
-          {job.checks.length > 0 && (
-            <>
-              <Label style={styles.section}>Checks</Label>
-              <Panel>
-                {job.checks.map((c, i) => {
-                  const st = checkState[c.state];
-                  return (
-                    <Row key={c.key} first={i === 0} onPress={open ? () => tryIt(() => act.setCheck(job, c.key, NEXT_CHECK[c.state], c.detail)) : undefined}>
-                      <View style={[styles.dot, { backgroundColor: toneColor[st.tone] }]} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.rowText}>{c.label}</Text>
-                        {c.detail ? <Text style={styles.detail}>{c.detail}</Text> : null}
-                      </View>
-                      <Text style={[styles.checkState, { color: toneColor[st.tone] }]}>{st.label}</Text>
-                    </Row>
-                  );
-                })}
-              </Panel>
-              {open && <Text style={styles.hint}>Tap a check to mark it.</Text>}
-            </>
-          )}
-
-          <Label style={styles.section}>Photos</Label>
-          {open && (
-            <View style={styles.stages}>
-              {STAGES.map((st) => (
-                <Pressable key={st} onPress={() => setStage(st)} style={[styles.stage, stage === st && styles.stageOn]} accessibilityRole="button" accessibilityState={{ selected: stage === st }}>
-                  <Text style={[styles.stageText, stage === st && { color: color.fg }]}>{st.toUpperCase()}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
             {open && (
-              <Pressable onPress={snap} style={({ pressed }) => [styles.snap, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`Add ${stage} photo`}>
-                <Text style={styles.snapPlus}>+</Text>
-                <Text style={styles.snapText}>{stage}</Text>
-              </Pressable>
+              <View style={styles.tiles}>
+                <Tile icon="camera" label="Photo" onPress={() => toggle('photo')} />
+                <Tile icon="box" label="Part used" onPress={() => toggle('part')} />
+                <Tile icon="note" label="Note" onPress={() => toggle('note')} />
+              </View>
             )}
-            {photos.map((p) => (
-              <PhotoThumb key={p.id} photo={p} waiting={uploading.has(p.id)} />
-            ))}
-            {!open && photos.length === 0 && <Text style={styles.hint}>No photos on this job.</Text>}
+
+            {sheet === 'photo' && (
+              <Animated.View entering={FadeIn.duration(220)}>
+                <Card style={styles.sheet}>
+                  <Cap>Photo for</Cap>
+                  <View style={styles.stages}>
+                    {STAGES.map((st) => (
+                      <Pressable key={st} onPress={() => setStage(st)} style={[styles.stage, shotStage === st && styles.stageOn]} accessibilityRole="radio" accessibilityState={{ checked: shotStage === st }}>
+                        <Text style={[styles.stageText, shotStage === st && { color: color.bg }]}>{st[0].toUpperCase() + st.slice(1)}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Plain title={`Take ${shotStage} photo`} icon="camera" onPress={snap} />
+                </Card>
+              </Animated.View>
+            )}
+
+            {sheet === 'part' && (
+              <Animated.View entering={FadeIn.duration(220)}>
+                <Card style={styles.sheet}>
+                  <Cap>Part used</Cap>
+                  <Input value={mat.description} onChangeText={(description) => setMat({ ...mat, description })} placeholder="Part or material" style={styles.sheetInput} />
+                  <View style={styles.pairInputs}>
+                    <Input value={mat.qty} onChangeText={(qty) => setMat({ ...mat, qty })} placeholder="Qty" keyboardType="number-pad" style={[styles.sheetInput, styles.monoInput]} accessibilityLabel="Quantity" />
+                    <Input value={mat.price} onChangeText={(price) => setMat({ ...mat, price })} placeholder="£ each" keyboardType="decimal-pad" style={[styles.sheetInput, styles.monoInput]} accessibilityLabel="Price each in pounds" />
+                  </View>
+                  <Plain title="Log it" icon="box" onPress={addMaterial} />
+                </Card>
+              </Animated.View>
+            )}
+
+            {sheet === 'note' && (
+              <Animated.View entering={FadeIn.duration(220)}>
+                <Card style={styles.sheet}>
+                  <Cap>Note for the office</Cap>
+                  <Input value={draft} onChangeText={setDraft} placeholder="What did you find, what's left?" multiline style={[styles.sheetInput, { minHeight: 96 }]} />
+                  <Plain title="Add note" onPress={addNote} />
+                </Card>
+              </Animated.View>
+            )}
+
+            {photos.length > 0 && (
+              <>
+                <Section label={`Photos · ${photos.length}`} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {photos.map((p) => (
+                    <PhotoThumb key={p.id} photo={p} waiting={uploading.has(p.id)} />
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {materials.length > 0 && (
+              <>
+                <Section label="Parts used" />
+                <Card style={{ paddingVertical: 2 }}>
+                  {materials.map((l, i) => (
+                    <Line
+                      key={l.id}
+                      first={i === 0}
+                      left={`${l.quantity > 1 ? `${l.quantity}× ` : ''}${l.description}`}
+                      right={
+                        <View style={styles.matRight}>
+                          <Text style={styles.mono}>{pounds(l.unitPrice * l.quantity)}</Text>
+                          {open && (
+                            <Pressable onPress={() => tryIt(() => act.removeLine(job, l))} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Remove ${l.description}`}>
+                              <Text style={styles.remove}>×</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      }
+                    />
+                  ))}
+                </Card>
+              </>
+            )}
+
+            {notes.length > 0 && (
+              <>
+                <Section label="Notes" />
+                {notes.map((n) => (
+                  <View key={n.id} style={styles.noteRow}>
+                    <Text style={styles.noteAt}>{clock(n.at)}</Text>
+                    <Text style={[styles.body, { flex: 1 }]}>{n.body}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+
+            <View style={styles.quiet}>
+              {beforeArrival && <Plain quiet title={copy.couldntGetIn} icon="door" onPress={() => router.push({ pathname: '/no-access/[id]', params: { id: job.id } })} />}
+              {job.status === 'on_site' && <Plain quiet title="Can't finish today? Pause it" icon="pause" onPress={() => tryIt(() => act.pause(job))} />}
+            </View>
+
+            {!!problem && <Text style={styles.problem}>{problem}</Text>}
           </ScrollView>
-
-          <Label style={styles.section}>Materials</Label>
-          {materials.length > 0 && (
-            <Panel style={{ marginBottom: space[3] }}>
-              {materials.map((l, i) => (
-                <Row key={l.id} first={i === 0}>
-                  <Text style={[styles.mono, styles.qty]}>{l.quantity}×</Text>
-                  <Text style={[styles.rowText, { flex: 1 }]}>{l.description}</Text>
-                  <Text style={styles.mono}>{pounds(l.unitPrice * l.quantity)}</Text>
-                  {open && (
-                    <Pressable onPress={() => tryIt(() => act.removeLine(job, l))} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${l.description}`}>
-                      <Text style={styles.remove}>×</Text>
-                    </Pressable>
-                  )}
-                </Row>
-              ))}
-            </Panel>
-          )}
-          {open && (
-            <>
-              <View style={styles.matForm}>
-                <Input value={mat.description} onChangeText={(description) => setMat({ ...mat, description })} placeholder="Part or material" style={{ flex: 1, minWidth: 0 }} />
-                <Input value={mat.qty} onChangeText={(qty) => setMat({ ...mat, qty })} placeholder="Qty" keyboardType="number-pad" style={[styles.monoInput, { width: 52 }]} />
-                <Input value={mat.price} onChangeText={(price) => setMat({ ...mat, price })} placeholder="£ each" keyboardType="decimal-pad" style={[styles.monoInput, { width: 80 }]} />
-              </View>
-              <View style={{ marginTop: space[2], alignSelf: 'flex-start' }}>
-                <Action title="Log material" onPress={addMaterial} />
-              </View>
-            </>
-          )}
-          {!open && materials.length === 0 && <Text style={styles.hint}>No materials logged.</Text>}
-
-          <Label style={styles.section}>Notes</Label>
-          {open && (
-            <View style={styles.noteBox}>
-              <Input value={draft} onChangeText={setDraft} placeholder="What did you find, what's left?" multiline style={{ flex: 1 }} />
-              <Action title="Add" onPress={addNote} />
-            </View>
-          )}
-          {notes.map((n) => (
-            <View key={n.id} style={styles.noteRow}>
-              <Text style={styles.noteAt}>{clock(n.at)}</Text>
-              <Text style={[styles.body, { flex: 1 }]}>{n.body}</Text>
-            </View>
-          ))}
-
-          {beforeArrival && (
-            <Pressable onPress={() => router.push({ pathname: '/no-access/[id]', params: { id: job.id } })} hitSlop={8} accessibilityRole="button" style={styles.cant}>
-              <Text style={styles.cantText}>{copy.couldntGetIn}</Text>
-            </Pressable>
-          )}
-
-          {!!problem && <Text style={styles.problem}>{problem}</Text>}
-        </ScrollView>
+        </KeyboardAvoidingView>
 
         {docked && <Dock>{docked}</Dock>}
       </SafeAreaView>
@@ -299,44 +339,35 @@ export default function JobScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[6], paddingTop: space[2], paddingBottom: space[2] },
-  scroll: { paddingHorizontal: space[6], paddingTop: space[4], paddingBottom: space[8] },
-  refRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
-  ref: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11 },
-  flag: { fontFamily: font.display, fontSize: 8, letterSpacing: tracking.label },
-  title: { color: color.fg, fontFamily: font.sansSemi, fontSize: 24, lineHeight: 30, letterSpacing: -0.2, marginTop: space[2] },
-  addr: { color: color.fgMuted, fontFamily: font.sans, fontSize: 13, marginTop: space[2], lineHeight: 18 },
-  mono: { color: color.fgMuted, fontFamily: font.mono, fontSize: 12 },
-  actions: { flexDirection: 'row', gap: space[2], marginTop: space[4] },
-  note: { marginTop: space[4], padding: space[3], borderRadius: radius.lg, backgroundColor: glass, gap: space[2] },
-  body: { color: color.fg, fontFamily: font.sans, fontSize: 13, lineHeight: 18 },
-  section: { marginTop: space[8], marginBottom: space[3] },
-  clocks: { flexDirection: 'row', marginTop: space[6], paddingVertical: space[4], paddingHorizontal: space[4], borderRadius: radius.xl, backgroundColor: color.inset },
-  clockValue: { color: color.fg, fontFamily: font.monoMedium, fontSize: 24 },
-  clockIdle: { color: color.fgMuted },
-  clockLabel: { color: color.fgFaint, fontFamily: font.sansMedium, fontSize: 11, marginTop: 4 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  rowText: { color: color.fg, fontFamily: font.sansMedium, fontSize: 13 },
-  detail: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, marginTop: 2 },
-  checkState: { fontFamily: font.sansMedium, fontSize: 12 },
-  hint: { color: color.fgFaint, fontFamily: font.sans, fontSize: 12, marginTop: space[2] },
-  qty: { width: 28 },
-  remove: { color: color.fgFaint, fontFamily: font.sans, fontSize: 18, paddingLeft: space[1] },
-  matForm: { flexDirection: 'row', gap: space[2] },
-  monoInput: { fontFamily: font.mono, textAlign: 'center', paddingHorizontal: space[1] },
-  stages: { flexDirection: 'row', gap: space[2], marginBottom: space[3] },
-  stage: { paddingHorizontal: space[3], paddingVertical: 7, borderRadius: radius.pill, backgroundColor: color.inset },
-  stageOn: { backgroundColor: color.raised },
-  stageText: { color: color.fgFaint, fontFamily: font.display, fontSize: 8, letterSpacing: tracking.label },
-  photos: { gap: space[2] },
-  snap: { width: 88, height: 88, borderRadius: radius.lg, backgroundColor: color.raised, alignItems: 'center', justifyContent: 'center' },
-  snapPlus: { color: color.fg, fontFamily: font.sans, fontSize: 24 },
-  snapText: { color: color.fgFaint, fontFamily: font.sans, fontSize: 11 },
-  noteBox: { flexDirection: 'row', gap: space[2], alignItems: 'flex-end' },
-  noteRow: { marginTop: space[3], flexDirection: 'row', gap: space[3] },
-  noteAt: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, marginTop: 2, width: 40 },
-  cant: { marginTop: space[10], alignSelf: 'flex-start', paddingHorizontal: space[4], paddingVertical: space[3], borderRadius: radius.lg, backgroundColor: color.inset },
-  cantText: { color: color.fgMuted, fontFamily: font.sansSemi, fontSize: 14 },
-  problem: { color: color.warn, fontFamily: font.sans, fontSize: 13, marginTop: space[4] },
-  dockRow: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
+  pad: { paddingHorizontal: 22, paddingTop: space[3] },
+  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  scroll: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: space[6] },
+  refRow: { flexDirection: 'row', gap: 12, marginTop: 6 },
+  title: { color: color.fg, fontFamily: font.sansMedium, fontSize: 19, marginTop: 8 },
+  addr: { color: color.fgMuted, fontFamily: font.sans, fontSize: 14, marginTop: 6, lineHeight: 20 },
+  pair: { flexDirection: 'row', gap: 8, marginTop: 20 },
+  body: { color: color.fg, fontFamily: font.sans, fontSize: 14, lineHeight: 20 },
+  check: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 56, paddingVertical: 6 },
+  ring: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: color.raised },
+  ringDone: { backgroundColor: color.fgMuted },
+  ringNow: { backgroundColor: color.bg, borderWidth: 1.5, borderColor: color.fg },
+  checkLabel: { color: color.fg, fontFamily: font.sans, fontSize: 15 },
+  checkDetail: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, marginTop: 3 },
+  checkState: { fontFamily: font.mono, fontSize: 12, letterSpacing: 1 },
+  tiles: { flexDirection: 'row', gap: 8, marginTop: 24 },
+  sheet: { marginTop: 8, gap: 12 },
+  sheetInput: { backgroundColor: color.raised },
+  pairInputs: { flexDirection: 'row', gap: 8 },
+  monoInput: { flex: 1, minWidth: 0, width: 0, fontFamily: font.mono },
+  stages: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: radius.lg + 2, backgroundColor: color.inset },
+  stage: { flex: 1, minHeight: 44, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
+  stageOn: { backgroundColor: color.fg },
+  stageText: { color: color.fgMuted, fontFamily: font.sansMedium, fontSize: 14 },
+  matRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mono: { color: color.fgMuted, fontFamily: font.mono, fontSize: 13 },
+  remove: { color: color.fgFaint, fontFamily: font.sans, fontSize: 20, paddingHorizontal: 4 },
+  noteRow: { flexDirection: 'row', gap: 14, paddingVertical: 8 },
+  noteAt: { color: color.fgFaint, fontFamily: font.mono, fontSize: 12, marginTop: 2, width: 44 },
+  quiet: { marginTop: 24, alignItems: 'center' },
+  problem: { color: color.warn, fontFamily: font.sans, fontSize: 14, marginTop: space[4] },
 });

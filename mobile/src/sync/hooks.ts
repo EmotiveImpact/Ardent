@@ -36,7 +36,7 @@ export function today(day: Day, now = Date.now()): JobCard[] {
 }
 
 /** The job in hand, or else the next one to go to. */
-export function nextUp(jobs: Job[]): Job | undefined {
+export function nextUp<J extends Job>(jobs: J[]): J | undefined {
   return jobs.find((j) => j.status === 'on_site' || j.status === 'en_route') ?? jobs.find((j) => j.status === 'paused') ?? jobs.find((j) => !jobDone.has(j.status) && j.status !== 'paused');
 }
 
@@ -89,4 +89,22 @@ export function usePhotoUri(photo: Photo) {
     };
   }, [photo, remote]);
   return uri;
+}
+
+const DAY_MS = 86_400_000;
+
+/** A registration or calibration's standing from its expiry, worked out the way the engine works out certificates. */
+export function standing(expires: string, now = Date.now()) {
+  const today = ukDay(new Date(now).toISOString());
+  if (expires < today) return 'overdue' as const;
+  return expires <= new Date(now + 30 * DAY_MS).toISOString().slice(0, 10) ? ('due_soon' as const) : ('valid' as const);
+}
+
+/** Where a job is on the five-stop track: booked, road, on site, done, paid. */
+export function stageOf(status: Job['status']) {
+  if (status === 'en_route') return 1;
+  if (status === 'on_site' || status === 'paused') return 2;
+  if (status === 'complete' || status === 'invoiced') return 3;
+  if (status === 'paid') return 4;
+  return 0;
 }

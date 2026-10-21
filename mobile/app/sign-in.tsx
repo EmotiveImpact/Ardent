@@ -1,12 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Action } from '@/components/Action';
+import { Cap, Go } from '@/components/ardent';
 import { Atmosphere } from '@/components/Atmosphere';
-import { Dock, Input, Label, Panel, Row } from '@/components/ui';
+import { Input } from '@/components/ui';
 import * as demo from '@/data/core/mock';
 import { demoPeople } from '@/engine/connect';
 import { copy } from '@/kit/copy';
@@ -15,16 +15,15 @@ import { trade } from '@/kit/states';
 import { field } from '@/sync/field';
 import { useField } from '@/sync/hooks';
 import { reason } from '@/sync/ops';
-import { color, font, radius, space, tracking } from '@/theme/tokens';
+import { color, font, radius, space } from '@/theme/tokens';
 
-/** The demo crew who work on the tools, with what they do, for "try it as". */
+/** The demo crew who work on the tools, for "try it as". */
 const crew = demoPeople
   .filter((p) => p.role !== 'office')
   .map((p) => {
     const op = demo.operators.find((o) => o.name === p.name);
     const what = op ? op.trades.map((t) => trade[t]).join(' and ') : '';
-    const role = p.role === 'owner' ? 'Owner, on the tools' : op?.role === 'subcontractor' ? 'Subcontractor' : 'Engineer';
-    return { ...p, line: what ? `${role} · ${what}` : role };
+    return { ...p, line: what || (p.role === 'owner' ? 'Owner' : 'Engineer') };
   });
 
 export default function SignIn() {
@@ -36,7 +35,6 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<string>();
-  const [form, setForm] = useState(!isDemo || !!ended);
 
   const go = async (e: string, p: string, who: string) => {
     if (busy) return;
@@ -60,70 +58,67 @@ export default function SignIn() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            <Text style={styles.wordmark}>ARDENT</Text>
+            <Animated.View entering={FadeIn.duration(900)} style={styles.mark}>
+              <Text style={styles.wordmark} accessibilityRole="header">
+                ARDENT
+              </Text>
+              <Cap tint={color.fgFaint} style={{ letterSpacing: 4 }}>
+                Field
+              </Cap>
+            </Animated.View>
 
-            <Animated.View entering={FadeInDown.duration(460)} style={styles.head}>
-              <Text style={styles.title}>{copy.signIn.toUpperCase()}</Text>
+            <Animated.View entering={FadeInDown.delay(120).duration(460)} style={{ gap: 8 }}>
               {ended ? (
-                <Text style={styles.sub}>
-                  Your sign-in ran out. Sign in again to send the <Text style={styles.mono}>{ended.waiting}</Text> {ended.waiting === 1 ? 'change' : 'changes'} waiting on this phone.
+                <Text style={styles.note}>
+                  Your sign-in ran out. Sign in again to send the {ended.waiting} {ended.waiting === 1 ? 'change' : 'changes'} waiting on this phone.
                 </Text>
               ) : isDemo ? (
-                <Text style={styles.sub}>This is the demo firm, Mercer Heating & Electrical. The jobs are made up and kept on this device.</Text>
-              ) : (
-                <Text style={styles.sub}>Use the email and password the office set up for you.</Text>
-              )}
+                <Text style={styles.note}>This is the demo firm, Mercer Heating & Electrical. The jobs are made up and kept on this phone.</Text>
+              ) : null}
+
+              <Cap style={styles.label}>Email</Cap>
+              <Input value={email} onChangeText={setEmail} placeholder="you@yourfirm.co.uk" autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="username" accessibilityLabel="Email" />
+              <Cap style={styles.label}>Password</Cap>
+              <Input
+                value={password}
+                onChangeText={setPassword}
+                placeholder={isDemo ? 'ardent-demo' : 'Password'}
+                secureTextEntry
+                autoComplete="password"
+                textContentType="password"
+                accessibilityLabel="Password"
+                onSubmitEditing={() => go(email, password, 'form')}
+              />
+              {!!error && <Text style={styles.error}>{error}</Text>}
+              <View style={{ marginTop: 14 }}>
+                <Go label={busy === 'form' ? 'Signing in' : copy.signIn} onPress={() => go(email, password, 'form')} disabled={!!busy} />
+              </View>
             </Animated.View>
 
             {isDemo && !ended && (
-              <Animated.View entering={FadeInDown.delay(80).duration(460)}>
-                <Label style={styles.label}>Try it as</Label>
-                <Panel>
-                  {crew.map((p, i) => (
-                    <Row key={p.email} first={i === 0} onPress={() => go(p.email, p.password, p.email)}>
-                      <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{initials(p.name)}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.name}>{p.name}</Text>
-                        <Text style={styles.line}>{p.line}</Text>
-                      </View>
-                      <Text style={styles.go}>{busy === p.email ? '…' : '›'}</Text>
-                    </Row>
+              <Animated.View entering={FadeInDown.delay(200).duration(460)}>
+                <Cap tint={color.fgFaint} style={styles.tryAs}>
+                  Or try it as
+                </Cap>
+                <View style={styles.crew}>
+                  {crew.map((p) => (
+                    <Pressable
+                      key={p.email}
+                      onPress={() => go(p.email, p.password, p.email)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Try it as ${p.name}, ${p.line}`}
+                      style={({ pressed }) => [styles.person, (pressed || busy === p.email) && { opacity: 0.6 }]}
+                    >
+                      <Text style={styles.personInitials}>{initials(p.name)}</Text>
+                      <Text style={styles.personName} numberOfLines={1}>
+                        {p.name.split(' ')[0]}
+                      </Text>
+                    </Pressable>
                   ))}
-                </Panel>
+                </View>
               </Animated.View>
             )}
-
-            {form ? (
-              <Animated.View entering={FadeInDown.delay(isDemo ? 0 : 80).duration(420)} style={{ gap: space[2] }}>
-                <Label style={styles.label}>{isDemo && !ended ? 'Or with email' : 'Your sign-in'}</Label>
-                <Input value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="username" />
-                <Input
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Password"
-                  secureTextEntry
-                  autoComplete="password"
-                  textContentType="password"
-                  onSubmitEditing={() => go(email, password, 'form')}
-                />
-                {isDemo && <Text style={styles.hint}>Demo password: ardent-demo</Text>}
-              </Animated.View>
-            ) : (
-              <Pressable onPress={() => setForm(true)} hitSlop={8} accessibilityRole="button" style={{ marginTop: space[5] }}>
-                <Text style={styles.link}>Sign in with email instead</Text>
-              </Pressable>
-            )}
-
-            {!!error && <Text style={styles.error}>{error}</Text>}
           </ScrollView>
-
-          {form && (
-            <Dock>
-              <Action title={busy === 'form' ? 'Signing in' : copy.signIn} tone="ember" onPress={() => go(email, password, 'form')} disabled={!!busy} />
-            </Dock>
-          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -132,19 +127,15 @@ export default function SignIn() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
-  scroll: { flexGrow: 1, paddingHorizontal: space[6], paddingTop: space[6], paddingBottom: space[8] },
-  wordmark: { color: color.fgFaint, fontFamily: font.display, fontSize: 10, letterSpacing: tracking.label * 2 },
-  head: { marginTop: 'auto', paddingTop: space[12] },
-  title: { color: color.fg, fontFamily: font.display, fontSize: 30, letterSpacing: tracking.display },
-  sub: { color: color.fgMuted, fontFamily: font.sans, fontSize: 14, lineHeight: 20, marginTop: space[2], maxWidth: 320 },
-  mono: { fontFamily: font.monoMedium, color: color.fg },
-  label: { marginTop: space[8], marginBottom: space[3] },
-  avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: color.raised, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: color.fg, fontFamily: font.monoMedium, fontSize: 11 },
-  name: { color: color.fg, fontFamily: font.sansSemi, fontSize: 15 },
-  line: { color: color.fgMuted, fontFamily: font.sans, fontSize: 12, marginTop: 2 },
-  go: { color: color.fgFaint, fontFamily: font.sans, fontSize: 20, width: 16, textAlign: 'right' },
-  hint: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, marginTop: space[1] },
-  link: { color: color.fgMuted, fontFamily: font.sansMedium, fontSize: 13 },
-  error: { color: color.warn, fontFamily: font.sans, fontSize: 13, marginTop: space[4], padding: space[3], borderRadius: radius.lg, backgroundColor: color.inset, overflow: 'hidden' },
+  scroll: { flexGrow: 1, paddingHorizontal: 22, paddingTop: space[6], paddingBottom: space[6] },
+  mark: { flex: 1, minHeight: 220, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  wordmark: { color: color.fg, fontFamily: font.display, fontSize: 34, letterSpacing: 9, marginRight: -9 },
+  note: { color: color.fgMuted, fontFamily: font.sans, fontSize: 14, lineHeight: 20, marginBottom: 10 },
+  label: { marginTop: 8 },
+  error: { color: color.warn, fontFamily: font.sans, fontSize: 14, lineHeight: 20, marginTop: 6 },
+  tryAs: { textAlign: 'center', marginTop: 30, marginBottom: 12 },
+  crew: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  person: { flexGrow: 1, flexBasis: '22%', minHeight: 76, borderRadius: radius.xl, backgroundColor: color.surface, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  personInitials: { color: color.fg, fontFamily: font.display, fontSize: 14, letterSpacing: 2 },
+  personName: { color: color.fgMuted, fontFamily: font.sans, fontSize: 13 },
 });
