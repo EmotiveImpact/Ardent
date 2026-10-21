@@ -55,9 +55,9 @@ const toneText = { warn: 'text-warn', danger: 'text-danger', ok: 'text-ok', embe
 
 /**
  * A screen's head: the op line (main pages) or a small eyebrow (detail pages),
- * the Michroma title, one plain sentence, and optional big figures on the right.
+ * the Michroma title, one plain sentence, and optional big figures (or an `aside`) on the right.
  */
-export function PageHead({ title, sub, book, eyebrow, figures, className, children }: { title: string; sub?: ReactNode; book?: Book; eyebrow?: ReactNode; figures?: Figure[]; className?: string; children?: ReactNode }) {
+export function PageHead({ title, sub, book, eyebrow, figures, aside, className, children }: { title: string; sub?: ReactNode; book?: Book; eyebrow?: ReactNode; figures?: Figure[]; aside?: ReactNode; className?: string; children?: ReactNode }) {
   return (
     <div className={cn('animate-rise flex flex-wrap items-end justify-between gap-x-10 gap-y-6 pt-8 pb-8', className)}>
       <div className="min-w-0">
@@ -99,6 +99,7 @@ export function PageHead({ title, sub, book, eyebrow, figures, className, childr
           })}
         </dl>
       )}
+      {aside && <div className="sm:self-start">{aside}</div>}
     </div>
   )
 }

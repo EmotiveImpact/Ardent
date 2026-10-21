@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import type { Map as StreetMap } from 'maplibre-gl'
 import { createPortal } from 'react-dom'
 import { Crosshair, Maximize2, Minimize2, Minus, Plus } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
@@ -7,8 +8,12 @@ import { districts, lines, mapBounds, places, type LatLng, type Line } from '@/d
 import { find, onDay, today } from '@/lib/jobs'
 import { cn } from '@/lib/utils'
 import { clock } from '@kit'
+import { startStreetMap } from './street-map'
 
-/* A black map of south Manchester with every van placed and wired back to the yard. */
+/*
+ * A black map of south Manchester with every van placed and wired back to the yard.
+ * Real streets come from the street map; until it loads, or where it can't, a drawing of the main roads stands in.
+ */
 
 export type MapView = 'streets' | 'heat' | 'routes'
 
@@ -42,10 +47,12 @@ const px = ([lat, lng]: LatLng) => [(lng - mapBounds.west) * COS * K, (mapBounds
 
 const path = (pts: LatLng[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${px(p)[0].toFixed(1)} ${px(p)[1].toFixed(1)}`).join('')
 
+type Project = (p: LatLng) => readonly [number, number]
+
 /** A gentle arc between two points, bowed to one side. */
-function arc(a: LatLng, b: LatLng, bow = 0.18) {
-  const [x0, y0] = px(a)
-  const [x1, y1] = px(b)
+function arc(at: Project, a: LatLng, b: LatLng, bow = 0.18) {
+  const [x0, y0] = at(a)
+  const [x1, y1] = at(b)
   const mx = (x0 + x1) / 2
   const my = (y0 + y1) / 2
   const dx = x1 - x0
@@ -125,6 +132,52 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const drag = useRef<{ x: number; y: number } | null>(null)
   const [full, setFull] = useState(false)
+  const streetBox = useRef<HTMLDivElement>(null)
+  const [street, setStreet] = useState<StreetMap | null>(null)
+  const [, setMoved] = useState(0)
+
+  // Every place on the map, for fitting the view around the crew.
+  const everyone = [places.yard, ...Object.values(vanAt), ...sites.map(siteAt)]
+  const fitAll = (m: StreetMap, animate = true) => {
+    const lats = everyone.map((p) => p[0])
+    const lngs = everyone.map((p) => p[1])
+    m.fitBounds(
+      [
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+      ],
+      { padding: { top: 70, bottom: 60, left: 60, right: 150 }, animate, maxZoom: 14 },
+    )
+  }
+
+  useEffect(() => {
+    const el = streetBox.current
+    if (!el) return
+    let map: StreetMap | undefined
+    let gone = false
+    let frame = 0
+    startStreetMap(el, [places.yard[1], places.yard[0]])
+      .then((m) => {
+        map = m
+        if (gone) return m.remove()
+        fitAll(m, false)
+        // Markers follow the streets as the map moves, redrawn once a frame.
+        m.on('move', () => {
+          cancelAnimationFrame(frame)
+          frame = requestAnimationFrame(() => setMoved((n) => n + 1))
+        })
+        setStreet(m)
+      })
+      // No street map (no WebGL, no tiles): the drawn map stays.
+      .catch((e) => console.warn('Street map unavailable, showing the drawn map', e))
+    return () => {
+      gone = true
+      cancelAnimationFrame(frame)
+      map?.remove()
+      setStreet(null)
+    }
+    // The map remounts when it moves in and out of full screen, so start again on the new element.
+  }, [full])
 
   useLayoutEffect(() => {
     const el = box.current
@@ -144,9 +197,23 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
   const vx = cx - vw / 2
   const vy = cy - vh / 2
   const toScreen = (p: LatLng) => {
+    if (street) {
+      const { x, y } = street.project([p[1], p[0]])
+      return { x, y }
+    }
     const [x, y] = px(p)
     return { x: (x - vx) * s, y: (y - vy) * s }
   }
+  // On the street map the overlay is drawn in screen pixels; on the drawing, in map units.
+  const at: Project = street
+    ? (p) => {
+        const { x, y } = toScreen(p)
+        return [x, y] as const
+      }
+    : px
+  const unit = street ? 1 : 1 / s
+  // One drawing unit is about eleven metres; the street map works in metres per pixel.
+  const perPixel = street ? 40075016.686 * COS / (512 * 2 ** street.getZoom()) / 11.1 : 1
   // Fill the screen: browser fullscreen where allowed, and a fixed overlay either way (embedded pages often block the API).
   const toggleFull = () => {
     if (full) {
@@ -168,9 +235,13 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
       document.removeEventListener('fullscreenchange', onExit)
     }
   }, [full])
-  const zoomBy = (f: number) => setZoom((z) => Math.min(4, Math.max(0.8, z * f)))
+  const zoomBy = (f: number) => {
+    if (street) street.easeTo({ zoom: street.getZoom() + Math.log2(f), duration: 250 })
+    else setZoom((z) => Math.min(4, Math.max(0.8, z * f)))
+  }
 
   const onDown = (e: RPointerEvent) => {
+    if (street) return
     drag.current = { x: e.clientX, y: e.clientY }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
@@ -194,9 +265,16 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={onUp}
-      onWheel={(e) => zoomBy(Math.exp(-e.deltaY * 0.0015))}
+      onWheel={(e) => !street && zoomBy(Math.exp(-e.deltaY * 0.0015))}
     >
-      <svg className="absolute inset-0 size-full" viewBox={`${vx} ${vy} ${vw} ${vh}`} preserveAspectRatio="none" aria-label="Map of south Manchester with crew positions">
+      {/* MapLibre adds its own classes to the inner element, so React only styles the outer one. */}
+      <div className={cn('absolute inset-0 transition-opacity duration-500', street ? 'opacity-100' : 'opacity-0')}>
+        <div ref={streetBox} className="size-full" />
+      </div>
+      {/* Routes and Work quieten the streets so the crew stand out. */}
+      {street && view !== 'streets' && <div className={cn('pointer-events-none absolute inset-0 bg-black', view === 'routes' ? 'opacity-60' : 'opacity-35')} />}
+
+      <svg className="pointer-events-none absolute inset-0 size-full" viewBox={street ? `0 0 ${size.w} ${size.h}` : `${vx} ${vy} ${vw} ${vh}`} preserveAspectRatio="none" aria-label="Map of south Manchester with crew positions">
         <defs>
           <radialGradient id="heat">
             <stop offset="0" stopColor="var(--ember)" stopOpacity="0.55" />
@@ -212,7 +290,8 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
           </filter>
         </defs>
 
-        {view !== 'routes' &&
+        {!street &&
+          view !== 'routes' &&
           lines.map((l, i) => {
             const st = roadStyle(l, view)
             return (
@@ -232,14 +311,14 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
 
         {view === 'heat' &&
           workload.map((w, i) => {
-            const [x, y] = px(w.at)
-            return <circle key={i} cx={x} cy={y} r={w.jobs * 3.4} fill="url(#heat)" />
+            const [x, y] = at(w.at)
+            return <circle key={i} cx={x} cy={y} r={(w.jobs * 3.4) / perPixel} fill="url(#heat)" />
           })}
 
         {/* Lines back to the yard */}
         {operators.map((op, i) => {
           if (op.state === 'on_call' || op.state === 'off_shift') return null
-          const d = arc(places.yard, vanAt[op.id], i % 2 ? -0.16 : 0.16)
+          const d = arc(at, places.yard, vanAt[op.id], i % 2 ? -0.16 : 0.16)
           const colour = stateColour[op.state]
           const job = jobOf(op)
           const dest = job && siteAt(find(sites, job.siteId))
@@ -257,11 +336,11 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
               />
               {moving && dest && (
                 <>
-                  <path d={arc(vanAt[op.id], dest, 0.1)} fill="none" stroke={colour} strokeOpacity={0.6} strokeWidth={1} strokeDasharray="2 4" vectorEffect="non-scaling-stroke" />
-                  <circle cx={px(dest)[0]} cy={px(dest)[1]} r={6 / s} fill="none" stroke={colour} strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
+                  <path d={arc(at, vanAt[op.id], dest, 0.1)} fill="none" stroke={colour} strokeOpacity={0.6} strokeWidth={1} strokeDasharray="2 4" vectorEffect="non-scaling-stroke" />
+                  <circle cx={at(dest)[0]} cy={at(dest)[1]} r={6 * unit} fill="none" stroke={colour} strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
                 </>
               )}
-              <circle r={3 / s} fill={colour} filter="url(#map-glow)">
+              <circle r={3 * unit} fill={colour} filter="url(#map-glow)">
                 <animateMotion dur={moving ? '5s' : '7s'} repeatCount="indefinite" path={d} begin={`${i * 0.6}s`} />
               </circle>
             </g>
@@ -270,13 +349,14 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
 
         {/* Booked sites still to visit today */}
         {booked.map((j) => {
-            const [x, y] = px(siteAt(find(sites, j.siteId)))
-            return <circle key={j.id} cx={x} cy={y} r={4 / s} fill="#000" stroke="#777" strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
+            const [x, y] = at(siteAt(find(sites, j.siteId)))
+            return <circle key={j.id} cx={x} cy={y} r={4 * unit} fill="#000" stroke="#777" strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
           })}
       </svg>
 
       {/* District names stay a fixed size whatever the zoom */}
-      {districts.map((d) => {
+      {!street &&
+        districts.map((d) => {
         const p = toScreen(d.at)
         return (
           <span key={d.name} className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 font-mono text-[9px] tracking-[0.16em] uppercase" style={{ left: p.x, top: p.y, color: label }}>
@@ -343,6 +423,7 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
         <button
           aria-label="Fit everyone"
           onClick={() => {
+            if (street) return fitAll(street)
             setZoom(1)
             setPan({ x: 0, y: 0 })
           }}
@@ -352,20 +433,25 @@ export function CrewMap({ operators, jobs, sites, onSelect, className }: { opera
         </button>
       </div>
 
-      {/* Legend */}
-      <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 rounded-md bg-[#0d0d0d]/90 px-2.5 py-1.5 text-[11px] text-muted backdrop-blur">
+      {/* Legend; on phones the markers say their state, so only the map credit stays. */}
+      <div className={cn('absolute bottom-3 left-3 flex items-center gap-3 rounded-md bg-[#0d0d0d]/90 px-2.5 py-1.5 text-[11px] whitespace-nowrap text-muted backdrop-blur', !street && 'max-sm:hidden')} onPointerDown={(e) => e.stopPropagation()}>
         {view === 'heat' ? (
-          <span className="flex items-center gap-1.5">
+          <span className="hidden items-center gap-1.5 sm:flex">
             <span className="size-2.5 rounded-full bg-[radial-gradient(var(--ember),transparent_70%)]" />
             Jobs by site
           </span>
         ) : (
           (['on_site', 'en_route', 'delayed'] as const).map((st) => (
-            <span key={st} className="flex items-center gap-1.5">
+            <span key={st} className="hidden items-center gap-1.5 sm:flex">
               <span className="h-[2px] w-3 rounded-full" style={{ background: stateColour[st] }} />
               {stateLabel[st]}
             </span>
           ))
+        )}
+        {street && (
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="text-[10px] text-faint hover:text-muted">
+            © OpenStreetMap
+          </a>
         )}
       </div>
     </div>

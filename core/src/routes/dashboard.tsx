@@ -53,9 +53,7 @@ export function Dashboard() {
           </button>
         }
       />
-      <PageHead title="Today" book={book} sub={book && needs ? summary(book, needs.length, me?.user.name.split(' ')[0]) : ' '} className="pb-0">
-        <ViewSwitch view={view} onChange={setView} />
-      </PageHead>
+      <PageHead title="Today" book={book} sub={book && needs ? summary(book, needs.length, me?.user.name.split(' ')[0]) : ' '} className="pb-0" aside={<ViewSwitch view={view} onChange={setView} />} />
 
       {!book ? (
         <Loading />
@@ -139,7 +137,7 @@ type View = (typeof views)[number]['key']
 /** Three ways to look at the day. Kept in the address, so back and forward and wall mode keep it. */
 function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
   return (
-    <div role="tablist" aria-label="View" className="mt-6 inline-flex gap-1 rounded-[11px] bg-surface p-1">
+    <div role="tablist" aria-label="View" className="inline-flex gap-1 rounded-[11px] bg-surface p-1">
       {views.map((v) => (
         <button
           key={v.key}
