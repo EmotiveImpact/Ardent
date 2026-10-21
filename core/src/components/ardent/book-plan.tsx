@@ -1,12 +1,13 @@
 import { clock, trade as tradeName, ukDay, ukToIso } from '@kit'
 import type { Book } from '@/data/ardent'
-import type { ComplianceCheck, Job, Operator, Site, Trade } from '@/data/model'
+import type { ComplianceCheck, DriveTime, Job, Operator, Site, Trade } from '@/data/model'
 import { addDays, find, today } from '@/lib/jobs'
 
 /*
  * The working-out behind booking: who holds the right trade, who can go now,
  * and where the free time is in the real diary. Nothing here is guessed:
- * free time comes from booked jobs, distance from the sites' own coordinates.
+ * free time comes from booked jobs, distance from where the van was last seen
+ * or the site it's at, and drive times from TomTom when the firm has a key.
  */
 
 const HALF_HOUR = 30 * 60_000
@@ -59,17 +60,23 @@ export interface Candidate {
   freeAt?: string
   why: string
   miles?: number
+  /** By road with traffic, when drive times are on. */
+  minutes?: number
+  /** The van's own last reading, rather than the site of its job. */
+  seenAt?: string
 }
 
 const isLive = (j: Job) => !['cancelled', 'complete', 'invoiced', 'paid'].includes(j.status)
 
 /** Everyone on the books, best first: right trade and free now, then finishing soonest, then off shift, then not cleared. */
-export function rankCrew(book: Book, trade: Trade, site?: Site, now = Date.now()): Candidate[] {
+export function rankCrew(book: Book, trade: Trade, site?: Site, now = Date.now(), travel?: DriveTime[]): Candidate[] {
   const day = today(now)
   const list = book.operators.map((op): Candidate => {
     const current = find(book.jobs, op.currentJobId)
     const here = find(book.sites, current?.siteId)
-    const miles = milesBetween(here, site)
+    const road = travel?.find((t) => t.operatorId === op.id)
+    const miles = road ? road.miles : milesBetween(here, site)
+    const far = { miles, minutes: road?.minutes, seenAt: road?.from === 'van' ? road.seenAt : undefined }
     const cleared = holdsTrade(op, trade)
     const nextToday = book.jobs
       .filter((j) => j.operatorIds.includes(op.id) && isLive(j) && j.id !== current?.id && ukDay(j.start) === day && Date.parse(j.start) > now)
@@ -95,12 +102,18 @@ export function rankCrew(book: Book, trade: Trade, site?: Site, now = Date.now()
 
     if (!cleared) {
       const holds = listWords(op.trades.map(tradeWord))
-      return { op, cleared, when: 'no', why: `${state}, but ${holds || 'no trade'} only.`, miles }
+      return { op, cleared, when: 'no', why: `${state}, but ${holds || 'no trade'} only.`, ...far }
     }
-    return { op, cleared, when, freeAt, why: `${tradeName[op.trades[0]] ?? ''}${op.trades.length > 1 ? ` and ${tradeWord(op.trades[1])}` : ''}. ${state}.`, miles }
+    return { op, cleared, when, freeAt, why: `${tradeName[op.trades[0]] ?? ''}${op.trades.length > 1 ? ` and ${tradeWord(op.trades[1])}` : ''}. ${state}.`, ...far }
   })
   const order = { now: 0, later: 1, off: 2, no: 3 }
-  return list.sort((a, b) => order[a.when] - order[b.when] || (a.freeAt ?? '').localeCompare(b.freeAt ?? '') || (a.miles ?? 99) - (b.miles ?? 99))
+  return list.sort(
+    (a, b) =>
+      order[a.when] - order[b.when] ||
+      (a.freeAt ?? '').localeCompare(b.freeAt ?? '') ||
+      (a.minutes !== undefined && b.minutes !== undefined ? a.minutes - b.minutes : 0) ||
+      (a.miles ?? 99) - (b.miles ?? 99),
+  )
 }
 
 /** What the office says before sending someone. */

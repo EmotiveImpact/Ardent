@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url'
 import { createEngine, type Engine, EngineError } from './engine.ts'
 import { isRead } from './http-client.ts'
 import { nodePlatform } from './platform-node.ts'
+import { tomtomDriveMinutes } from './tomtom.ts'
 import { demoData, shiftDemo } from './seed.ts'
 import { fileStore } from './store-file.ts'
 
@@ -180,11 +181,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const dataDir = process.env.ARDENT_DATA ?? fileURLToPath(new URL('../.data', import.meta.url))
   // A fresh data file opens on the demo firm, with its busy day moved to today (UK).
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-  const engine = createEngine(fileStore(join(dataDir, 'ardent.json'), () => shiftDemo(demoData(nodePlatform), today)), nodePlatform)
+  // Drive times by road need the firm's TomTom key; without one, distances are as the crow flies.
+  const tomtom = process.env.TOMTOM_API_KEY
+  const platform = tomtom ? { ...nodePlatform, driveMinutes: tomtomDriveMinutes(tomtom) } : nodePlatform
+  const engine = createEngine(fileStore(join(dataDir, 'ardent.json'), () => shiftDemo(demoData(nodePlatform), today)), platform)
   const allowOrigin = open ? () => true : undefined
   createServer(engine, { filesDir: join(dataDir, 'photos'), allowOrigin }).listen(port, host, () => {
     console.log(`Ardent engine on http://${host}:${port}  (data: ${dataDir})`)
     if (open) console.log('Open to the local network: plain HTTP, so only on a network you trust.')
+    console.log(tomtom ? 'Drive times: TomTom, by road' : 'Drive times: as the crow flies (set TOMTOM_API_KEY for road times)')
     console.log('Demo sign-ins: dan@ / jo@ / kofi@ / ryan@ / tom@demo.ardent.local, password ardent-demo')
   })
 }

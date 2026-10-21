@@ -26,7 +26,7 @@ import { connectDemo, connectLive, type Connection, type KeyValue, type Me } fro
 import { ukDay } from '@/kit/format';
 
 import { applyLocal, settle } from './apply';
-import { backoff, classify, isLocal, type Op, reason, resolveIds, type SetAside } from './ops';
+import { backoff, type CallOp, classify, isLocal, type Op, reason, resolveIds, type SetAside } from './ops';
 import { clearAllPhotos, clearPhoto, readPhoto } from './photos';
 import { pullDay } from './pull';
 
@@ -44,6 +44,7 @@ const SESSION_KEY = 'ardent.session';
 /** Who was signed in last, so the phone opens their day with no signal. */
 const ME_KEY = 'ardent.field.me';
 const NO_SIGNAL_KEY = 'ardent.field.demo-no-signal';
+const SHARE_KEY = 'ardent.field.share-location';
 const dayKey = (userId: string) => `ardent.field.v1.${userId}`;
 
 interface Kept {
@@ -62,6 +63,8 @@ export interface FieldState extends Kept {
   online: boolean;
   /** Demo only: hold every change on the phone as if there were no signal. */
   noSignal: boolean;
+  /** The engineer said yes to sharing where the van is while on shift. Asked once, changeable on Me. */
+  shareLocation?: boolean;
   sending: boolean;
   loading: boolean;
   /** Why the day couldn't be read, when there's no copy on the phone. */
@@ -150,6 +153,8 @@ class FieldStore {
 
   private async boot() {
     const noSignal = this.state.mode === 'demo' && (await storage.get(NO_SIGNAL_KEY)) === '1';
+    const share = await storage.get(SHARE_KEY);
+    this.set({ shareLocation: share === null ? undefined : share === '1' });
     this.connection = ENGINE_URL ? connectLive(ENGINE_URL, storage) : await connectDemo(storage);
     this.set({ noSignal, online: this.state.mode === 'demo' ? !noSignal : true });
 
@@ -263,6 +268,26 @@ class FieldStore {
     await storage.set(NO_SIGNAL_KEY, noSignal ? '1' : '0');
     this.set({ noSignal, online: !noSignal });
     if (!noSignal) await this.flush();
+  }
+
+  /** Share where the van is while on shift, or stop. */
+  async setShareLocation(share: boolean) {
+    await storage.set(SHARE_KEY, share ? '1' : '0');
+    this.set({ shareLocation: share });
+  }
+
+  /**
+   * Queue a change where only the newest matters (where the van is): any
+   * older one still waiting goes. The one being sent right now is left alone.
+   */
+  async enqueueLatest(op: CallOp) {
+    if (!this.state.base) return;
+    const [head, ...rest] = this.state.outbox;
+    const stale = (o: Op) => o.kind === 'call' && o.method === op.method;
+    const kept = head ? [...(this.flushing || !stale(head) ? [head] : []), ...rest.filter((o) => !stale(o))] : [];
+    this.set({ outbox: [...kept, op] });
+    await this.save();
+    void this.flush();
   }
 
   async startDay() {

@@ -197,3 +197,10 @@ export function setInstallation(rec: GasSafetyRecord, key: keyof GasInstallation
 export function issueGasRecord(rec: GasSafetyRecord, job: Job) {
   return field.enqueue(callOp('gasRecords.issue', [rec.id], `Gas safety record issued on ${job.ref}`));
 }
+
+/** Where the van is now. Only the newest reading waits to be sent; the office only needs the latest. */
+export function shareLocation(fix: { lat: number; lng: number; accuracy?: number; at: string }) {
+  const day = field.day;
+  if (!day || day.operator.state === 'off_shift') return Promise.resolve();
+  return field.enqueueLatest(callOp('operators.setLocation', [day.operator.id, fix], 'Where the van is', { at: fix.at }));
+}

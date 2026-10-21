@@ -14,4 +14,10 @@ export interface Platform {
   /** Constant-time string comparison. */
   same(a: string, b: string): boolean
   randomSecret(): string
+  /**
+   * Minutes by road from each start to one place, with live traffic. Only
+   * there when the firm's engine has a TomTom key; otherwise distances are
+   * shown as the crow flies. An undefined entry means that route failed.
+   */
+  driveMinutes?(from: { lat: number; lng: number }[], to: { lat: number; lng: number }): Promise<(number | undefined)[]>
 }

@@ -63,6 +63,30 @@ export interface Operator {
   etaMinutes?: number
   /** Gas Safe, NICEIC and similar registrations. */
   registrations: { body: string; number: string; expires: string }[]
+  /** Where the van was last seen, shared from Ardent Field while on shift. Cleared when the shift ends. */
+  location?: VanFix
+}
+
+/** One reading of where a van is. */
+export interface VanFix {
+  lat: number
+  lng: number
+  /** Metres either way, as the phone reports it. */
+  accuracy?: number
+  at: string
+}
+
+/** How far a van is from a site, for sending someone. */
+export interface DriveTime {
+  operatorId: string
+  /** As the crow flies. */
+  miles: number
+  /** By road with today's traffic, when the firm has drive times switched on. */
+  minutes?: number
+  by: 'road' | 'straight_line'
+  /** Measured from the van's last reading, or from the site of the job they're on. */
+  from: 'van' | 'job'
+  seenAt?: string
 }
 
 export interface LineItem {

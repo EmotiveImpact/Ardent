@@ -12,6 +12,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { field } from '@/sync/field';
 import { useField } from '@/sync/hooks';
+import { useVanLocation } from '@/sync/location';
 import { color } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -27,6 +28,7 @@ export default function RootLayout() {
   });
   const { state } = useField();
   const router = useRouter();
+  useVanLocation();
   const segments = useSegments();
 
   useEffect(() => {

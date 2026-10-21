@@ -22,7 +22,7 @@
  * rules checked in one place) and its customer, site and job records.
  */
 import type { ArdentClient } from '../../core/src/data/client.ts'
-import type { ComplianceCheck, Customer, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, StockLevel, Verdict } from '../../core/src/data/model.ts'
+import type { ComplianceCheck, Customer, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, StockLevel, VanFix, Verdict } from '../../core/src/data/model.ts'
 import type { Platform } from './platform.ts'
 import type { Data, Membership, Organisation, Owned, Role, Store, User } from './store.ts'
 
@@ -100,6 +100,20 @@ const yearOn = (day: string) => {
   return next.toISOString().slice(0, 10)
 }
 
+/** A van reading older than this says where the van was, not where it is. */
+const FIX_FRESH_MS = 30 * 60 * 1000
+/** Only the nearest few vans are timed by road, to keep road lookups down. */
+const ROAD_TIMED = 5
+/** Road times are kept this long before asking again. */
+const ROAD_KEEP_MS = 3 * 60 * 1000
+
+/** Miles between two points as the crow flies. */
+export function milesApart(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const rad = (d: number) => (d * Math.PI) / 180
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2
+  return 3958.8 * 2 * Math.asin(Math.sqrt(h))
+}
+
 /** Worked out from the dates when read, so it never goes stale. */
 export function certificateState(c: { issued?: string; expires: string }, today = new Date().toISOString().slice(0, 10)) {
   if (!c.issued) return 'draft' as const
@@ -138,6 +152,8 @@ function out<T extends object>(row: T): Omit<T, 'orgId' | 'userId'> {
 export function createEngine(store: Store, platform: Platform) {
   const { hashPassword, verifyPassword, newToken, hashToken } = platform
   const db: Data = store.data
+  /** Road minutes already looked up, by rounded start, site and time. */
+  const roadTimes = new Map<string, { minutes?: number; until: number }>()
 
   /** Next human number for a firm: J-1001, INV-1001. New firms start at 1001. */
   function nextNumber(orgId: string, kind: string) {
@@ -697,7 +713,20 @@ export function createEngine(store: Store, platform: Platform) {
       },
 
       operators: {
-        list: () => run(() => (membership(), db.operators.filter((o) => o.orgId === orgId).map((o) => out(o)))),
+        list: () =>
+          run(() => {
+            membership()
+            const office = isOffice()
+            const me = myOperator()?.id
+            return db.operators
+              .filter((o) => o.orgId === orgId)
+              .map((o) => {
+                const row = out(o) as Operator
+                // Where a van is stays between that engineer and the office.
+                if (!office && o.id !== me) delete row.location
+                return row
+              })
+          }),
         me: () =>
           run(() => {
             const me = myOperator()
@@ -710,8 +739,71 @@ export function createEngine(store: Store, platform: Platform) {
             if (jobId !== undefined) findJob(jobId)
             op.state = state
             if (jobId !== undefined) op.currentJobId = jobId
+            // Off shift, the van's whereabouts are nobody's business.
+            if (state === 'off_shift') delete op.location
             return op
           }).then((op) => done(out(op) as Operator)),
+        setLocation: (id, fix) =>
+          run(() => {
+            const op = db.operators.find((o) => o.id === id && o.orgId === orgId)
+            if (!op || op.id !== myOperator()?.id) throw forbidden('only the engineer shares where their van is')
+            const { lat, lng, accuracy, at } = fix ?? ({} as VanFix)
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) throw invalid('that is not a place on the map')
+            if (accuracy !== undefined && !(Number.isFinite(accuracy) && accuracy >= 0)) throw invalid('accuracy is metres of zero or more')
+            const when = Date.parse(at)
+            if (!Number.isFinite(when) || when > Date.now() + 5 * 60 * 1000) throw invalid('the reading needs the time it was taken')
+            // A reading sent late after lost signal, or one from off shift, changes nothing.
+            if (op.state === 'off_shift' || (op.location && op.location.at >= at)) return op
+            op.location = { lat, lng, ...(accuracy !== undefined ? { accuracy: Math.round(accuracy) } : {}), at: new Date(when).toISOString() }
+            return op
+          }).then((op) => done(out(op) as Operator)),
+      },
+
+      travel: {
+        get: () => run(() => (requireOffice('see drive times'), { roadTimes: !!platform.driveMinutes })),
+        list: async ({ siteId }) => {
+          const rows = await run(() => {
+            requireOffice('see where the vans are')
+            const site = db.sites.find((x) => x.id === siteId && x.orgId === orgId)
+            if (!site) throw notFound('site')
+            const now = Date.now()
+            const found: (DriveTime & { start: { lat: number; lng: number } })[] = []
+            for (const op of db.operators.filter((o) => o.orgId === orgId && o.state !== 'off_shift')) {
+              const fix = op.location && now - Date.parse(op.location.at) <= FIX_FRESH_MS ? op.location : undefined
+              const job = db.jobs.find((j) => j.id === op.currentJobId && j.orgId === orgId)
+              const at = fix ?? db.sites.find((x) => x.id === job?.siteId && x.orgId === orgId)
+              if (!at) continue
+              const start = { lat: at.lat, lng: at.lng }
+              found.push({ operatorId: op.id, miles: Math.round(milesApart(start, site) * 10) / 10, by: 'straight_line', from: fix ? 'van' : 'job', ...(fix ? { seenAt: fix.at } : {}), start })
+            }
+            return { site, found: found.sort((a, b) => a.miles - b.miles) }
+          })
+          const { site, found } = rows
+          if (platform.driveMinutes && found.length) {
+            const near = found.slice(0, ROAD_TIMED)
+            const key = (d: (typeof near)[number]) => `${d.start.lat.toFixed(3)},${d.start.lng.toFixed(3)}>${site.id}`
+            const now = Date.now()
+            const ask = near.filter((d) => !((roadTimes.get(key(d))?.until ?? 0) > now))
+            if (ask.length) {
+              try {
+                const got = await platform.driveMinutes(
+                  ask.map((d) => d.start),
+                  { lat: site.lat, lng: site.lng },
+                )
+                ask.forEach((d, i) => roadTimes.set(key(d), { minutes: got[i], until: now + ROAD_KEEP_MS }))
+              } catch {
+                // No road times this time round: crow-flies distances still rank the vans.
+              }
+            }
+            for (const d of near) {
+              const minutes = roadTimes.get(key(d))?.minutes
+              if (minutes !== undefined) Object.assign(d, { minutes: Math.round(minutes), by: 'road' })
+            }
+            near.sort((a, b) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity) || a.miles - b.miles)
+            found.splice(0, near.length, ...near)
+          }
+          return found.map(({ start: _s, ...d }) => d)
+        },
       },
 
       time: {

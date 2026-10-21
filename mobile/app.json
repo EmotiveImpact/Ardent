@@ -37,6 +37,12 @@
           "cameraPermission": "Ardent uses the camera to photograph your work on site.",
           "photosPermission": "Ardent attaches photos of your work to the job."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "While you're on shift, Ardent shows your office where your van is, so emergencies go to whoever's nearest. Nothing is shared off shift."
+        }
       ]
     ],
     "experiments": {

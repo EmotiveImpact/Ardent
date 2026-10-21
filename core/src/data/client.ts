@@ -1,4 +1,4 @@
-import type { Certificate, ComplianceCheck, Customer, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobStatus, LineItem, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, StockLevel, TimeEntry, Verdict } from './model'
+import type { Certificate, ComplianceCheck, Customer, DriveTime, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobStatus, LineItem, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, StockLevel, TimeEntry, VanFix, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -41,6 +41,14 @@ export interface ArdentClient {
     list(): Promise<Operator[]>
     me(): Promise<Operator>
     setState(id: string, state: OperatorState, jobId?: string): Promise<Operator>
+    /** The engineer's own van, from their phone, while on shift. Ignored off shift. */
+    setLocation(id: string, fix: VanFix): Promise<Operator>
+  }
+  /** How far each van on shift is from a site. Office only. */
+  travel: {
+    list(opts: { siteId: string }): Promise<DriveTime[]>
+    /** Whether drive times by road are switched on (a TomTom key on the engine). */
+    get(): Promise<{ roadTimes: boolean }>
   }
   time: {
     start(entry: Omit<TimeEntry, 'id' | 'end'>): Promise<TimeEntry>

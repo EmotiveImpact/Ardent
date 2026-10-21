@@ -6,7 +6,7 @@ import { Card, Initials, PageHead, SectionHead, StateDot, type Figure } from '@/
 import { Block, Note, Pill, WhereBlock, WhoBlock, emptyWho, fieldClass, settleWho, whoMissing, type WhoDraft } from '@/components/ardent/book-parts'
 import { checksFor, rankCrew, sendNote, tradeWord, type Candidate } from '@/components/ardent/book-plan'
 import { HoldButton } from '@/components/ui/hold-button'
-import { useArdent, useBook, type Book } from '@/data/ardent'
+import { useArdent, useBook, useQuery, type Book } from '@/data/ardent'
 import type { Trade } from '@/data/model'
 import { useNow } from '@/hooks/use-now'
 import { act } from '@/lib/act'
@@ -72,16 +72,23 @@ function CallSheet({ book }: { book: Book }) {
   const [problem, setProblem] = useState(0)
   const [trade, setTrade] = useState<Trade>('plumbing')
   const [said, setSaid] = useState('')
-  const [feeLabel, setFeeLabel] = useState('Emergency callout')
-  const [fee, setFee] = useState('')
+  const [feeLabel, setFeeLabel] = useState<string>()
+  const [fee, setFee] = useState<string>()
   const [picked, setPicked] = useState<string>()
   const [busy, setBusy] = useState(false)
 
   const site = find(book.sites, who.siteId)
-  const crew = useMemo(() => rankCrew(book, trade, site), [book, trade, site])
+  const { data: travel } = useQuery((c) => (site ? c.travel.list({ siteId: site.id }) : Promise.resolve(undefined)), [site?.id])
+  const { data: roads } = useQuery((c) => c.travel.get())
+  const { data: prices } = useQuery((c) => c.priceList.list())
+  const crew = useMemo(() => rankCrew(book, trade, site, Date.now(), travel), [book, trade, site, travel])
   const canGo = crew.filter((c) => c.when === 'now' || c.when === 'later')
   const chosen = crew.find((c) => c.op.id === picked && c.cleared) ?? canGo[0]
-  const pence = toPence(fee)
+  // The call-out charge starts from the price list, and can be changed for this call.
+  const listed = prices?.find((i) => i.kind === 'callout')
+  const feeText = fee ?? (listed ? (listed.price / 100).toFixed(2) : '')
+  const feeName = feeLabel ?? listed?.name ?? 'Emergency callout'
+  const pence = toPence(feeText)
   const gas = problems[problem].trade === 'gas'
 
   // The trades worth offering: what the crew hold, plus whatever is picked.
@@ -126,7 +133,7 @@ function CallSheet({ book }: { book: Book }) {
         (j) => `${j.ref} sent to ${first(chosen.op.name)}`,
       )
       if (!job) return
-      if (pence) await act(client.jobs.addLine(job.id, { kind: 'callout', description: feeLabel.trim() || 'Emergency callout', quantity: 1, unitPrice: pence }))
+      if (pence) await act(client.jobs.addLine(job.id, { kind: 'callout', description: feeName.trim() || 'Emergency callout', quantity: 1, unitPrice: pence, ...(listed && fee === undefined && feeLabel === undefined ? { itemId: listed.id } : {}) }))
       navigate(`/jobs/${job.id}`)
     } finally {
       setBusy(false)
@@ -197,10 +204,10 @@ function CallSheet({ book }: { book: Book }) {
 
           <Block label="Callout charge" aside="Optional">
             <div className="grid grid-cols-[1fr_120px] gap-2.5">
-              <input aria-label="Charge description" className={fieldClass} value={feeLabel} onChange={(e) => setFeeLabel(e.target.value)} />
-              <input aria-label="Charge in pounds, before VAT" className={cn(fieldClass, 'text-right font-mono')} inputMode="decimal" placeholder="£0.00" value={fee} onChange={(e) => setFee(e.target.value)} />
+              <input aria-label="Charge description" className={fieldClass} value={feeName} onChange={(e) => setFeeLabel(e.target.value)} />
+              <input aria-label="Charge in pounds, before VAT" className={cn(fieldClass, 'text-right font-mono')} inputMode="decimal" placeholder="£0.00" value={feeText} onChange={(e) => setFee(e.target.value)} />
             </div>
-            <Note>No price list in Ardent yet. Type what you charge, before VAT, or add it on the job later</Note>
+            <Note>{listed ? 'From your price list, before VAT. Change it for this call if you need to' : 'Type what you charge, before VAT, or add it on the job later'}</Note>
           </Block>
         </Card>
 
@@ -214,6 +221,7 @@ function CallSheet({ book }: { book: Book }) {
           <p className="pt-3.5 text-[13px] leading-[19px] text-muted shadow-[inset_0_1px_0_var(--line)]">
             {missing ? `Still need ${missing} before you can send anyone.` : sendNote(book, chosen!, who.name)}
           </p>
+          {site && roads && !roads.roadTimes && <p className="-mt-2 text-[12.5px] text-faint">Distances are as the crow flies, from where each van was last seen or the job it's on. Drive times by road come on once the TomTom key is added.</p>}
           <HoldButton
             label={chosen ? `Hold to send ${first(chosen.op.name)}` : 'Nobody to send'}
             onCommit={() => void send()}
@@ -239,7 +247,14 @@ const tagFor = (c: Candidate, best: boolean) =>
 function CrewRow({ c, on, best, onPick }: { c: Candidate; on: boolean; best: boolean; onPick: () => void }) {
   const tag = tagFor(c, best)
   const big = c.when === 'now' ? 'NOW' : c.when === 'later' && c.freeAt ? clock(c.freeAt) : '--'
-  const small = [c.when === 'later' ? 'FREE' : '', c.miles === undefined ? '' : c.miles < 0.1 ? 'SAME ADDRESS' : `${c.miles} MI`].filter(Boolean).join(' · ')
+  const small = [
+    c.when === 'later' ? 'FREE' : '',
+    c.minutes !== undefined ? `${c.minutes} MIN DRIVE` : '',
+    c.miles === undefined ? '' : c.miles < 0.1 ? 'SAME ADDRESS' : `${c.miles} MI`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const seen = c.seenAt ? `Van seen ${Math.max(1, Math.round((Date.now() - Date.parse(c.seenAt)) / 60_000))} min ago` : undefined
   return (
     <button
       type="button"
@@ -259,7 +274,10 @@ function CrewRow({ c, on, best, onPick }: { c: Candidate; on: boolean; best: boo
           {c.op.name}
           <span className={cn('cap text-[11px]', tag.cls)}>{tag.text}</span>
         </span>
-        <span className="text-[13px] text-muted">{c.why}</span>
+        <span className="text-[13px] text-muted">
+          {c.why}
+          {seen && <span className="text-faint"> {seen}.</span>}
+        </span>
       </span>
       <span className="flex shrink-0 flex-col items-end gap-1">
         <span className="op-number text-[18px]">{big}</span>

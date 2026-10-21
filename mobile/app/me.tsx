@@ -149,6 +149,19 @@ export default function Me() {
           <Section label="This phone" />
           <Line first left="Signed in as" right={<Text style={styles.value} numberOfLines={1}>{state.me.user.email}</Text>} />
           <Line left="Connected to" right={<Text style={styles.value} numberOfLines={1}>{demo ? 'Demo firm, on this phone' : (ENGINE_URL ?? '').replace(/^https?:\/\//, '')}</Text>} />
+          <Line
+            left="Share where the van is"
+            sub="On shift only, with the office only"
+            right={
+              <Switch
+                value={state.shareLocation === true}
+                onValueChange={(v) => void field.setShareLocation(v)}
+                trackColor={{ false: color.raised, true: color.fgMuted }}
+                thumbColor={color.fg}
+                accessibilityLabel="Share where the van is while on shift"
+              />
+            }
+          />
 
           {demo && (
             <>

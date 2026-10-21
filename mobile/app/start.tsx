@@ -5,7 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Card, Cap, Chip, Line, Section, TopRow } from '@/components/ardent';
+import { Card, Cap, Chip, Line, Plain, Section, TopRow } from '@/components/ardent';
 import { Atmosphere } from '@/components/Atmosphere';
 import { HoldToCommit } from '@/components/HoldToCommit';
 import { Dock, SyncChip } from '@/components/ui';
@@ -90,6 +90,19 @@ export default function Start() {
             </>
           )}
 
+          {op && state.shareLocation === undefined && (
+            <Animated.View entering={FadeIn.duration(300)}>
+              <Card style={styles.ask}>
+                <Cap>Share where the van is?</Cap>
+                <Text style={styles.askText}>While you're on shift, the office sees where your van is, so an emergency goes to whoever's nearest. Off shift, nothing is shared. You can change this on Me.</Text>
+                <View style={styles.askRow}>
+                  <Plain flex title="Yes, share it" icon="pin" onPress={() => void field.setShareLocation(true)} />
+                  <Plain flex quiet title="Not now" onPress={() => void field.setShareLocation(false)} />
+                </View>
+              </Card>
+            </Animated.View>
+          )}
+
           {first ? (
             <Animated.View entering={FadeInDown.delay(80).duration(420)}>
               <Card style={styles.first}>
@@ -145,6 +158,9 @@ export default function Start() {
 }
 
 const styles = StyleSheet.create({
+  ask: { marginTop: 14, gap: 10 },
+  askText: { color: color.fgMuted, fontFamily: font.sans, fontSize: 14, lineHeight: 20 },
+  askRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   root: { flex: 1, backgroundColor: color.bg },
   pad: { paddingHorizontal: 22, paddingTop: space[3] },
   scroll: { paddingHorizontal: 22, paddingTop: 28, paddingBottom: space[6] },
