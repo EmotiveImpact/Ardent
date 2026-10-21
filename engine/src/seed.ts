@@ -38,6 +38,9 @@ export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {
     quotes: own(mock.quotes),
     invoices: own(mock.invoices),
     certificates: own(mock.certificates),
+    priceList: own(mock.priceList),
+    stock: own(mock.stock),
+    gasRecords: own(mock.gasRecords),
     // The day so far: Dan drove over and has been on the tools since eight.
     time: own([
       { id: 'tim_01', operatorId: 'opr_01', jobId: 'job_1042', kind: 'travel' as const, start: '2026-10-18T06:35:00Z', end: '2026-10-18T07:00:00Z' },
@@ -47,6 +50,7 @@ export function demoData(platform: Pick<Platform, 'hashPassword'>): Data {
       [`${orgId}:job`]: maxRef(mock.jobs.map((j) => j.ref)),
       [`${orgId}:invoice`]: maxRef(mock.invoices.map((i) => i.ref)),
       [`${orgId}:quote`]: maxRef(mock.quotes.map((q) => q.ref)),
+      [`${orgId}:cp12`]: maxRef(mock.gasRecords.map((r) => r.ref)),
     },
   }
 }

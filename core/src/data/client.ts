@@ -1,4 +1,4 @@
-import type { Certificate, ComplianceCheck, Customer, Exception, Invoice, Job, JobStatus, LineItem, Note, PaymentMethod, Signature, Operator, OperatorState, Photo, Quote, Site, TimeEntry } from './model'
+import type { Certificate, ComplianceCheck, Customer, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobStatus, LineItem, Note, OptionKey, PaymentMethod, PriceItem, Signature, Operator, OperatorState, Photo, Quote, Site, StockLevel, TimeEntry, Verdict } from './model'
 
 /** What the office can change on a booked job. */
 export type JobPatch = Partial<Pick<Job, 'title' | 'trade' | 'priority' | 'start' | 'end' | 'notes' | 'operatorIds'>>
@@ -16,7 +16,10 @@ export interface ArdentClient {
     /** Rebook, reassign or rename. Office only. */
     update(id: string, patch: JobPatch): Promise<Job>
     setStatus(id: string, status: JobStatus): Promise<Job>
-    /** Log labour or materials against a job, from the office or on site. */
+    /**
+     * Log labour or materials against a job, from the office or on site. A line
+     * with fromVan comes out of that engineer's van stock; removing it puts it back.
+     */
     addLine(jobId: string, line: Omit<LineItem, 'id'>): Promise<Job>
     removeLine(jobId: string, lineId: string): Promise<Job>
     /** Pass, fail or reset a compliance gate; adds the check if the job lacks it. */
@@ -49,14 +52,44 @@ export interface ArdentClient {
   quotes: {
     list(): Promise<Quote[]>
     forJob(jobId: string): Promise<Quote[]>
-    /** Draft quote. Lines default to the job's lines; valid for 30 days unless given. */
-    create(jobId: string, opts?: { lines?: Omit<LineItem, 'id'>[]; validUntil?: string }): Promise<Quote>
+    /**
+     * Draft quote. Lines default to the job's lines; valid for 30 days unless given.
+     * Pass two or three options (A, B, C) to offer different ways of doing it.
+     */
+    create(jobId: string, opts?: { lines?: Omit<LineItem, 'id'>[]; options?: { key: OptionKey; label: string; lines: Omit<LineItem, 'id'>[] }[]; validUntil?: string }): Promise<Quote>
+    /** Change a draft's lines or options. */
+    update(id: string, patch: { lines?: Omit<LineItem, 'id'>[]; options?: { key: OptionKey; label: string; lines: Omit<LineItem, 'id'>[] }[] | null; validUntil?: string }): Promise<Quote>
     /** Marks it sent and moves an enquiry to quoted. */
     send(id: string, via: 'email' | 'sms'): Promise<Quote>
-    /** Customer's answer. Accepting moves the job to booked. */
-    respond(id: string, answer: 'accepted' | 'declined'): Promise<Quote>
+    /** Customer's answer. Accepting books the job with the chosen option's lines; a quote with options needs one. */
+    respond(id: string, answer: 'accepted' | 'declined', option?: OptionKey): Promise<Quote>
   }
   certificates: { list(filter?: { siteId?: string }): Promise<Certificate[]> }
+  /** The firm's price list. Everyone reads it (Field without costs); the office keeps it. */
+  priceList: {
+    list(opts?: { archived?: boolean }): Promise<PriceItem[]>
+    create(input: Omit<PriceItem, 'id'>): Promise<PriceItem>
+    update(id: string, patch: Partial<Omit<PriceItem, 'id'>>): Promise<PriceItem>
+  }
+  /** What's on each van. Field sees their own; the office sees and sets every van. */
+  stock: {
+    list(filter?: { operatorId?: string }): Promise<StockLevel[]>
+    /** A restock or stock take: set the count, and optionally the low mark. Office only. */
+    set(operatorId: string, itemId: string, quantity: number, min?: number): Promise<StockLevel>
+  }
+  /** Landlord gas safety records (CP12), filled in on site and issued as a certificate. */
+  gasRecords: {
+    list(filter?: { siteId?: string }): Promise<GasSafetyRecord[]>
+    forJob(jobId: string): Promise<GasSafetyRecord[]>
+    /** A draft for the job, starting from the appliances on the site's last record. */
+    create(jobId: string, operatorId: string): Promise<GasSafetyRecord>
+    /** Add an appliance, or change one when its id is given. */
+    saveAppliance(id: string, appliance: Omit<GasAppliance, 'id'> & { id?: string }): Promise<GasSafetyRecord>
+    removeAppliance(id: string, applianceId: string): Promise<GasSafetyRecord>
+    setInstallation(id: string, key: keyof GasInstallation, verdict: Verdict): Promise<GasSafetyRecord>
+    /** Checks it's complete, stamps it, and puts a CP12 certificate on the site for twelve months. */
+    issue(id: string): Promise<GasSafetyRecord>
+  }
   /** What needs the office's attention now, worked out from the records. Newest first. */
   attention: { list(): Promise<Exception[]> }
   signatures: { add(sig: Omit<Signature, 'id'>): Promise<Signature>; forJob(jobId: string): Promise<Signature[]> }

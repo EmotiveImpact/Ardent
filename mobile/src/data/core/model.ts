@@ -72,6 +72,38 @@ export interface LineItem {
   quantity: number
   /** Unit price in pence, before VAT. */
   unitPrice: number
+  /** The price list item it came from, if any. */
+  itemId?: string
+  /** The operator whose van it came out of; removing the line puts it back. */
+  fromVan?: string
+}
+
+/** Something the firm fits or charges for, priced once and reused on quotes, jobs and invoices. */
+export interface PriceItem {
+  id: string
+  /** The firm's or the merchant's code. */
+  code?: string
+  name: string
+  kind: LineItem['kind']
+  unit: 'each' | 'hour' | 'metre' | 'job'
+  /** To the customer, in pence before VAT. */
+  price: number
+  /** What it costs the firm, in pence. Only the office sees it. */
+  cost?: number
+  trade?: Trade
+  /** Carried on the vans, so it shows in van stock. */
+  stocked: boolean
+  /** Off the list for new work; old lines keep it. */
+  archived?: boolean
+}
+
+/** How many of a stocked item one engineer's van holds. */
+export interface StockLevel {
+  operatorId: string
+  itemId: string
+  quantity: number
+  /** At or below this the van is low on it. */
+  min: number
 }
 
 export interface ComplianceCheck {
@@ -109,6 +141,60 @@ export interface Certificate {
   issued?: string
   expires: string
   state: 'valid' | 'due_soon' | 'overdue' | 'draft'
+}
+
+export type Verdict = 'pass' | 'fail' | 'n/a' | 'pending'
+
+/** A gas appliance as recorded on a landlord gas safety record (CP12). */
+export interface GasAppliance {
+  id: string
+  /** Kitchen, cellar, flat 2 lounge. */
+  location: string
+  /** Combi boiler, gas fire, hob, cooker, water heater. */
+  type: string
+  make?: string
+  model?: string
+  flue: 'room_sealed' | 'open_flue' | 'flueless'
+  /** Owned by the landlord, so it must be on the record. */
+  landlords: boolean
+  /** Readings from the flue gas analyser and the gauge. */
+  pressure?: number // operating pressure, mbar
+  heatInput?: number // kW
+  co?: number // ppm
+  co2?: number // %
+  ratio?: number // CO/CO2, e.g. 0.0012
+  checks: { flue: Verdict; ventilation: Verdict; safetyDevice: Verdict; spillage: Verdict }
+  /** Safe to use. Unset until the engineer says. */
+  safe?: boolean
+  defects?: string
+  /** Gas Industry Unsafe Situations Procedure, if it applies. */
+  unsafe?: 'at_risk' | 'immediately_dangerous'
+}
+
+/** The checks on the whole installation, beyond each appliance. */
+export interface GasInstallation {
+  tightness: Verdict
+  ecv: Verdict // emergency control valve accessible
+  bonding: Verdict // protective equipotential bonding
+  pipework: Verdict // visual condition
+  coAlarm: Verdict
+}
+
+export interface GasSafetyRecord {
+  id: string
+  ref: string // CP-1001
+  jobId: string
+  siteId: string
+  customerId: string
+  operatorId: string
+  appliances: GasAppliance[]
+  installation: GasInstallation
+  status: 'draft' | 'issued'
+  issuedAt?: string
+  /** Twelve months from issue. */
+  expires?: string
+  /** The certificate it issued, on the site's list. */
+  certificateId?: string
 }
 
 export interface Exception {
@@ -149,12 +235,26 @@ export interface Note {
   at: string
 }
 
+export type OptionKey = 'A' | 'B' | 'C'
+
+/** One way of doing the work, priced on its own: good, better, best. */
+export interface QuoteOption {
+  key: OptionKey
+  label: string
+  lines: LineItem[]
+}
+
 export interface Quote {
   id: string
   ref: string // Q-311
   jobId: string
   customerId: string
+  /** The lines being offered; once the customer picks an option, that option's lines. */
   lines: LineItem[]
+  /** Two or three ways of doing it. Absent on a plain one-price quote. */
+  options?: QuoteOption[]
+  /** The option the customer said yes to. */
+  chosen?: OptionKey
   status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
   validUntil: string
   sentAt?: string

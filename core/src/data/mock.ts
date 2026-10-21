@@ -1,4 +1,4 @@
-import type { Certificate, Customer, Operator, Exception, Invoice, Job, Quote, Site } from './model'
+import type { Certificate, Customer, GasAppliance, GasSafetyRecord, Operator, Exception, Invoice, Job, PriceItem, Quote, Site, StockLevel } from './model'
 
 const day = '2026-10-18'
 /** A UK wall-clock time today (British Summer Time), stored as UTC like every Ardent time. */
@@ -214,10 +214,66 @@ export const invoices: Invoice[] = [
 ]
 
 export const quotes: Quote[] = [
-  { id: 'quo_311', ref: 'Q-311', jobId: 'job_1051', customerId: 'cus_01', lines: [li('h', 'Full bathroom refit, supply and fit', 685000, 1, 'other')], status: 'sent', validUntil: '2026-11-05', sentAt: '2026-10-15T17:20:00Z' },
+  {
+    id: 'quo_311', ref: 'Q-311', jobId: 'job_1051', customerId: 'cus_01', status: 'sent', validUntil: '2026-11-05', sentAt: '2026-10-15T17:20:00Z',
+    lines: [li('h1', 'Strip out and make good', 95000), li('h2', 'Bath, basin, WC and taps, supply and fit', 310000, 1, 'material'), li('h3', 'Tiling, floor and splashbacks', 180000), li('h4', 'Plumbing and first fix', 100000)],
+    options: [
+      { key: 'A', label: 'Like for like', lines: [li('h1', 'Strip out and make good', 95000), li('h2', 'Bath, basin, WC and taps, supply and fit', 310000, 1, 'material'), li('h3', 'Tiling, floor and splashbacks', 180000), li('h4', 'Plumbing and first fix', 100000)] },
+      { key: 'B', label: 'Walk-in shower', lines: [li('h5', 'Strip out and make good', 95000), li('h6', 'Walk-in shower tray, screen and mixer', 268000, 1, 'material'), li('h7', 'Basin, WC and taps, supply and fit', 142000, 1, 'material'), li('h8', 'Tiling, full height in the shower', 226000), li('h9', 'Plumbing, first fix and thermostatic mixer', 128000)] },
+      { key: 'C', label: 'Full wet room', lines: [li('h10', 'Strip out and make good', 95000), li('h11', 'Wet room tanking and former', 184000, 1, 'material'), li('h12', 'Shower, basin, wall-hung WC, supply and fit', 286000, 1, 'material'), li('h13', 'Tiling, floor to ceiling', 268000), li('h14', 'Plumbing, first fix and underfloor heating mat', 162000)] },
+    ],
+  },
   { id: 'quo_309', ref: 'Q-309', jobId: 'job_1040', customerId: 'cus_04', lines: [li('i', 'Rewire, 3 bed semi', 520000, 1, 'other')], status: 'accepted', validUntil: '2026-10-30', sentAt: '2026-10-09T09:00:00Z' },
   { id: 'quo_312', ref: 'Q-312', jobId: 'job_1052', customerId: 'cus_02', lines: [li('j', 'Cylinder thermostat and immersion', 38500)], status: 'draft', validUntil: '2026-11-01' },
   { id: 'quo_305', ref: 'Q-305', jobId: 'job_1019', customerId: 'cus_06', lines: [li('k', 'Air con service, 4 units', 64000)], status: 'declined', validUntil: '2026-10-12', sentAt: '2026-09-28T09:00:00Z' },
+]
+
+/** The firm's price list. Stocked items ride on the vans. */
+export const priceList: PriceItem[] = [
+  { id: 'itm_01', code: 'WB4000-30', name: 'Worcester Bosch 4000 30kW combi', kind: 'material', unit: 'each', price: 132000, cost: 98000, trade: 'gas', stocked: false },
+  { id: 'itm_02', code: 'MF-22', name: 'Magnetic filter, 22mm', kind: 'material', unit: 'each', price: 14500, cost: 6200, trade: 'heating', stocked: true },
+  { id: 'itm_03', code: 'CE-22', name: '22mm compression elbow', kind: 'material', unit: 'each', price: 450, cost: 180, trade: 'plumbing', stocked: true },
+  { id: 'itm_04', code: 'CE-15', name: '15mm compression elbow', kind: 'material', unit: 'each', price: 380, cost: 140, trade: 'plumbing', stocked: true },
+  { id: 'itm_05', code: 'CU-22', name: '22mm copper pipe', kind: 'material', unit: 'metre', price: 950, cost: 520, trade: 'plumbing', stocked: true },
+  { id: 'itm_06', code: 'CU-15', name: '15mm copper pipe', kind: 'material', unit: 'metre', price: 650, cost: 330, trade: 'plumbing', stocked: true },
+  { id: 'itm_07', code: 'TRV4', name: 'TRV, Drayton TRV4', kind: 'material', unit: 'each', price: 2200, cost: 1100, trade: 'heating', stocked: true },
+  { id: 'itm_08', code: 'IV-15', name: '15mm isolating valve', kind: 'material', unit: 'each', price: 650, cost: 240, trade: 'plumbing', stocked: true },
+  { id: 'itm_09', code: 'INH-1', name: 'Central heating inhibitor, 1 litre', kind: 'material', unit: 'each', price: 2400, cost: 1100, trade: 'heating', stocked: true },
+  { id: 'itm_10', code: 'FX-1M', name: 'Flue extension, 1m', kind: 'material', unit: 'each', price: 6800, cost: 3900, trade: 'gas', stocked: true },
+  { id: 'itm_11', code: 'RCBO-32A', name: 'RCBO, 32A type A', kind: 'material', unit: 'each', price: 3200, cost: 1650, trade: 'electrical', stocked: true },
+  { id: 'itm_12', code: 'TE-25', name: '2.5mm twin and earth', kind: 'material', unit: 'metre', price: 180, cost: 85, trade: 'electrical', stocked: true },
+  { id: 'itm_13', name: 'Engineer, per hour', kind: 'labour', unit: 'hour', price: 5500, stocked: false },
+  { id: 'itm_14', name: 'Emergency call-out', kind: 'callout', unit: 'job', price: 9500, stocked: false },
+  { id: 'itm_15', name: 'Landlord gas safety record', kind: 'labour', unit: 'job', price: 8500, trade: 'gas', stocked: false },
+  { id: 'itm_16', name: 'Boiler service', kind: 'labour', unit: 'job', price: 9500, trade: 'gas', stocked: false },
+]
+
+const van = (operatorId: string, rows: [string, number, number][]): StockLevel[] => rows.map(([itemId, quantity, min]) => ({ operatorId, itemId, quantity, min }))
+
+/** What's on each van this morning. Dan is low on 22mm elbows. */
+export const stock: StockLevel[] = [
+  ...van('opr_01', [['itm_02', 2, 1], ['itm_03', 2, 5], ['itm_04', 12, 6], ['itm_05', 8, 4], ['itm_06', 10, 4], ['itm_07', 6, 4], ['itm_08', 6, 4], ['itm_09', 4, 2], ['itm_10', 2, 1]]),
+  ...van('opr_02', [['itm_11', 3, 2], ['itm_12', 40, 25]]),
+  ...van('opr_03', [['itm_03', 9, 5], ['itm_04', 14, 6], ['itm_05', 6, 4], ['itm_06', 12, 4], ['itm_07', 3, 4], ['itm_08', 8, 4]]),
+]
+
+const passed = { flue: 'pass', ventilation: 'pass', safetyDevice: 'pass', spillage: 'pass' } as const
+const app = (id: string, location: string, type: string, make: string, model: string, flue: GasAppliance['flue'], r: Partial<GasAppliance>): GasAppliance => ({
+  id, location, type, make, model, flue, landlords: true, checks: { ...passed, ...(flue === 'flueless' ? { flue: 'n/a', spillage: 'n/a' } : flue === 'room_sealed' ? { spillage: 'n/a' } : {}) }, safe: true, ...r,
+})
+
+/** Last year's CP12 at The Crown & Anchor, so this year's starts from its four appliances. */
+export const gasRecords: GasSafetyRecord[] = [
+  {
+    id: 'gsr_01', ref: 'CP-1001', jobId: 'job_1030', siteId: 'sit_03', customerId: 'cus_03', operatorId: 'opr_01', status: 'issued', issuedAt: '2025-10-21T14:10:00Z', expires: '2026-10-21', certificateId: 'cer_08',
+    appliances: [
+      app('app_01', 'Cellar', 'Boiler', 'Hamworthy', 'Wessex ModuMax 116', 'room_sealed', { pressure: 20.1, heatInput: 116, co: 18, co2: 9.1, ratio: 0.0002 }),
+      app('app_02', 'Kitchen', 'Range cooker', 'Falcon', 'G3101', 'flueless', { pressure: 20.4, heatInput: 42 }),
+      app('app_03', 'Bar', 'Gas fire', 'Gazco', 'Riva2 670', 'open_flue', { pressure: 19.8, heatInput: 5.6, co: 6, co2: 2.1, ratio: 0.0003 }),
+      app('app_04', 'Flat above', 'Combi boiler', 'Vaillant', 'ecoTEC plus 832', 'room_sealed', { pressure: 20.0, heatInput: 32, co: 42, co2: 9.4, ratio: 0.0004 }),
+    ],
+    installation: { tightness: 'pass', ecv: 'pass', bonding: 'pass', pipework: 'pass', coAlarm: 'pass' },
+  },
 ]
 
 /** Weekly takings in pounds, last 8 weeks, oldest first. */

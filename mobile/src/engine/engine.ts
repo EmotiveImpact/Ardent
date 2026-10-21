@@ -23,7 +23,7 @@
  * rules checked in one place) and its customer, site and job records.
  */
 import type { ArdentClient } from '../data/core/client'
-import type { ComplianceCheck, Customer, Exception, Invoice, Job, JobStatus, LineItem, Operator, Quote } from '../data/core/model'
+import type { ComplianceCheck, Customer, Exception, GasAppliance, GasInstallation, GasSafetyRecord, Invoice, Job, JobStatus, LineItem, Operator, OptionKey, PriceItem, Quote, StockLevel, Verdict } from '../data/core/model'
 import type { Platform } from './platform'
 import type { Data, Membership, Organisation, Owned, Role, Store, User } from './store'
 
@@ -76,12 +76,51 @@ const OWING: Invoice['status'][] = ['sent', 'part_paid', 'overdue']
 /** Certificates due within this many days show as due soon. */
 const DUE_SOON_DAYS = 30
 
+const PRICE_KINDS: PriceItem['kind'][] = ['labour', 'material', 'callout', 'other']
+const PRICE_UNITS: PriceItem['unit'][] = ['each', 'hour', 'metre', 'job']
+const OPTION_KEYS: OptionKey[] = ['A', 'B', 'C']
+const FLUES: GasAppliance['flue'][] = ['room_sealed', 'open_flue', 'flueless']
+const VERDICTS: Verdict[] = ['pass', 'fail', 'n/a', 'pending']
+const INSTALLATION: (keyof GasInstallation)[] = ['tightness', 'ecv', 'bonding', 'pipework', 'coAlarm']
+const APPLIANCE_CHECKS: (keyof GasAppliance['checks'])[] = ['flue', 'ventilation', 'safetyDevice', 'spillage']
+const pendingChecks = (): GasAppliance['checks'] => ({ flue: 'pending', ventilation: 'pending', safetyDevice: 'pending', spillage: 'pending' })
+
+/** A reading is a finite number of zero or more, or left blank. */
+const reading = (v: unknown, what: string) => {
+  if (v === undefined || v === null) return undefined
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) throw invalid(`${what} must be a number of zero or more`)
+  return v
+}
+
+/** Same day next year: a CP12 lasts twelve months. */
+const yearOn = (day: string) => {
+  const [y, m, d] = day.split('-').map(Number)
+  const next = new Date(Date.UTC(y + 1, m - 1, d))
+  // 29 February rolls back to the 28th rather than on to March.
+  if (next.getUTCMonth() !== m - 1) next.setUTCDate(0)
+  return next.toISOString().slice(0, 10)
+}
+
 /** Worked out from the dates when read, so it never goes stale. */
 export function certificateState(c: { issued?: string; expires: string }, today = new Date().toISOString().slice(0, 10)) {
   if (!c.issued) return 'draft' as const
   if (c.expires < today) return 'overdue' as const
   const soon = new Date(Date.parse(today) + DUE_SOON_DAYS * DAY).toISOString().slice(0, 10)
   return c.expires <= soon ? ('due_soon' as const) : ('valid' as const)
+}
+
+/** What still needs doing before a gas safety record can be issued, in words. */
+export function gasGaps(rec: Pick<GasSafetyRecord, 'appliances' | 'installation'>) {
+  const gaps: string[] = []
+  if (!rec.appliances.length) gaps.push('add the appliances')
+  for (const a of rec.appliances) {
+    const name = `${a.type} in the ${a.location.toLowerCase()}`
+    if (a.safe === undefined) gaps.push(`say if the ${name} is safe to use`)
+    if (APPLIANCE_CHECKS.some((k) => a.checks[k] === 'pending')) gaps.push(`finish the checks on the ${name}`)
+    if (a.safe === false && !a.defects) gaps.push(`say what's wrong with the ${name}`)
+  }
+  if (INSTALLATION.some((k) => rec.installation[k] === 'pending')) gaps.push('finish the installation checks')
+  return gaps
 }
 
 /** Net, VAT and gross in pence. VAT is rounded once on the net, as on a UK invoice. */
@@ -361,12 +400,20 @@ export function createEngine(store: Store, platform: Platform) {
             const job = editableJob(jobId)
             if (!(line.quantity > 0)) throw invalid('quantity must be more than zero')
             if (!Number.isInteger(line.unitPrice)) throw invalid('unit price is whole pence')
-            job.lines.push({ ...line, id: newId('li') })
+            if (line.itemId && !db.priceList.some((i) => i.id === line.itemId && i.orgId === orgId)) throw notFound('price list item')
+            if (line.fromVan) {
+              if (!line.itemId) throw invalid('van stock needs a price list item')
+              actingAs(line.fromVan, job)
+              moveStock(line.fromVan, line.itemId, -line.quantity)
+            }
+            job.lines.push({ ...structuredClone(line), id: newId('li') })
             return job
           }).then((job) => done(out(job))),
         removeLine: (jobId, lineId) =>
           run(() => {
             const job = editableJob(jobId)
+            const line = job.lines.find((l) => l.id === lineId)
+            if (line?.fromVan && line.itemId) moveStock(line.fromVan, line.itemId, line.quantity)
             job.lines = job.lines.filter((l) => l.id !== lineId)
             return job
           }).then((job) => done(out(job))),
@@ -454,6 +501,17 @@ export function createEngine(store: Store, platform: Platform) {
               }
               if (op.state === 'delayed') items.push({ id: `att_late_${op.id}`, at: iso, who: op.name, rule: 'Running late', detail: `${db.jobs.find((j) => j.id === op.currentJobId)?.ref ?? 'Next job'}${op.etaMinutes ? `, ETA +${op.etaMinutes} min` : ''}`, outcome: 'chasing' })
             }
+            for (const op of db.operators.filter((o) => o.orgId === orgId)) {
+              const low = db.stock.filter((x) => x.orgId === orgId && x.operatorId === op.id && x.quantity <= x.min && db.priceList.some((i) => i.id === x.itemId && !i.archived))
+              if (!low.length) continue
+              const names = low.map((x) => `${db.priceList.find((i) => i.id === x.itemId)!.name} (${x.quantity} left)`)
+              items.push({ id: `att_stock_${op.id}`, at: iso, who: op.name, rule: 'Van stock low', detail: `${op.van}: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}`, outcome: 'chasing' })
+            }
+            for (const r of db.gasRecords.filter((x) => x.orgId === orgId && x.status === 'issued')) {
+              for (const a of r.appliances.filter((x) => x.safe === false)) {
+                items.push({ id: `att_gas_${r.id}_${a.id}`, at: r.issuedAt!, who: db.customers.find((c) => c.id === r.customerId)?.name ?? 'Customer', rule: a.unsafe === 'immediately_dangerous' ? 'Immediately dangerous' : 'Appliance unsafe', detail: `${a.type}, ${a.location}, on ${r.ref}${a.defects ? `: ${a.defects}` : ''}`, outcome: 'blocked' })
+              }
+            }
             for (const c of db.certificates.filter((x) => x.orgId === orgId && certificateState(x, today) === 'overdue')) {
               items.push({ id: `att_cert_${c.id}`, at: `${c.expires}T00:00:00Z`, who: db.customers.find((x) => x.id === db.sites.find((s) => s.id === c.siteId)?.customerId)?.name ?? 'Customer', rule: `${c.kind} overdue`, detail: `${siteName(c.siteId)}, expired ${c.expires}`, outcome: 'blocked' })
             }
@@ -479,6 +537,164 @@ export function createEngine(store: Store, platform: Platform) {
               .filter((c) => c.orgId === orgId && (!f.siteId || c.siteId === f.siteId) && (isOffice() || fieldSees((j) => j.siteId === c.siteId)))
               .map((c) => ({ ...out(c), state: certificateState(c) })),
           ),
+      },
+
+      priceList: {
+        list: (opts = {}) =>
+          run(() => {
+            const office = isOffice()
+            return db.priceList
+              .filter((i) => i.orgId === orgId && (!i.archived || (office && opts.archived)))
+              .map((i) => {
+                const item = out(i) as PriceItem
+                if (!office) delete item.cost
+                return item
+              })
+              .sort((a, b) => a.name.localeCompare(b.name))
+          }),
+        create: (input) =>
+          run(() => {
+            requireOffice('keep the price list')
+            const item: Owned<PriceItem> = { ...checkItem(structuredClone(input)), id: newId('itm'), orgId }
+            db.priceList.push(item)
+            return item
+          }).then((i) => done(out(i) as PriceItem)),
+        update: (id, patch) =>
+          run(() => {
+            requireOffice('keep the price list')
+            const item = db.priceList.find((i) => i.id === id && i.orgId === orgId)
+            if (!item) throw notFound('price list item')
+            const { id: _i, orgId: _o, ...rest } = structuredClone(patch) as Partial<Owned<PriceItem>>
+            const next = checkItem({ ...out(item), ...rest } as PriceItem)
+            Object.assign(item, next)
+            if (rest.cost === undefined && 'cost' in rest) delete item.cost
+            return item
+          }).then((i) => done(out(i) as PriceItem)),
+      },
+
+      stock: {
+        list: (f = {}) =>
+          run(() => {
+            const me = myOperator()?.id
+            if (!isOffice() && f.operatorId && f.operatorId !== me) throw forbidden("can't see another engineer's van")
+            const who = isOffice() ? f.operatorId : me
+            return db.stock.filter((x) => x.orgId === orgId && (!who || x.operatorId === who) && (isOffice() || who)).map((x) => out(x) as StockLevel)
+          }),
+        set: (operatorId, itemId, quantity, min) =>
+          run(() => {
+            requireOffice('restock vans')
+            if (!db.operators.some((o) => o.id === operatorId && o.orgId === orgId)) throw notFound('operator')
+            const item = db.priceList.find((i) => i.id === itemId && i.orgId === orgId)
+            if (!item) throw notFound('price list item')
+            if (!item.stocked) throw invalid(`${item.name} isn't carried on the vans`)
+            if (!Number.isInteger(quantity) || quantity < 0) throw invalid('stock is a whole number of zero or more')
+            if (min !== undefined && (!Number.isInteger(min) || min < 0)) throw invalid('the low mark is a whole number of zero or more')
+            const row = stockRow(operatorId, itemId)
+            row.quantity = quantity
+            if (min !== undefined) row.min = min
+            return row
+          }).then((x) => done(out(x) as StockLevel)),
+      },
+
+      gasRecords: {
+        list: (f = {}) =>
+          run(() =>
+            db.gasRecords
+              .filter((r) => r.orgId === orgId && (!f.siteId || r.siteId === f.siteId) && (isOffice() || fieldSees((j) => j.siteId === r.siteId)))
+              .map((r) => out(r) as GasSafetyRecord)
+              .sort((a, b) => (b.issuedAt ?? '9').localeCompare(a.issuedAt ?? '9')),
+          ),
+        forJob: (jobId) => run(() => (findJob(jobId), db.gasRecords.filter((r) => r.orgId === orgId && r.jobId === jobId).map((r) => out(r) as GasSafetyRecord))),
+        create: (jobId, operatorId) =>
+          run(() => {
+            const job = editableJob(jobId)
+            actingAs(operatorId, job)
+            const open = db.gasRecords.find((r) => r.orgId === orgId && r.jobId === jobId && r.status === 'draft')
+            if (open) return open
+            // Start from what was there last time: same appliances, fresh readings.
+            const last = db.gasRecords.filter((r) => r.orgId === orgId && r.siteId === job.siteId && r.status === 'issued').sort((a, b) => (b.issuedAt ?? '').localeCompare(a.issuedAt ?? ''))[0]
+            const rec: Owned<GasSafetyRecord> = {
+              id: newId('gsr'),
+              ref: `CP-${nextNumber(orgId, 'cp12')}`,
+              jobId,
+              siteId: job.siteId,
+              customerId: job.customerId,
+              operatorId,
+              appliances: (last?.appliances ?? []).map((a) => ({ id: newId('app'), location: a.location, type: a.type, make: a.make, model: a.model, flue: a.flue, landlords: a.landlords, checks: pendingChecks() })),
+              installation: { tightness: 'pending', ecv: 'pending', bonding: 'pending', pipework: 'pending', coAlarm: 'pending' },
+              status: 'draft',
+              orgId,
+            }
+            db.gasRecords.push(rec)
+            return rec
+          }).then((r) => done(out(r) as GasSafetyRecord)),
+        saveAppliance: (id, input) =>
+          run(() => {
+            const rec = draftRecord(id)
+            if (!String(input.location ?? '').trim()) throw invalid('say where the appliance is')
+            if (!String(input.type ?? '').trim()) throw invalid('say what the appliance is')
+            if (!FLUES.includes(input.flue)) throw invalid(`unknown flue type ${input.flue}`)
+            const checks = { ...pendingChecks(), ...(input.checks ?? {}) }
+            for (const k of APPLIANCE_CHECKS) if (!VERDICTS.includes(checks[k])) throw invalid(`unknown answer ${checks[k]}`)
+            if (input.unsafe && !['at_risk', 'immediately_dangerous'].includes(input.unsafe)) throw invalid(`unknown unsafe category ${input.unsafe}`)
+            const a: GasAppliance = {
+              id: input.id ?? newId('app'),
+              location: input.location.trim(),
+              type: input.type.trim(),
+              make: input.make?.trim() || undefined,
+              model: input.model?.trim() || undefined,
+              flue: input.flue,
+              landlords: input.landlords !== false,
+              pressure: reading(input.pressure, 'operating pressure'),
+              heatInput: reading(input.heatInput, 'heat input'),
+              co: reading(input.co, 'CO'),
+              co2: reading(input.co2, 'CO2'),
+              ratio: reading(input.ratio, 'CO/CO2 ratio'),
+              checks: { flue: checks.flue, ventilation: checks.ventilation, safetyDevice: checks.safetyDevice, spillage: checks.spillage },
+              safe: typeof input.safe === 'boolean' ? input.safe : undefined,
+              defects: input.defects?.trim() || undefined,
+              unsafe: input.unsafe,
+            }
+            // A safe appliance can't also be classed unsafe.
+            if (a.safe) delete a.unsafe
+            const i = rec.appliances.findIndex((x) => x.id === a.id)
+            if (input.id && i < 0) throw notFound('appliance')
+            if (i >= 0) rec.appliances[i] = a
+            else rec.appliances.push(a)
+            return rec
+          }).then((r) => done(out(r) as GasSafetyRecord)),
+        removeAppliance: (id, applianceId) =>
+          run(() => {
+            const rec = draftRecord(id)
+            rec.appliances = rec.appliances.filter((a) => a.id !== applianceId)
+            return rec
+          }).then((r) => done(out(r) as GasSafetyRecord)),
+        setInstallation: (id, key, verdict) =>
+          run(() => {
+            const rec = draftRecord(id)
+            if (!INSTALLATION.includes(key)) throw invalid(`unknown check ${key}`)
+            if (!VERDICTS.includes(verdict)) throw invalid(`unknown answer ${verdict}`)
+            rec.installation[key] = verdict
+            return rec
+          }).then((r) => done(out(r) as GasSafetyRecord)),
+        issue: (id) =>
+          run(() => {
+            const rec = draftRecord(id)
+            const missing = gasGaps(rec)
+            if (missing.length) throw invalid(`not finished: ${missing.join('; ')}`)
+            const now = new Date().toISOString()
+            const issued = now.slice(0, 10)
+            rec.status = 'issued'
+            rec.issuedAt = now
+            rec.expires = yearOn(issued)
+            const cert = { id: newId('cer'), kind: 'CP12' as const, siteId: rec.siteId, jobId: rec.jobId, issued, expires: rec.expires, state: 'valid' as const, orgId }
+            db.certificates.push(cert)
+            rec.certificateId = cert.id
+            // The job's tightness gate follows the record.
+            const job = db.jobs.find((j) => j.id === rec.jobId)
+            if (job) job.checks = [...job.checks.filter((c) => c.key !== 'gas_tightness'), { key: 'gas_tightness', label: job.checks.find((c) => c.key === 'gas_tightness')?.label ?? CHECK_LABEL.gas_tightness, state: rec.installation.tightness === 'pending' ? 'pending' : rec.installation.tightness, detail: `${rec.ref} issued` }]
+            return rec
+          }).then((r) => done(out(r) as GasSafetyRecord)),
       },
 
       operators: {
@@ -554,18 +770,34 @@ export function createEngine(store: Store, platform: Platform) {
           run(() => {
             requireOffice('write quotes')
             const job = findJob(jobId)
-            const lines = opts.lines ? opts.lines.map((l) => ({ ...l, id: newId('li') })) : structuredClone(job.lines)
+            const options = opts.options ? quoteOptions(opts.options) : undefined
+            const lines = options ? structuredClone(options[0].lines) : opts.lines ? priced(opts.lines) : structuredClone(job.lines)
             const q: Owned<Quote> = {
               id: newId('quo'),
               ref: `Q-${nextNumber(orgId, 'quote')}`,
               jobId,
               customerId: job.customerId,
               lines,
+              ...(options ? { options } : {}),
               status: 'draft',
               validUntil: opts.validUntil ?? new Date(Date.now() + 30 * DAY).toISOString().slice(0, 10),
               orgId,
             }
             db.quotes.push(q)
+            return q
+          }).then((q) => done(out(q))),
+        update: (id, patch) =>
+          run(() => {
+            requireOffice('change quotes')
+            const q = findQuote(id)
+            if (q.status !== 'draft') throw invalid(`quote is ${q.status}; only a draft can change`)
+            if (patch.options === null) delete q.options
+            else if (patch.options) {
+              q.options = quoteOptions(patch.options)
+              q.lines = structuredClone(q.options[0].lines)
+            }
+            if (patch.lines && !q.options) q.lines = priced(patch.lines)
+            if (patch.validUntil) q.validUntil = patch.validUntil
             return q
           }).then((q) => done(out(q))),
         send: (id) =>
@@ -579,11 +811,17 @@ export function createEngine(store: Store, platform: Platform) {
             if (job.status === 'enquiry') job.status = 'quoted'
             return q
           }).then((q) => done(out(q))),
-        respond: (id, answer) =>
+        respond: (id, answer, option) =>
           run(() => {
             requireOffice('record a customer’s answer')
             const q = findQuote(id)
             if (q.status !== 'sent') throw invalid(`quote is ${q.status}`)
+            if (answer === 'accepted' && q.options) {
+              const picked = q.options.find((o) => o.key === option)
+              if (!picked) throw invalid(`say which option they chose: ${q.options.map((o) => o.key).join(', ')}`)
+              q.chosen = picked.key
+              q.lines = structuredClone(picked.lines)
+            }
             q.status = answer
             const job = findJob(q.jobId)
             if (answer === 'accepted' && (job.status === 'enquiry' || job.status === 'quoted')) {
@@ -652,6 +890,60 @@ export function createEngine(store: Store, platform: Platform) {
             return inv
           }).then((i) => done(out(i))),
       },
+    }
+
+    /** A van's row for an item, made at zero the first time it's needed. */
+    function stockRow(operatorId: string, itemId: string) {
+      let row = db.stock.find((x) => x.orgId === orgId && x.operatorId === operatorId && x.itemId === itemId)
+      if (!row) {
+        row = { operatorId, itemId, quantity: 0, min: 0, orgId }
+        db.stock.push(row)
+      }
+      return row
+    }
+    /** Parts out of (or back onto) a van. A count that's already off never goes below zero. */
+    function moveStock(operatorId: string, itemId: string, by: number) {
+      const row = stockRow(operatorId, itemId)
+      row.quantity = Math.max(0, row.quantity + by)
+    }
+
+    function checkItem<T extends Omit<PriceItem, 'id'>>(i: T): T {
+      if (!i.name?.trim()) throw invalid('the item needs a name')
+      if (!PRICE_KINDS.includes(i.kind)) throw invalid(`unknown kind ${i.kind}`)
+      if (!PRICE_UNITS.includes(i.unit)) throw invalid(`unknown unit ${i.unit}`)
+      if (!Number.isInteger(i.price) || i.price < 0) throw invalid('price is whole pence of zero or more')
+      if (i.cost !== undefined && (!Number.isInteger(i.cost) || i.cost < 0)) throw invalid('cost is whole pence of zero or more')
+      return { ...i, name: i.name.trim(), code: i.code?.trim() || undefined, stocked: !!i.stocked }
+    }
+
+    /** Lines in, with ids, checked the way addLine checks them. */
+    function priced(lines: Omit<LineItem, 'id'>[]): LineItem[] {
+      return lines.map((l) => {
+        if (!String(l.description ?? '').trim()) throw invalid('every line needs a description')
+        if (!(l.quantity > 0)) throw invalid('quantity must be more than zero')
+        if (!Number.isInteger(l.unitPrice)) throw invalid('unit price is whole pence')
+        const { fromVan: _v, ...rest } = structuredClone(l)
+        return { ...rest, id: newId('li') }
+      })
+    }
+
+    function quoteOptions(input: { key: OptionKey; label: string; lines: Omit<LineItem, 'id'>[] }[]) {
+      if (input.length < 2 || input.length > 3) throw invalid('offer two or three options')
+      return input.map((o, i) => {
+        if (o.key !== OPTION_KEYS[i]) throw invalid('options go A, B, C in order')
+        if (!o.label?.trim()) throw invalid(`option ${o.key} needs a name`)
+        if (!o.lines?.length) throw invalid(`option ${o.key} has no lines`)
+        return { key: o.key, label: o.label.trim(), lines: priced(o.lines) }
+      })
+    }
+
+    /** A record the caller may still fill in: a draft, on a job they can add to. */
+    function draftRecord(id: string) {
+      const rec = db.gasRecords.find((r) => r.id === id && r.orgId === orgId)
+      if (!rec) throw notFound('gas safety record')
+      editableJob(rec.jobId)
+      if (rec.status !== 'draft') throw invalid(`${rec.ref} is already issued`)
+      return rec
     }
 
     function findQuote(id: string) {

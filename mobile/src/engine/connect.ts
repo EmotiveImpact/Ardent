@@ -17,7 +17,7 @@ import { createEngine, EngineError } from './engine'
 import { adminCall, callEngine, createHttpClient, isRead, photoLink, type SignedIn, signIn as httpSignIn, signOut as httpSignOut, uploadPhoto } from './http-client'
 import type { Platform } from './platform'
 import { DEMO_PASSWORD, demoData, demoUsers, shiftDemo } from './seed'
-import type { Data, Role, Store } from './store'
+import { type Data, emptyData, type Role, type Store } from './store'
 
 /** Where an app keeps small things between launches: localStorage on the web, AsyncStorage on a phone. */
 export interface KeyValue {
@@ -164,7 +164,9 @@ export async function connectDemo(storage: KeyValue, opts: { today?: string } = 
   const saved = await storage.get(DEMO_DATA)
   let data: Data
   try {
-    data = saved ? (JSON.parse(saved) as Data) : fresh()
+    const parsed = saved ? (JSON.parse(saved) as Data) : undefined
+    // A demo saved before a new kind of record existed starts again, so it shows the new screens.
+    data = parsed && Object.keys(emptyData()).every((k) => k in parsed) ? parsed : fresh()
   } catch {
     data = fresh()
   }
