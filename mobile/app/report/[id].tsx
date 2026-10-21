@@ -47,6 +47,21 @@ const SAMPLE: Partial<Record<Job['trade'], string[]>> = {
     'She wants us back to look at the radiators upstairs.',
   ],
 };
+const BARS = 36;
+/** The end of what they've said, so the newest words are always on screen. */
+const tail = (text: string) => (text.length > 150 ? `…${text.slice(-150).replace(/^\S*\s/, '')}` : text);
+
+/** Bars scroll in from the right as they talk: louder is taller. The newest few are dimmer. */
+function Wave({ bars, live }: { bars: number[]; live: boolean }) {
+  return (
+    <View style={styles.wave} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {bars.map((h, i) => (
+        <View key={i} style={[styles.bar, { height: 6 + h * 46, opacity: live ? (i > BARS - 6 ? 0.45 : 1) : 0.35 }]} />
+      ))}
+    </View>
+  );
+}
+
 const sampleFor = (trade: Job['trade']) => SAMPLE[trade] ?? SAMPLE[trade === 'heating' ? 'gas' : 'plumbing']!;
 
 /** The words a line or part came from, as said. */
@@ -81,6 +96,13 @@ export default function JobReportScreen() {
   const demoTimer = useRef<ReturnType<typeof setInterval>>(undefined);
   useEffect(() => () => clearInterval(demoTimer.current), []);
 
+  // The waveform and the clock while they talk.
+  const [bars, setBars] = useState<number[]>(() => Array(BARS).fill(0.08));
+  const [elapsed, setElapsed] = useState(0);
+  const level = useRef(0);
+  level.current = demo ? 0.2 + Math.random() * 0.8 : ear.level;
+  const heldSince = useRef(0);
+
   const pulse = useSharedValue(1);
   const ring = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }], opacity: 2 - pulse.value }));
   const listening = ear.hearing === 'listening' || !!demo;
@@ -91,6 +113,16 @@ export default function JobReportScreen() {
       pulse.value = 1;
     }
   }, [listening, pulse]);
+  useEffect(() => {
+    if (!listening) return;
+    heldSince.current = Date.now();
+    setElapsed(0);
+    const t = setInterval(() => {
+      setBars((b) => [...b.slice(1), Math.max(0.08, level.current)]);
+      setElapsed(Math.floor((Date.now() - heldSince.current) / 1000));
+    }, 90);
+    return () => clearInterval(t);
+  }, [listening]);
 
   if (!day || !job) return <View style={styles.root} />;
   const segments = report?.segments ?? [];
@@ -103,6 +135,7 @@ export default function JobReportScreen() {
   const covered = coveredSoFar(input(live ? [...segments, { text: live, at: new Date().toISOString() }] : segments));
   const samples = sampleFor(job.trade);
   const nextSample = samples[segments.length % samples.length];
+  const site = day.sites.find((x) => x.id === job.siteId);
   const gasJob = GAS_TRADES.has(job.trade);
   const gasRecord = day.gasRecords.find((r) => r.jobId === job.id);
 
@@ -332,18 +365,23 @@ export default function JobReportScreen() {
           />
         </View>
 
+        {step === 'talk' ? (
+          <View style={styles.head}>
+            <Text style={styles.jobTitle}>{job.title}</Text>
+            {!!site && <Text style={styles.jobPlace}>{`${site.line1}, ${site.town} ${site.postcode.split(' ')[0]}`}</Text>}
+          </View>
+        ) : (
         <View style={styles.head}>
-          <OpTitle size={26}>{step === 'what' ? 'What happened?' : step === 'talk' ? 'Job report' : step === 'check' ? 'Check it over' : 'Report signed'}</OpTitle>
+          <OpTitle size={26}>{step === 'what' ? 'What happened?' : step === 'check' ? 'Check it over' : 'Report signed'}</OpTitle>
           <Text style={styles.sub}>
             {step === 'what'
               ? "Tick everything that happened on this job. You can't sign off until each one is in the report."
-              : step === 'talk'
-              ? 'Hold the button and talk it through, the way you would tell the office. It stays on the phone.'
               : step === 'check'
                 ? 'Tap a line to see the words it came from.'
                 : `Signed by ${report?.signedBy ?? day.operator.name}${report?.signedAt ? ` at ${clock(report.signedAt)}` : ''}. The office sees it on ${job.ref}.`}
           </Text>
         </View>
+        )}
 
         {step === 'what' && (
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -374,27 +412,24 @@ export default function JobReportScreen() {
         )}
 
         {step === 'talk' && (
-          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Card style={[styles.list, { marginBottom: 8, minHeight: 96 }]}>
-              <Cap tint={listening ? color.ember : color.fgMuted}>{listening ? 'Listening' : segments.length ? `Said ${segments.length} time${segments.length === 1 ? '' : 's'}` : 'Heard'}</Cap>
-              <Text style={[styles.heard, !live && { color: color.fgFaint }]}>{live || segments.at(-1)?.text || 'Nothing yet.'}</Text>
-            </Card>
-            <Card style={styles.list}>
-              {prompts.map((p, i) => {
+          <ScrollView contentContainerStyle={styles.stage} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Text style={styles.eyebrow}>{`Job update  ·  ${listening ? 'Recording' : segments.length ? `Said ${segments.length} time${segments.length === 1 ? '' : 's'}` : 'Ready'}`}</Text>
+            <Wave bars={bars} live={listening} />
+            <Text style={styles.timer} accessibilityLabel={`${Math.floor(elapsed / 60)} minutes ${elapsed % 60} seconds`}>{`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`}</Text>
+            <Text style={[styles.quote, !live && !segments.length && { color: color.fgFaint }]} accessibilityLiveRegion="polite">
+              {live ? `“${tail(live)}”` : segments.length ? `“${tail(segments.at(-1)!.text)}”` : 'Hold the button and talk it through, the way you would tell the office.'}
+            </Text>
+            <View style={styles.marks} accessibilityLabel={prompts.map((p) => `${p.chip} ${covered.has(p.topic) ? 'covered' : 'still to say'}`).join(', ')}>
+              {prompts.map((p) => {
                 const done = covered.has(p.topic);
                 return (
-                  <View key={p.topic} style={[styles.prompt, i > 0 && styles.promptDivider]} accessibilityLabel={`${p.title}, ${done ? 'covered' : 'still to say'}`}>
-                    <View style={[styles.tick, done && styles.tickDone]}>{done && <Icon name="check" size={13} tint={color.ok} strokeWidth={2.4} />}</View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.promptTitle, done && { color: color.fgMuted }]}>{p.title}</Text>
-                      {!done && <Text style={styles.promptHint}>{p.hint}</Text>}
-                    </View>
+                  <View key={p.topic} style={styles.mark}>
+                    <View style={[styles.markDot, done && { backgroundColor: color.fg }]} />
+                    <Text style={[styles.markText, done && { color: color.fg }]}>{p.chip}</Text>
                   </View>
                 );
               })}
-            </Card>
-
-
+            </View>
             {ear.onPhone === false && Platform.OS === 'android' && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.hint}>This phone needs signal to hear you until its English (UK) speech pack is on it.</Text>
@@ -415,7 +450,6 @@ export default function JobReportScreen() {
                 />
               </View>
             )}
-            {preview && <Text style={styles.hint}>Preview: a browser can't use the phone's speech, so holding plays what an engineer might say.</Text>}
             {!!(ear.problem || warn) && <Text style={[styles.hint, { color: color.warn }]}>{ear.problem || warn}</Text>}
           </ScrollView>
         )}
@@ -537,26 +571,30 @@ export default function JobReportScreen() {
         <Dock>
           {step === 'what' && <Go label={busy ? 'Saving' : 'Next: talk it through'} icon="arrow" onPress={() => void confirmTicks()} disabled={busy} />}
           {step === 'talk' && (
-            <>
-              <View style={styles.micRow}>
-                <View style={styles.micWrap}>
-                  <Animated.View pointerEvents="none" style={[styles.micRing, ring]} />
-                  <Pressable
-                    onPressIn={press}
-                    onPressOut={() => void release()}
-                    disabled={!preview && (ear.hearing === 'type' || ear.hearing === 'refused')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Hold to talk"
-                    accessibilityHint="Talks while held. Let go when you've said it."
-                    style={({ pressed }) => [styles.mic, (pressed || listening) && { transform: [{ scale: 0.96 }] }, !preview && (ear.hearing === 'type' || ear.hearing === 'refused') && { opacity: 0.35 }]}
-                  >
-                    <Icon name="mic" size={30} tint={color.bg} strokeWidth={2} />
-                  </Pressable>
-                </View>
-                <Text style={styles.micLabel}>{listening ? "Let go when you've said it" : busy ? 'Saving' : 'Hold to talk'}</Text>
+            <View style={styles.micRow}>
+              <View style={styles.micWrap}>
+                <Animated.View pointerEvents="none" style={[styles.micRing, ring]} />
+                <Pressable
+                  onPressIn={press}
+                  onPressOut={() => void release()}
+                  disabled={!preview && (ear.hearing === 'type' || ear.hearing === 'refused')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Hold to talk"
+                  accessibilityHint="Talks while held. Let go when you've said it."
+                  style={({ pressed }) => [styles.mic, (pressed || listening) && { transform: [{ scale: 0.96 }] }, !preview && (ear.hearing === 'type' || ear.hearing === 'refused') && { opacity: 0.35 }]}
+                >
+                  <View style={[styles.micCore, listening && styles.micCoreOn]} />
+                </Pressable>
               </View>
-              {segments.length > 0 && <Go label="Check it over" icon="arrow" tone="grey" onPress={() => setStep('check')} disabled={listening} />}
-            </>
+              <Text style={styles.micLabel}>{listening ? 'Release to finish' : busy ? 'Saving' : 'Hold to talk'}</Text>
+              {segments.length > 0 && !listening && (
+                <Pressable onPress={() => setStep('check')} accessibilityRole="button" hitSlop={10} style={styles.next}>
+                  <Text style={styles.nextText}>Check it over</Text>
+                  <Icon name="arrow" size={15} tint={color.fg} />
+                </Pressable>
+              )}
+              {preview && <Text style={[styles.hint, { textAlign: 'center' }]}>Preview: holding plays what an engineer might say.</Text>}
+            </View>
           )}
           {step === 'check' && <HoldToCommit label={busy ? 'Saving' : 'Hold to sign off'} icon="check" onCommit={sign} disabled={!!blocked || busy} />}
           {step === 'signed' && <Go label={`Back to ${job.ref}`} tone="grey" onPress={() => (router.canGoBack() ? router.back() : router.replace({ pathname: '/job/[id]', params: { id: job.id } }))} />}
@@ -604,6 +642,22 @@ const styles = StyleSheet.create({
   boxOn: { backgroundColor: color.fg },
   van: { color: color.fgMuted, backgroundColor: color.raised, fontFamily: font.mono, fontSize: 10, letterSpacing: 1.6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.sm, overflow: 'hidden' },
   grid: { flexDirection: 'row', gap: 8 },
+  stage: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, paddingVertical: 24 },
+  eyebrow: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, letterSpacing: 2.4, textTransform: 'uppercase' },
+  wave: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 56, marginTop: 22 },
+  bar: { width: 4, borderRadius: 2, backgroundColor: color.fg },
+  timer: { color: color.fg, fontFamily: font.mono, fontSize: 30, letterSpacing: 2, marginTop: 18 },
+  quote: { color: color.fgMuted, fontFamily: font.sans, fontSize: 16, lineHeight: 24, textAlign: 'center', marginTop: 22, minHeight: 72 },
+  marks: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 26 },
+  mark: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  markDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: color.raised },
+  markText: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase' },
+  jobTitle: { color: color.fg, fontFamily: font.sansSemi, fontSize: 22, lineHeight: 28 },
+  jobPlace: { color: color.fgMuted, fontFamily: font.sans, fontSize: 14, marginTop: 4 },
+  micCore: { width: 26, height: 26, borderRadius: 13, backgroundColor: color.bg },
+  micCoreOn: { width: 24, height: 24, borderRadius: 6 },
+  next: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, paddingVertical: 6 },
+  nextText: { color: color.fg, fontFamily: font.sansMedium, fontSize: 15 },
   micRow: { alignItems: 'center', gap: 10, marginBottom: 12 },
   micWrap: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
   micRing: { position: 'absolute', width: 84, height: 84, borderRadius: 42, backgroundColor: color.emberSoft },

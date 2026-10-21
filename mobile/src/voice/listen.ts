@@ -56,6 +56,8 @@ export function useListen(words: string[]) {
   const [problem, setProblem] = useState('');
   /** False when the phone needs signal to hear, so the screen can offer the download. */
   const [onPhone, setOnPhone] = useState<boolean>();
+  /** How loud they are right now, 0 to 1, for the waveform. */
+  const [level, setLevel] = useState(0);
   const finals = useRef<string[]>([]);
   const interim = useRef('');
   const done = useRef<((text: string) => void) | undefined>(undefined);
@@ -70,6 +72,8 @@ export function useListen(words: string[]) {
     } else interim.current = t;
     setLive(heard());
   });
+  // The phone reports -2 (silence) to 10 (loud).
+  useSpeechRecognitionEvent('volumechange', (e) => setLevel(Math.max(0, Math.min(1, e.value / 10))));
   useSpeechRecognitionEvent('error', (e) => {
     if (e.error === 'no-speech' || e.error === 'speech-timeout' || e.error === 'aborted') return;
     if (e.error === 'not-allowed') setHearing('refused');
@@ -80,6 +84,7 @@ export function useListen(words: string[]) {
     finals.current = [];
     interim.current = '';
     setLive('');
+    setLevel(0);
     setHearing((h) => (h === 'listening' ? 'ready' : h));
     done.current?.(text);
     done.current = undefined;
@@ -106,6 +111,7 @@ export function useListen(words: string[]) {
       requiresOnDeviceRecognition: local,
       contextualStrings: words.slice(0, 100),
       iosTaskHint: 'dictation',
+      volumeChangeEventOptions: { enabled: true, intervalMillis: 80 },
       // Long pauses are normal on site: give them 10 seconds before the phone gives up.
       androidIntentOptions: { EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 10_000 },
     });
@@ -133,5 +139,5 @@ export function useListen(words: string[]) {
     }
   }, []);
 
-  return { hearing, live, problem, onPhone, start, stop, getPack, typeInstead: () => setHearing('type') };
+  return { hearing, live, level, problem, onPhone, start, stop, getPack, typeInstead: () => setHearing('type') };
 }
