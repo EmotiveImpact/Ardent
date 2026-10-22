@@ -24,6 +24,7 @@ import { AppState, Platform } from 'react-native';
 import type { Day } from '@/data/types';
 import { connectDemo, connectLive, type Connection, type KeyValue, type Me } from '@/engine/connect';
 import { ukDay } from '@/kit/format';
+import { clearAllRecordings } from '@/voice/recordings';
 
 import { applyLocal, settle } from './apply';
 import { backoff, type CallOp, classify, isLocal, type Op, reason, resolveIds, type SetAside } from './ops';
@@ -254,6 +255,7 @@ class FieldStore {
     if (me) await storage.remove(dayKey(me.user.id));
     await storage.remove(ME_KEY);
     clearAllPhotos();
+    clearAllRecordings();
     this.set({ phase: 'signed_out', me: undefined, base: undefined, outbox: [], setAside: [], startedOn: undefined, sessionEnded: undefined });
   }
 
@@ -262,6 +264,7 @@ class FieldStore {
     if (!this.conn.reset) return;
     await this.conn.reset();
     clearAllPhotos();
+    clearAllRecordings();
     this.set({ base: undefined, outbox: [], setAside: [], startedOn: undefined });
     await this.save();
     await this.refresh();

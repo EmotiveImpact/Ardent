@@ -1830,12 +1830,19 @@ export function createEngine(store: Store, platform: Platform) {
         if (seg.topic !== undefined && !topics.includes(seg.topic)) throw invalid('unknown report topic')
         if (seg.moved !== undefined && (!Array.isArray(seg.moved) || seg.moved.length > 50 || seg.moved.some((m) => !topics.includes(m?.topic) || !(Number.isInteger(m.start) && Number.isInteger(m.end) && m.start >= 0 && m.start < m.end && m.end <= text.length)))) throw invalid('a moved sentence must point at its words')
         if (seg.followUp !== undefined && !(typeof seg.followUp === 'string' && /^[a-z0-9-]{1,60}$/.test(seg.followUp))) throw invalid('unknown follow-up')
+        if (seg.audio !== undefined && !(typeof seg.audio === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(seg.audio))) throw invalid('unknown recording')
+        const said = (v: unknown) => (typeof v === 'string' && v.length <= 4000 ? v : undefined)
         return {
           text,
           at: seg.at,
           ...(seg.topic ? { topic: seg.topic } : {}),
           ...(seg.moved?.length ? { moved: seg.moved.map(({ start, end, topic }) => ({ start, end, topic })) } : {}),
           ...(seg.followUp ? { followUp: seg.followUp } : {}),
+          ...(seg.audio ? { audio: seg.audio } : {}),
+          ...(seg.waiting === true ? { waiting: true } : {}),
+          ...(seg.waiting === true && said(seg.waitingText) !== undefined ? { waitingText: said(seg.waitingText) } : {}),
+          ...(seg.later === true ? { later: true } : {}),
+          ...(said(seg.heard) ? { heard: said(seg.heard) } : {}),
         }
       })
     }

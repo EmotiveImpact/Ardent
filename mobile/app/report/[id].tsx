@@ -12,13 +12,15 @@ import { Icon } from '@/components/Icon';
 import { Back, Dock, Input } from '@/components/ui';
 import type { Job, JobReport, ReportLine, ReportPart, ReportSegment, ReportSource, ReportTick, ReportTopic } from '@/data/types';
 import { clock } from '@/kit/format';
+import { canHearLater, heardLater, MAX_TRIES, waitingSegment } from '@/kit/hearing';
 import { activeRules, answered, applyReply, type Explained, FOLLOW_UPS, nextFollowUp, type Reply } from '@/kit/questions';
 import { buildReport, cantSign, coveredSoFar, keepFixes, needed, pickedPart, promptsFor, TICKS, tradeWords, withTicks } from '@/kit/report';
 import * as act from '@/sync/actions';
 import { useField } from '@/sync/hooks';
 import { GAS_TRADES } from '@/sync/pull';
 import { color, font, radius, space } from '@/theme/tokens';
-import { useListen } from '@/voice/listen';
+import { type Heard, type HoldFor, useListen } from '@/voice/listen';
+import { dropRecording, keepRecording, updateRecording, useRecordings } from '@/voice/recordings';
 
 type Step = 'what' | 'talk' | 'check' | 'signed';
 
@@ -70,6 +72,24 @@ function Wave({ bars, live }: { bars: number[]; live: boolean }) {
   );
 }
 
+/** Recordings kept on the phone for this report, and what Ardent last did with one. */
+function Kept({ waiting, writing, note, signing }: { waiting: number; writing: boolean; note: string; signing?: boolean }) {
+  if (!waiting && !note) return null;
+  const n = waiting === 1 ? '1 recording' : `${waiting} recordings`;
+  const said = writing
+    ? 'Writing in your recording now.'
+    : waiting
+      ? signing
+        ? `${n} still to write in. Ardent does it when the phone has signal or its speech pack. Sign now and ${waiting === 1 ? "it's" : "they're"} left out.`
+        : `${n} kept on the phone. Ardent writes ${waiting === 1 ? 'it' : 'them'} in when the phone can hear ${waiting === 1 ? 'it' : 'them'}.`
+      : note;
+  return (
+    <Text style={[styles.hint, { marginTop: 10 }, waiting > 0 && signing && { color: color.warn }]} accessibilityLiveRegion="polite">
+      {said}
+    </Text>
+  );
+}
+
 const sampleFor = (trade: Job['trade']) => SAMPLE[trade] ?? SAMPLE[trade === 'heating' ? 'gas' : 'plumbing']!;
 /** What a preview engineer says for one question, or something general when the trade has nothing for it. */
 const sampleOn = (trade: Job['trade'], topic: ReportTopic) => sampleFor(trade)[topic] ?? 'Used a few bits off the van.';
@@ -83,7 +103,7 @@ const saidFor = (segments: ReportSegment[], from: ReportSource) => {
 export default function JobReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { day } = useField();
+  const { day, state } = useField();
   const job = day?.jobs.find((j) => j.id === id);
   const mine = day && job ? day.reports.filter((r) => r.jobId === job.id && r.operatorId === day.operator.id) : [];
   const report: JobReport | undefined = mine.find((r) => r.status === 'draft') ?? mine.find((r) => r.status === 'signed');
@@ -100,7 +120,12 @@ export default function JobReportScreen() {
   const [followCount, setFollowCount] = useState(0);
   const [why, setWhy] = useState(false);
   const words = useMemo(() => (day && job ? tradeWords({ trade: job.trade, priceList: day.priceList, van: day.stock }) : []), [day?.priceList, day?.stock, job?.trade]);
-  const ear = useListen(words);
+  const ear = useListen(words, { online: state.online });
+  /** Recordings for this job still to be written into the report. */
+  const kept = useRecordings().filter((r) => r.jobId === id);
+  const waitingNow = kept.filter((r) => r.state === 'waiting');
+  const reportRef = useRef(report);
+  reportRef.current = report;
   const preview = Platform.OS === 'web' && ear.hearing !== 'listening';
   const [typed, setTyped] = useState('');
   const [shown, setShown] = useState<string>();
@@ -140,6 +165,51 @@ export default function JobReportScreen() {
     }, 90);
     return () => clearInterval(t);
   }, [listening]);
+
+  /** One plain line after Ardent writes in a kept recording. */
+  const [note, setNote] = useState('');
+  // A recording that failed waits a minute before the next try, so a phone that can't read it doesn't spin.
+  const [retryAt, setRetryAt] = useState(0);
+  const triedAt = useRef<Record<string, number>>({});
+  const nextUp = ear.hearing === 'ready' && !ear.writing && !busy && report ? waitingNow.find((r) => Date.now() - (triedAt.current[r.id] ?? 0) > 60_000 && canHearLater(r, ear.caps)) : undefined;
+  // Kept recordings are written in as soon as the phone can hear them: signal back, or the English (UK) pack on.
+  useEffect(() => {
+    if (!nextUp || !day || !job) return;
+    const r = nextUp;
+    void (async () => {
+      const out = await ear.hearFile(r);
+      if (out === undefined || out === 'stopped') return;
+      const now = reportRef.current;
+      const segs = now?.segments ?? [];
+      const signed = now?.status === 'signed';
+      const saveWords = (next: ReportSegment[]) => {
+        const parts = now ? keepFixes(buildReport({ segments: next, trade: job.trade, priceList: day.priceList, van: day.stock }).parts, now.parts) : undefined;
+        return act.saveReport(job, next, parts);
+      };
+      try {
+        if (out === 'failed') {
+          const tries = r.tries + 1;
+          triedAt.current[r.id] = Date.now();
+          setTimeout(() => setRetryAt(Date.now()), 61_000);
+          updateRecording(r.id, { tries, ...(tries >= MAX_TRIES ? { state: 'failed' as const } : {}) });
+          // Given up: the words heard before stay, no longer marked as waiting.
+          if (tries >= MAX_TRIES && !signed) {
+            const done = heardLater(segs, r, '');
+            if (done.segments !== segs) await saveWords(done.segments);
+            setNote("Ardent couldn't write in one of your recordings. Check the words and type anything missing.");
+          }
+          return;
+        }
+        const done = heardLater(segs, r, out.text, { signed, heard: out.heard });
+        if (done.segments !== segs) await saveWords(done.segments);
+        dropRecording(r.id);
+        if (done.result === 'replaced' || done.result === 'added') setNote('Ardent wrote in your recording from earlier. Check the words.');
+      } catch (e) {
+        setWarn(String((e as Error).message ?? e));
+      }
+    })();
+    // Runs once per recording that is ready, and again after a failed try waits its minute.
+  }, [nextUp?.id, retryAt]);
 
   if (!day || !job) return <View style={styles.root} />;
   const segments = report?.segments ?? [];
@@ -230,12 +300,24 @@ export default function JobReportScreen() {
     const parts = report ? keepFixes(buildReport(input(segs)).parts, report.parts) : undefined;
     return act.saveReport(job, segs, parts);
   };
-  const add = (text: string) => {
-    const t = text.trim();
+  /** Where the next words belong, so a recording written in later lands in the same place. */
+  const holdFor: HoldFor = { jobId: job.id, ...(follow && followTalk ? { topic: followTalk.topic, followUp: follow.rule.id } : asked ? { topic: asked } : {}) };
+  const add = (said: string | Heard) => {
+    const h: Heard = typeof said === 'string' ? { text: said, later: [] } : said;
+    // Recordings still to write in are kept whatever happens next, so nothing said is lost.
+    for (const r of [...(h.linked ? [h.linked] : []), ...h.later]) keepRecording(r);
+    const t = h.text.trim();
     if (!t) return;
+    // Words with a recording behind them are marked so the full words can replace them; trade-word fixes keep what the phone wrote.
+    const seg = (base: ReportSegment): ReportSegment => (h.linked ? { ...base, ...waitingSegment(t, h.linked, h.heard) } : h.heard ? { ...base, heard: h.heard } : base);
+    const at = new Date().toISOString();
     // Words said to a follow-up keep its id.
-    if (follow && followTalk) return void run(() => save(applyReply(segments, ticksNow, follow, followTalk, new Date().toISOString(), t).segments));
-    void run(() => save([...segments, { text: t, at: new Date().toISOString(), ...(asked ? { topic: asked } : {}) }]));
+    if (follow && followTalk)
+      return void run(() => {
+        const out = applyReply(segments, ticksNow, follow, followTalk, at, t).segments;
+        return save(out.length > segments.length ? [...out.slice(0, -1), seg(out[out.length - 1])] : out);
+      });
+    void run(() => save([...segments, seg({ text: t, at, ...(asked ? { topic: asked } : {}) })]));
   };
   const fix = (i: number, change: Partial<ReportPart>) => report && run(() => act.saveReport(job, report.segments, report.parts.map((p, j) => (j === i ? { ...p, ...change } : p))));
   const drop = (i: number) => report && run(() => act.saveReport(job, report.segments, report.parts.filter((_, j) => j !== i)));
@@ -281,7 +363,8 @@ export default function JobReportScreen() {
       }, 110);
       return;
     }
-    void ear.start();
+    setNote('');
+    void ear.start(holdFor);
   };
   const release = async () => {
     if (preview) {
@@ -304,6 +387,8 @@ export default function JobReportScreen() {
     }
     void run(async () => {
       await act.signReport(report, job);
+      // A signed report doesn't change, so recordings still kept for it are done with.
+      kept.forEach((r) => dropRecording(r.id));
       buzz(Haptics.NotificationFeedbackType.Success);
       setShown(undefined);
       setStep('signed');
@@ -330,6 +415,8 @@ export default function JobReportScreen() {
           style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && { opacity: 0.6 }]}
         >
           <Text style={styles.rowText}>{l.text}</Text>
+          {segments[l.from.segment]?.later && <Text style={[styles.hint, { marginTop: 2 }]}>Written in from your recording. Check it</Text>}
+          {segments[l.from.segment]?.waiting && <Text style={[styles.hint, { marginTop: 2 }]}>The signal went here. More may come from your recording</Text>}
         </Pressable>
         {on && (
           <Animated.View entering={FadeIn.duration(180)} style={styles.said}>
@@ -345,7 +432,12 @@ export default function JobReportScreen() {
                       const text = editing.text.trim();
                       setEditing(undefined);
                       setShown(undefined);
-                      void run(() => save(text ? segments.map((g, i) => (i === l.from.segment ? { ...g, text } : g)) : segments.filter((_, i) => i !== l.from.segment)));
+                      // Their words are checked now, so the "written later" mark goes.
+                      const mine = (g: ReportSegment): ReportSegment => {
+                        const { later: _later, ...rest } = g;
+                        return { ...rest, text };
+                      };
+                      void run(() => save(text ? segments.map((g, i) => (i === l.from.segment ? mine(g) : g)) : segments.filter((_, i) => i !== l.from.segment)));
                     }}
                     flex
                   />
@@ -358,6 +450,7 @@ export default function JobReportScreen() {
                   <Text style={{ color: color.fg }}>{s.it}</Text>
                   {s.after}
                 </Text>
+                {!!segments[l.from.segment]?.heard && <Text style={[styles.hint, { marginTop: 4 }]}>{`The phone wrote “${segments[l.from.segment].heard}”. Ardent put the trade words right.`}</Text>}
                 <Pressable onPress={() => setEditing({ segment: l.from.segment, text: segments[l.from.segment].text })} accessibilityRole="button" hitSlop={8}>
                   <Text style={styles.link}>Change the words</Text>
                 </Pressable>
@@ -522,7 +615,7 @@ export default function JobReportScreen() {
                 <Wave bars={bars} live={listening} />
                 <Text style={styles.timer} accessibilityLabel={`${Math.floor(elapsed / 60)} minutes ${elapsed % 60} seconds`}>{`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`}</Text>
                 <Text style={[styles.quote, !live && !answer && { color: color.fgFaint }]} accessibilityLiveRegion="polite">
-                  {live ? `“${tail(live)}”` : answer ? `“${tail(answer.text)}”` : follow ? 'Hold the button and answer, or pick below.' : asking ? 'Hold the button and answer.' : 'Hold the button and talk it through, the way you would tell the office.'}
+                  {live ? `“${tail(live)}”` : listening && ear.keeping ? (ear.plan.how === 'record' ? 'Recording. Ardent writes it in when the phone can hear it.' : 'The signal went. Still recording, so carry on: Ardent writes the rest in later.') : answer ? `“${tail(answer.text)}”` : follow ? 'Hold the button and answer, or pick below.' : asking ? 'Hold the button and answer.' : 'Hold the button and talk it through, the way you would tell the office.'}
                 </Text>
               </>
             )}
@@ -546,15 +639,16 @@ export default function JobReportScreen() {
                 );
               })}
             </View>}
-            {ear.onPhone === false && Platform.OS === 'android' && (
+            {!preview && ear.hearing !== 'type' && ear.hearing !== 'refused' && !!ear.plan.say && (
               <View style={{ marginTop: 10 }}>
-                <Text style={styles.hint}>This phone needs signal to hear you until its English (UK) speech pack is on it.</Text>
-                <Plain title="Get the English (UK) pack" quiet onPress={() => void ear.getPack()} />
+                <Text style={styles.hint}>{ear.plan.say}</Text>
+                {!ear.onPhone && ear.caps.recogniser && Platform.OS === 'android' && <Plain title="Get the English (UK) pack" quiet onPress={() => void ear.getPack()} />}
               </View>
             )}
-            {(ear.hearing === 'type' || ear.hearing === 'refused') && !preview && (
+            {!preview && <Kept waiting={waitingNow.length} writing={!!ear.writing} note={note} />}
+            {(ear.hearing === 'type' || ear.hearing === 'refused' || ear.plan.how === 'record') && !preview && (
               <View style={{ marginTop: 14, gap: 8 }}>
-                <Text style={styles.hint}>{ear.hearing === 'refused' ? 'The microphone is off for Ardent, so type it instead. You can switch it on in Settings.' : "This phone can't listen, so type it instead."}</Text>
+                {ear.plan.how !== 'record' && <Text style={styles.hint}>{ear.hearing === 'refused' ? 'The microphone is off for Ardent, so type it instead. You can switch it on in Settings.' : "This phone can't listen, so type it instead."}</Text>}
                 <Input value={typed} onChangeText={setTyped} multiline placeholder="What you did, parts, tests, anything left" accessibilityLabel="Type your report" style={styles.editBox} />
                 <Plain
                   title="Add it"
@@ -654,6 +748,7 @@ export default function JobReportScreen() {
                 <Line first left="Gas safety record" sub={gasRecord?.status === 'issued' ? 'Issued' : 'Readings for the CP12 go on its own form'} right={gasRecord ? (gasRecord.status === 'issued' ? 'Issued' : 'Draft') : 'Open'} onPress={() => void openGas()} />
               </Card>
             )}
+            <Kept waiting={waitingNow.length} writing={!!ear.writing} note={note} signing />
             {!!(warn || blocked) && <Text style={[styles.hint, { color: color.warn }]}>{warn || blocked}</Text>}
           </ScrollView>
         )}
@@ -702,7 +797,7 @@ export default function JobReportScreen() {
                   <View style={[styles.micCore, listening && styles.micCoreOn]} />
                 </Pressable>
               </View>
-              <Text style={styles.micLabel}>{listening ? 'Release to finish' : busy ? 'Saving' : followTalk ? `Hold to ${followTalk.label.toLowerCase()}` : 'Hold to talk'}</Text>
+              <Text style={styles.micLabel}>{listening ? 'Release to finish' : busy ? 'Saving' : followTalk ? `Hold to ${followTalk.label.toLowerCase()}` : !preview && ear.plan.how === 'record' ? 'Hold to record' : 'Hold to talk'}</Text>
               {(asking ? !!answer || (asked === 'parts' && !!report?.parts.length) : segments.length > 0) && !listening && (
                 <Pressable onPress={asking ? () => nextQuestion() : () => setStep('check')} accessibilityRole="button" hitSlop={10} style={styles.next}>
                   <Text style={styles.nextText}>{!asking ? 'Check it over' : !lastQuestion ? 'Next question' : asking.includes('parts') ? 'Next: check the parts' : 'Check it over'}</Text>

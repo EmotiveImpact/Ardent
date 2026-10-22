@@ -411,6 +411,16 @@ export interface ReportSegment {
   moved?: { start: number; end: number; topic: ReportTopic }[]
   /** The follow-up rule that asked for these words, when one did. */
   followUp?: string
+  /** The recording these words came from, kept on the engineer's phone. */
+  audio?: string
+  /** The signal went while they talked: more words may come from the recording. */
+  waiting?: boolean
+  /** The words as first heard, so a later write-up can tell whether the engineer changed them. */
+  waitingText?: string
+  /** Written from the recording after they talked, for the engineer to check. */
+  later?: boolean
+  /** What the phone wrote, when a commonly misheard trade word was put right. */
+  heard?: string
 }
 
 /** Where something in the report came from: a segment, and the characters within it. */

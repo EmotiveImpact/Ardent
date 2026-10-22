@@ -66,6 +66,13 @@
           "tapToPayCheck": false,
           "appDelegate": true
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Ardent listens while you hold the button, to write up your job report.",
+          "recordAudioAndroid": true
+        }
       ]
     ],
     "experiments": {
