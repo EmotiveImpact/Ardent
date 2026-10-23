@@ -275,6 +275,14 @@ function JobHead({ job, book, field }: { job: Job; book: Book; field?: JobField 
           </span>
           <span className="font-mono text-[12px] text-muted">{site?.postcode}</span>
         </Fact>
+        <Fact label="Window">
+          <span className="font-mono text-[15px]">{timeWindow(job.start, job.end)}</span>
+          <span className="font-mono text-[12px] text-muted">{onDay(job.start, today()) ? 'Today' : dd(job.start)}</span>
+        </Fact>
+        <Fact label="Crew">
+          {crew.length ? <span className="text-[15px]">{crew.map((o) => o.name).join(', ')}</span> : <span className="text-[15px] text-warn">Nobody yet</span>}
+          {lead?.van && <span className="font-mono text-[12px] text-muted">{lead.van}</span>}
+        </Fact>
       </dl>
     </div>
   )

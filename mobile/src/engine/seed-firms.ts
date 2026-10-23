@@ -450,7 +450,7 @@ function withPayments(data: Data) {
     return c
   }
   const plusHours = (iso: string, h: number) => new Date(Date.parse(iso) + h * 3_600_000).toISOString().replace('.000', '')
-  for (const inv of data.invoices.filter((i) => (i.orgId === 'org_hollins' || i.orgId === 'org_demo') && i.paidAmount > 0 && i.issuedAt)) {
+  for (const inv of data.invoices.filter((i) => (i.orgId === 'org_hollins' || i.orgId === 'org_demo') && i.paidAmount > 0 && i.issuedAt && !i.payments?.length)) {
     charge(inv, inv.paidAmount, plusHours(inv.issuedAt!, inv.orgId === 'org_demo' ? 26 : 3))
   }
   // Hollins: a customer disputed one card payment, and a Direct Debit failed.

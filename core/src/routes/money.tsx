@@ -54,10 +54,10 @@ export function Money() {
         className="pb-0"
         figures={
           book && [
-            { label: 'Owed to you', value: pounds(owing.reduce((s, i) => s + invoiceOwed(i), 0)) },
-            { label: 'Late', value: pounds(late.reduce((s, i) => s + invoiceOwed(i), 0)), tone: late.length ? 'warn' : undefined },
+            { label: 'Owed to you', value: pounds(owing.reduce((s, i) => s + invoiceOwed(i), 0)), note: `${owing.length} ${owing.length === 1 ? 'invoice' : 'invoices'} waiting` },
+            { label: 'Late', value: pounds(late.reduce((s, i) => s + invoiceOwed(i), 0)), tone: late.length ? 'warn' : undefined, note: lateNote(book, late) },
             { label: 'Paid in', value: pounds(book.invoices.reduce((s, i) => s + i.paidAmount, 0)), note: payDays(book) },
-            { label: 'Quotes out', value: pounds(out.reduce((s, q) => s + totals(q).total, 0)) },
+            { label: 'Quotes out', value: pounds(out.reduce((s, q) => s + totals(q).total, 0)), note: `${out.length} ${out.length === 1 ? 'quote' : 'quotes'} waiting on a yes` },
           ]
         }
       />
@@ -240,6 +240,14 @@ function QuoteRow({ q, book, day }: { q: Quote; book: Book; day: string }) {
       </span>
     </Link>
   )
+}
+
+/** Under Late: who is latest, and by how long. */
+function lateNote(book: Book, late: Invoice[]) {
+  if (!late.length) return 'Nothing late'
+  const worst = [...late].sort((a, b) => daysLate(b) - daysLate(a))[0]
+  const d = daysLate(worst)
+  return `${find(book.customers, worst.customerId)?.name ?? 'One customer'}, ${d} ${d === 1 ? 'day' : 'days'} late`
 }
 
 /**

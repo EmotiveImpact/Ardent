@@ -202,10 +202,10 @@ const stateWord = { done: 'done', live: 'on site', road: 'on the road', late: 'r
 /** Each block takes its state's colour, so a late job stands out without reading it. */
 const fillFor = {
   done: 'bg-raised',
-  live: 'bg-ok/[0.16] hover:bg-ok/[0.22]',
-  road: 'bg-info/[0.14] hover:bg-info/[0.2]',
+  live: 'bg-ok/[0.26] hover:bg-ok/[0.32]',
+  road: 'bg-info/[0.26] hover:bg-info/[0.32]',
   late: 'tile-late',
-  paused: 'bg-warn/[0.14] hover:bg-warn/[0.2]',
+  paused: 'bg-warn/[0.24] hover:bg-warn/[0.3]',
   need: 'bg-raised hover:bg-[#242424]',
   booked: 'bg-raised hover:bg-[#242424]',
 } as const

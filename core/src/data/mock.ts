@@ -1,4 +1,4 @@
-import type { Certificate, Customer, GasAppliance, GasSafetyRecord, Operator, Exception, Invoice, Job, PriceItem, Quote, Site, StockLevel } from './model'
+import type { Certificate, Customer, GasAppliance, GasSafetyRecord, Operator, Exception, Invoice, Job, PriceItem, Quote, Site, StockLevel, Trade } from './model'
 
 const day = '2026-10-18'
 /** A UK wall-clock time today (British Summer Time), stored as UTC like every Ardent time. */
@@ -53,6 +53,26 @@ export const operators: Operator[] = [
     // Freelance, on standby from home in Burnage for the rest of the day.
     standby: { until: '2026-10-18T19:00:00Z', radius: 10, base: { lat: 53.4328, lng: -2.2051 } },
   },
+]
+
+/**
+ * Seven weeks of finished, paid work before the live jobs, so Money's cash
+ * chart and days to pay read like a real firm's. Ref, work, trade, customer,
+ * who went, the day, the price before VAT in pence, and the days the customer
+ * took to pay.
+ */
+const past: [string, string, Trade, string, string, string, number, number][] = [
+  ['0961', 'Boiler service', 'heating', 'cus_04', 'opr_01', '2026-09-01', 9500, 7],
+  ['0963', 'Leaking stopcock', 'plumbing', 'cus_01', 'opr_03', '2026-09-03', 14500, 5],
+  ['0967', 'Towel rail swap, staff toilets', 'plumbing', 'cus_03', 'opr_03', '2026-09-08', 26000, 6],
+  ['0970', 'Landlord gas safety, 3 flats', 'gas', 'cus_02', 'opr_01', '2026-09-10', 25500, 14],
+  ['0974', 'Unvented cylinder service', 'heating', 'cus_06', 'opr_01', '2026-09-15', 39000, 6],
+  ['0976', 'Radiator swap, lounge', 'heating', 'cus_05', 'opr_03', '2026-09-17', 34000, 4],
+  ['0985', 'Outside tap and isolation valve', 'plumbing', 'cus_01', 'opr_03', '2026-09-23', 12000, 2],
+  ['0990', 'Cellar pipework reroute', 'plumbing', 'cus_03', 'opr_03', '2026-09-29', 48000, 7],
+  ['0993', 'Boiler service', 'heating', 'cus_01', 'opr_01', '2026-10-01', 9500, 2],
+  ['1004', 'Shower valve cartridge', 'plumbing', 'cus_05', 'opr_03', '2026-10-06', 16500, 7],
+  ['1006', 'Magnetic filter fit', 'heating', 'cus_04', 'opr_01', '2026-10-07', 21000, 5],
 ]
 
 export const jobs: Job[] = [
@@ -166,6 +186,12 @@ export const jobs: Job[] = [
     lines: [{ id: 'li_18', kind: 'labour', description: 'Void property gas and electric checks', quantity: 1, unitPrice: 153333 }],
     checks: [],
   },
+  ...past.map(([n, title, trade, cus, op, day, net]): Job => ({
+    id: `job_${n}`, ref: `J-${n}`, title, trade, status: 'paid', priority: 'normal',
+    customerId: cus, siteId: cus.replace('cus', 'sit'), operatorIds: [op], start: `${day}T08:00:00Z`, end: `${day}T11:00:00Z`,
+    lines: [{ id: `li_${n}`, kind: 'labour', description: title, quantity: 1, unitPrice: net }],
+    checks: [],
+  })),
 ]
 
 export const certificates: Certificate[] = [
@@ -221,6 +247,15 @@ export const invoices: Invoice[] = [
   { id: 'inv_2201', ref: 'INV-2201', jobId: 'job_1011', customerId: 'cus_03', lines: [li('d', 'Glass washer drain, new trap', 35417)], vatRate: 2000, status: 'part_paid', issuedAt: '2026-10-02T11:00:00Z', dueAt: '2026-10-15T23:00:00Z', paidAmount: 20000 },
   { id: 'inv_2206', ref: 'INV-2206', jobId: 'job_1022', customerId: 'cus_06', lines: [li('e', 'Emergency lighting test, 14 fittings', 42000)], vatRate: 2000, status: 'paid', issuedAt: '2026-10-14T11:00:00Z', dueAt: '2026-10-28T00:00:00Z', paidAmount: 50400 },
   { id: 'inv_2208', ref: 'INV-2208', jobId: 'job_1039', customerId: 'cus_05', lines: [li('f', 'TRV, Drayton TRV4', 2200, 6, 'material'), li('g', 'Drain down, fit, refill', 5500, 3)], vatRate: 2000, status: 'draft', paidAmount: 0 },
+  ...past.map(([n, title, , cus, , day, net, took], k): Invoice => {
+    const issued = `${day}T16:00:00Z`
+    const gross = Math.round(net * 1.2)
+    return {
+      id: `inv_${2170 + k * 2}`, ref: `INV-${2170 + k * 2}`, jobId: `job_${n}`, customerId: cus, lines: [li(`p${n}`, title, net)], vatRate: 2000,
+      status: 'paid', issuedAt: issued, dueAt: new Date(Date.parse(issued) + 14 * 86_400_000).toISOString(), paidAmount: gross,
+      payments: [{ amount: gross, method: 'bank_transfer', at: new Date(Date.parse(issued) + took * 86_400_000).toISOString() }],
+    }
+  }),
 ]
 
 export const quotes: Quote[] = [

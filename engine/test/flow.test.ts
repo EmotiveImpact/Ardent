@@ -63,7 +63,7 @@ test('the office books, and only owners manage people', async () => {
   await assert.rejects(as('jo').admin.setRole('usr_kofi', 'owner'), { code: 'forbidden' })
   await assert.rejects(as('dan').admin.setRole('usr_dan', 'field'), { code: 'forbidden' }, "owners can't demote themselves")
   await as('dan').admin.setRole('usr_kofi', 'office')
-  assert.equal((await as('kofi').client.jobs.list()).length, 15, 'promoted to office, Kofi now sees every job')
+  assert.equal((await as('kofi').client.jobs.list()).length, 26, 'promoted to office, Kofi now sees every job')
 })
 
 test('the file store keeps records between restarts', async () => {
