@@ -149,7 +149,7 @@ export function BriefPanel({ brief, onTuck, countdown, onFirstLook, className }:
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_320px_at_0%_0%,#ff6a1a12,transparent_70%)]" />
       <div aria-hidden className="dot-grid pointer-events-none absolute inset-y-0 right-0 w-1/2 [mask-image:linear-gradient(to_left,black,transparent)] opacity-60" />
 
-      <div className="relative flex flex-col gap-7 p-6 sm:p-8">
+      <div className="relative flex flex-col gap-5 p-5 sm:p-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-2">
             <span className="font-display text-[12px] tracking-[.24em] uppercase">Morning brief</span>
@@ -165,15 +165,16 @@ export function BriefPanel({ brief, onTuck, countdown, onFirstLook, className }:
           )}
         </header>
 
-        <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="flex min-w-0 flex-col gap-5">
-            <p className="font-display text-[30px] leading-[38px] tracking-[.02em] sm:text-[38px] sm:leading-[46px]">
+        {/* The morning and what waits for a yes side by side from a small laptop up, so the brief stays short. */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="flex min-w-0 flex-col gap-3.5">
+            <p className="font-display text-[24px] leading-[30px] tracking-[.02em] sm:text-[28px] sm:leading-[34px]">
               {greeting()}
               {name ? `, ${name}` : ''}.
             </p>
-            <ol className="flex flex-col gap-3">
+            <ol className="flex flex-col gap-2">
               {points.map((line, i) => (
-                <li key={i} className={cn('flex gap-4', i === 0 ? 'text-[20px] leading-[28px]' : 'text-[17px] leading-[25px] text-[#c8c8c8]')}>
+                <li key={i} className={cn('flex gap-3', i === 0 ? 'text-[17px] leading-[24px]' : 'text-[15px] leading-[22px] text-[#c8c8c8]')}>
                   <span className="w-6 shrink-0 pt-1 font-mono text-[11px] text-faint">{String(i + 1).padStart(2, '0')}</span>
                   {line}
                 </li>
@@ -181,27 +182,29 @@ export function BriefPanel({ brief, onTuck, countdown, onFirstLook, className }:
             </ol>
           </div>
 
-          <aside className="flex flex-col justify-between gap-4 rounded-[14px] bg-background/55 p-5">
-            <span className="cap text-[11px] text-muted">Waiting for your yes</span>
-            <span className="font-display text-[56px] leading-none tabular">{brief.waiting}</span>
-            <span className="text-[13px] leading-[19px] text-muted">{brief.waiting ? 'Drafted by Ardent from your records. Nothing goes until you say so.' : 'Nothing waiting. Ardent drafts the next one when a job finishes or an invoice runs late.'}</span>
+          <aside className="flex flex-col gap-3 rounded-[14px] bg-background/55 p-4">
+            <span className="flex items-baseline justify-between gap-3">
+              <span className="cap text-[11px] text-muted">Waiting for your yes</span>
+              <span className="font-display text-[34px] leading-none tabular">{brief.waiting}</span>
+            </span>
+            <span className="text-[12.5px] leading-[18px] text-muted">{brief.waiting ? 'Drafted by Ardent from your records. Nothing goes until you say so.' : 'Nothing waiting. Ardent drafts the next one when a job finishes or an invoice runs late.'}</span>
             {brief.waiting > 0 && (
-              <Link to="/approvals" className="inline-flex h-10 items-center justify-center rounded-lg bg-foreground px-4 text-[13px] font-medium text-background outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
+              <Link to="/approvals" className="mt-auto inline-flex h-9 items-center justify-center rounded-lg bg-foreground px-4 text-[13px] font-medium text-background outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
                 Go through them
               </Link>
             )}
           </aside>
         </div>
 
-        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {(['done', 'invoiced', 'cash', 'overdue', 'today'] as const).map((k) => {
             const x = n[k]
             if (!x) return null
             const warn = k === 'overdue' && x.value > 0
             return (
-              <div key={k} className="flex flex-col gap-2 rounded-[12px] bg-background/55 px-4 py-3.5">
-                <dt className="cap text-[10.5px] text-muted">{x.label}</dt>
-                <dd className={cn('font-mono text-[24px] leading-none tabular', warn && 'text-warn')}>{x.money ? pounds(x.value) : x.value}</dd>
+              <div key={k} className="flex min-w-0 flex-col gap-1.5 rounded-[12px] bg-background/55 px-3.5 py-2.5">
+                <dt className="cap truncate text-[10px] text-muted">{x.label}</dt>
+                <dd className={cn('font-mono text-[19px] leading-none tabular', warn && 'text-warn')}>{x.money ? pounds(x.value) : x.value}</dd>
                 {x.note && <dd className="font-mono text-[11px] text-muted">{x.note}</dd>}
               </div>
             )
