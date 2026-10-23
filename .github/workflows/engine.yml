@@ -1,0 +1,36 @@
+name: Engine
+
+on:
+  pull_request:
+    paths: ['engine/**', 'core/**', '.github/workflows/engine.yml']
+  push:
+    branches: [main]
+    paths: ['engine/**', 'core/**', '.github/workflows/engine.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  core:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build

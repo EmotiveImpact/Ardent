@@ -1,220 +1,368 @@
-import { useState, type CSSProperties } from 'react'
-import { toast } from 'sonner'
-import { Banknote, FileText, Hourglass, PoundSterling, Send, TrendingUp } from 'lucide-react'
-import { Panel, PanelHeader, Well, PageHeader } from '@/components/ui/panel'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { byId, customers, invoiceTotal, invoices, quotes, weeklyCash } from '@/data/mock'
+import { useState } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router'
+import { pounds, totals } from '@kit'
+import { PageBar } from '@/components/layout/bar'
+import { Card, PageHead, RowButton, SectionHead } from '@/components/ardent/parts'
+import { MoneyLoading, StateMark } from '@/components/ardent/money-parts'
+import { PaymentsPart } from '@/components/ardent/money-payments'
+import { capDate, daysLate, isLate, OWING, quoteState, say, invoiceState } from '@/components/ardent/money-lib'
+import { useBook, type Book } from '@/data/ardent'
 import type { Invoice, Quote } from '@/data/model'
-import { shortDate } from '@/lib/format'
-import { cn, formatGBP } from '@/lib/utils'
-import { useCountUp } from '@/hooks/use-now'
+import { addDays, find, invoiceOwed, invoiceTotal, today, weekStart } from '@/lib/jobs'
+import { cn } from '@/lib/utils'
 
-const invoiceTone: Record<Invoice['status'], 'neutral' | 'info' | 'warn' | 'ok' | 'danger'> = {
-  draft: 'neutral',
-  sent: 'info',
-  part_paid: 'warn',
-  paid: 'ok',
-  overdue: 'danger',
-  void: 'neutral',
-}
-const quoteTone: Record<Quote['status'], 'neutral' | 'info' | 'ok' | 'danger' | 'warn'> = {
-  draft: 'neutral',
-  sent: 'info',
-  accepted: 'ok',
-  declined: 'danger',
-  expired: 'warn',
-}
-const label = (s: string) => (s.charAt(0).toUpperCase() + s.slice(1)).replace('_', '')
-
-function Stat({ icon, title, pence, note, tone, index }: { icon: React.ReactNode; title: string; pence: number; note: string; tone?: string; index: number }) {
-  const v = useCountUp(pence)
-  return (
-    <Panel style={{ '--i': index } as CSSProperties}>
-      <PanelHeader icon={icon} title={title} />
-      <Well className="px-3 py-3">
-        <p className={cn('font-mono text-[26px] leading-none tracking-tight tabular', tone)}>{formatGBP(Math.round(v))}</p>
-      </Well>
-      <p className="px-2.5 pt-2.5 pb-1 text-[12px] text-muted">{note}</p>
-    </Panel>
-  )
-}
-
-function CashChart() {
-  const [hover, setHover] = useState<number | null>(null)
-  const max = Math.max(...weeklyCash.flatMap((w) => [w.invoiced, w.paid]))
-  const h = hover ?? weeklyCash.length - 1
-  return (
-    <Panel style={{ '--i': 4 } as CSSProperties}>
-      <PanelHeader
-        icon={<TrendingUp />}
-        title="Cash in, last 8 weeks"
-        actions={
-          <span className="flex items-center gap-3 text-[11px] text-muted">
-            <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-[2px] bg-ember" /> Paid
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-[2px] bg-[#3a3a3a]" /> Invoiced
-            </span>
-          </span>
-        }
-      />
-      <Well className="flex flex-1 flex-col p-4">
-        <div className="mb-4 flex items-baseline gap-3">
-          <span className="font-mono text-[22px] tabular">£{weeklyCash[h].paid.toLocaleString('en-GB')}</span>
-          <span className="text-[12px] text-muted">paid w/c {weeklyCash[h].week}</span>
-          <span className="ml-auto font-mono text-[12px] text-faint">invoiced £{weeklyCash[h].invoiced.toLocaleString('en-GB')}</span>
-        </div>
-        <div className="flex min-h-44 flex-1 items-end gap-3" onMouseLeave={() => setHover(null)}>
-          {weeklyCash.map((w, i) => (
-            <div key={w.week} className="flex h-full flex-1 flex-col justify-end gap-2" onMouseEnter={() => setHover(i)}>
-              <div className="flex flex-1 items-end justify-center gap-1">
-                <span
-                  className="animate-grow w-full max-w-4 rounded-t-[3px] bg-[#333]"
-                  style={{ '--i': i, height: `${(w.invoiced / max) * 100}%`, '--o': h === i ? 1 : 0.6 } as CSSProperties}
-                />
-                <span
-                  className="animate-grow w-full max-w-4 rounded-t-[3px] bg-gradient-to-t from-ember/50 to-ember"
-                  style={
-                    {
-                      '--i': i,
-                      height: `${(w.paid / max) * 100}%`,
-                      '--o': h === i ? 1 : 0.55,
-                      boxShadow: h === i ? '0 0 16px -2px var(--ember)' : undefined,
-                    } as CSSProperties
-                  }
-                />
-              </div>
-              <span className={cn('text-center font-mono text-[10px] text-faint', h === i && 'text-foreground')}>{w.week}</span>
-            </div>
-          ))}
-        </div>
-      </Well>
-    </Panel>
-  )
+/** The day in money, the way the owner would say it. */
+function summary(book: Book) {
+  const owing = book.invoices.filter((i) => OWING.includes(i.status))
+  const late = owing.filter((i) => isLate(i))
+  const byCustomer = new Map<string, number>()
+  for (const i of late) byCustomer.set(i.customerId, (byCustomer.get(i.customerId) ?? 0) + invoiceOwed(i))
+  const drafts = book.invoices.filter((i) => i.status === 'draft').length
+  const tail = drafts ? ` ${say(drafts)} ${drafts === 1 ? 'draft' : 'drafts'} still to send.` : ''
+  if (byCustomer.size) {
+    const worst = [...byCustomer.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    const name = find(book.customers, worst)?.name ?? 'The biggest'
+    const n = byCustomer.size
+    return `${say(n)} ${n === 1 ? 'customer is' : 'customers are'} late. ${name} is the one to ring.${tail}`
+  }
+  if (owing.length) return `Nothing is late. ${say(owing.length)} ${owing.length === 1 ? 'invoice is' : 'invoices are'} out, waiting to be paid.${tail}`
+  return `Nothing is owed. Every invoice sent has been paid.${tail}`
 }
 
 export function Money() {
-  const [tab, setTab] = useState('invoices')
-  const [rows, setRows] = useState(invoices)
-  const outstanding = rows.filter((i) => ['sent', 'part_paid', 'overdue'].includes(i.status)).reduce((s, i) => s + invoiceTotal(i) - i.paidAmount, 0)
-  const overdue = rows.filter((i) => i.status === 'overdue').reduce((s, i) => s + invoiceTotal(i) - i.paidAmount, 0)
-  const paid = weeklyCash.slice(-4).reduce((s, w) => s + w.paid * 100, 0)
-  const pipeline = quotes.filter((q) => q.status === 'sent').reduce((s, q) => s + q.lines.reduce((a, l) => a + l.quantity * l.unitPrice, 0), 0)
+  const { data: book } = useBook()
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'quotes' ? 'quotes' : 'invoices'
 
-  const chase = (inv: Invoice) => {
-    toast.success(`Reminder sent for ${inv.ref}`, { description: `${byId(customers, inv.customerId)?.name} by text and email.` })
-  }
-  const send = (inv: Invoice) => {
-    setRows((r) => r.map((x) => (x.id === inv.id ? { ...x, status: 'sent', issuedAt: '2026-10-18T10:03:00Z', dueAt: '2026-11-01T00:00:00Z' } : x)))
-    toast.success(`${inv.ref} sent`, { description: 'Due 1 Nov. Card link included.' })
-  }
+  // Old links put the invoice or quote in the query. They have their own pages now.
+  const oldInvoice = params.get('invoice')
+  const oldQuote = params.get('quote')
+  if (oldInvoice) return <Navigate to={`/invoices/${oldInvoice}`} replace />
+  if (oldQuote) return <Navigate to={`/quotes/${oldQuote}`} replace />
+
+  const owing = book?.invoices.filter((i) => OWING.includes(i.status)) ?? []
+  const late = owing.filter((i) => isLate(i))
+  const out = book?.quotes.filter((q) => q.status === 'sent') ?? []
 
   return (
-    <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-      <PageHeader eyebrow="Invoices, payments and cash in" title="Money" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat index={0} icon={<Hourglass />} title="Outstanding" pence={outstanding} note={`${rows.filter((i) => ['sent', 'part_paid', 'overdue'].includes(i.status)).length} invoices waiting`} />
-        <Stat index={1} icon={<PoundSterling />} title="Overdue" pence={overdue} tone="text-danger" note="Northgate Lettings, 12 days late" />
-        <Stat index={2} icon={<Banknote />} title="Paid, last 4 weeks" pence={paid} tone="text-ok" note="Average 6 days to pay" />
-        <Stat index={3} icon={<FileText />} title="Quotes out" pence={pipeline} note="1 quote awaiting a yes" />
-      </div>
+    <div className="flex flex-col gap-10 pb-6">
+      <PageBar crumbs={[{ label: 'Money' }]} />
+      <PageHead
+        title="Money"
+        book={book}
+        sub={book ? summary(book) : ' '}
+        className="pb-0"
+        figures={
+          book && [
+            { label: 'Owed to you', value: pounds(owing.reduce((s, i) => s + invoiceOwed(i), 0)), note: `${owing.length} ${owing.length === 1 ? 'invoice' : 'invoices'} waiting` },
+            { label: 'Late', value: pounds(late.reduce((s, i) => s + invoiceOwed(i), 0)), tone: late.length ? 'warn' : undefined, note: lateNote(book, late) },
+            { label: 'Paid in', value: pounds(book.invoices.reduce((s, i) => s + i.paidAmount, 0)), note: payDays(book) },
+            { label: 'Quotes out', value: pounds(out.reduce((s, q) => s + totals(q).total, 0)), note: `${out.length} ${out.length === 1 ? 'quote' : 'quotes'} waiting on a yes` },
+          ]
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
-        <CashChart />
-        <Panel style={{ '--i': 5 } as CSSProperties}>
-          <PanelHeader
-            icon={<FileText />}
-            title={
-              <Tabs value={tab} onValueChange={setTab}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="invoices">Invoices</TabsTrigger>
-                  <TabsTrigger value="quotes">Quotes</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            }
-            className="h-11"
-          />
-          <Well className="overflow-x-auto">
-            {tab === 'invoices' ? (
-              <table className="w-full min-w-[620px] text-left text-[13px]">
-                <thead className="text-muted">
-                  <tr className="border-b ">
-                    <th className="h-10 px-3 font-normal">Invoice</th>
-                    <th className="px-3 font-normal">Customer</th>
-                    <th className="px-3 font-normal">Due</th>
-                    <th className="px-3 text-right font-normal">Amount</th>
-                    <th className="px-3 text-right font-normal">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((inv) => (
-                    <tr key={inv.id} className="group border-b last:border-0 hover:bg-white/[0.025]">
-                      <td className="h-12 px-3 font-mono text-[12px]">{inv.ref}</td>
-                      <td className="px-3">{byId(customers, inv.customerId)?.name}</td>
-                      <td className={cn('px-3 font-mono text-[12px] text-muted', inv.status === 'overdue' && 'text-danger')}>
-                        {inv.dueAt ? shortDate(inv.dueAt) : '·'}
-                      </td>
-                      <td className="px-3 text-right font-mono tabular">
-                        {formatGBP(invoiceTotal(inv))}
-                        {inv.status === 'part_paid' && <span className="block text-[11px] text-faint">{formatGBP(inv.paidAmount)} paid</span>}
-                      </td>
-                      <td className="px-3 text-right">
-                        <span className="inline-flex items-center gap-2">
-                          {inv.status === 'draft' && (
-                            <Button size="xs" variant="outline" className="h-6 opacity-0 group-hover:opacity-100" onClick={() => send(inv)}>
-                              <Send /> Send
-                            </Button>
-                          )}
-                          {(inv.status === 'overdue' || inv.status === 'part_paid') && (
-                            <Button size="xs" variant="outline" className="h-6 opacity-0 group-hover:opacity-100" onClick={() => chase(inv)}>
-                              Chase
-                            </Button>
-                          )}
-                          <Badge tone={invoiceTone[inv.status]} dot>
-                            {label(inv.status)}
-                          </Badge>
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <table className="w-full min-w-[620px] text-left text-[13px]">
-                <thead className="text-muted">
-                  <tr className="border-b ">
-                    <th className="h-10 px-3 font-normal">Quote</th>
-                    <th className="px-3 font-normal">For</th>
-                    <th className="px-3 font-normal">Customer</th>
-                    <th className="px-3 font-normal">Valid to</th>
-                    <th className="px-3 text-right font-normal">Value</th>
-                    <th className="px-3 text-right font-normal">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quotes.map((q) => (
-                    <tr key={q.id} className="border-b last:border-0 hover:bg-white/[0.025]">
-                      <td className="h-12 px-3 font-mono text-[12px]">{q.ref}</td>
-                      <td className="px-3">{q.lines[0]?.description}</td>
-                      <td className="px-3 text-muted">{byId(customers, q.customerId)?.name}</td>
-                      <td className="px-3 font-mono text-[12px] text-muted">{shortDate(q.validUntil)}</td>
-                      <td className="px-3 text-right font-mono tabular">{formatGBP(q.lines.reduce((a, l) => a + l.quantity * l.unitPrice, 0))}</td>
-                      <td className="px-3 text-right">
-                        <Badge tone={quoteTone[q.status]} dot>
-                          {label(q.status)}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Well>
-        </Panel>
-      </div>
+      {!book ? (
+        <MoneyLoading />
+      ) : (
+        <div className="flex flex-col gap-5">
+          <CashChart book={book} />
+          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-3">
+            <Card className="min-w-0 px-4 pt-4 pb-2 sm:px-[22px] sm:pt-[18px] xl:col-span-2">
+              <div role="tablist" aria-label="Show" className="flex gap-1.5 pb-2.5">
+                {(['invoices', 'quotes'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === t}
+                    onClick={() => setParams(t === 'quotes' ? { tab: 'quotes' } : {}, { replace: true })}
+                    className={cn(
+                      'h-8 rounded-full px-3.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60',
+                      tab === t ? 'bg-foreground text-background' : 'bg-raised text-foreground hover:bg-[#262626]',
+                    )}
+                  >
+                    {t === 'invoices' ? 'Invoices' : 'Quotes'} <span className={cn('font-mono', tab === t ? 'text-faint' : 'text-muted')}>{t === 'invoices' ? book.invoices.length : book.quotes.length}</span>
+                  </button>
+                ))}
+              </div>
+              {tab === 'invoices' ? <Invoices book={book} /> : <Quotes book={book} />}
+            </Card>
+
+            <div className="flex min-w-0 flex-col gap-5">
+              <RingToday book={book} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {book && <PaymentsPart book={book} />}
     </div>
+  )
+}
+
+const invCols = 'lg:grid-cols-[84px_minmax(120px,1.6fr)_64px_64px_64px_96px_96px]'
+
+function Invoices({ book }: { book: Book }) {
+  // Drafts first, then newest sent.
+  const rows = [...book.invoices].sort((a, b) => (b.issuedAt ?? '9').localeCompare(a.issuedAt ?? '9') || b.ref.localeCompare(a.ref))
+  if (!rows.length) return <p className="py-10 text-center text-[14px] text-muted">No invoices yet. When a job is done, draft one from New, Invoice.</p>
+  return (
+    <div>
+      <div className={cn('cap hidden gap-3.5 py-3 lg:grid', invCols)}>
+        <span>Invoice</span>
+        <span>Customer</span>
+        <span>Job</span>
+        <span>Sent</span>
+        <span>Due</span>
+        <span>State</span>
+        <span className="text-right">Amount</span>
+      </div>
+      <ul className="rows shadow-[inset_0_1px_0_var(--line)] lg:shadow-none">
+        {rows.map((i) => (
+          <li key={i.id}>
+            <InvoiceRow inv={i} book={book} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function InvoiceRow({ inv, book }: { inv: Invoice; book: Book }) {
+  const st = invoiceState(inv)
+  const customer = find(book.customers, inv.customerId)
+  const job = find(book.jobs, inv.jobId)
+  const warnDue = isLate(inv) || inv.status === 'part_paid'
+  const due = inv.dueAt ? capDate(inv.dueAt) : '--'
+  return (
+    <Link
+      to={`/invoices/${inv.id}`}
+      className={cn(
+        '-mx-2 flex items-center gap-3.5 rounded-lg px-2 py-3 outline-none transition-colors hover:bg-white/[0.025] focus-visible:ring-2 focus-visible:ring-ring/60 lg:grid lg:py-[13px]',
+        invCols,
+        inv.status === 'paid' && 'opacity-55',
+      )}
+    >
+      {/* Wide: one grid row. */}
+      <span className="hidden font-mono text-[12px] lg:block">{inv.ref}</span>
+      <span className="hidden min-w-0 truncate text-[14px] lg:block">{customer?.name}</span>
+      <span className="hidden font-mono text-[12px] text-muted lg:block">{job?.ref}</span>
+      <span className="hidden font-mono text-[12px] text-muted lg:block">{inv.issuedAt ? capDate(inv.issuedAt) : 'NOT YET'}</span>
+      <span className={cn('hidden font-mono text-[12px] lg:block', warnDue ? 'text-warn' : 'text-muted')}>{due}</span>
+      <StateMark dot={st.dot} className="hidden text-[13px] lg:inline-flex">
+        {st.label}
+      </StateMark>
+      <span className="hidden text-right font-mono text-[13px] tabular lg:block">{pounds(invoiceTotal(inv), { always: true })}</span>
+      {/* Narrow: two lines. */}
+      <span className="min-w-0 flex-1 lg:hidden">
+        <span className="block truncate text-[14px]">{customer?.name}</span>
+        <span className="mt-1 block truncate font-mono text-[11px] text-muted">
+          {inv.ref} <span className="text-faint">·</span> {job?.ref} <span className="text-faint">·</span> <span className={cn(warnDue && 'text-warn')}>DUE {due}</span>
+        </span>
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-1 lg:hidden">
+        <span className="font-mono text-[13px] tabular">{pounds(invoiceTotal(inv), { always: true })}</span>
+        <StateMark dot={st.dot} className="text-[12px] text-muted">
+          {st.label}
+        </StateMark>
+      </span>
+    </Link>
+  )
+}
+
+const quoteCols = 'lg:grid-cols-[64px_minmax(120px,1.4fr)_minmax(100px,1fr)_64px_72px_92px_92px]'
+
+function Quotes({ book }: { book: Book }) {
+  const day = today()
+  // Drafts first, then newest sent.
+  const rows = [...book.quotes].sort((a, b) => (b.sentAt ?? '9').localeCompare(a.sentAt ?? '9') || b.ref.localeCompare(a.ref))
+  if (!rows.length) return <p className="py-10 text-center text-[14px] text-muted">No quotes yet. Log an enquiry and write one from its job page.</p>
+  return (
+    <div>
+      <div className={cn('cap hidden gap-3.5 py-3 lg:grid', quoteCols)}>
+        <span>Quote</span>
+        <span>For</span>
+        <span>Customer</span>
+        <span>Sent</span>
+        <span>Good till</span>
+        <span>State</span>
+        <span className="text-right">Value</span>
+      </div>
+      <ul className="rows shadow-[inset_0_1px_0_var(--line)] lg:shadow-none">
+        {rows.map((q) => (
+          <li key={q.id}>
+            <QuoteRow q={q} book={book} day={day} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function QuoteRow({ q, book, day }: { q: Quote; book: Book; day: string }) {
+  const st = quoteState(q, day)
+  const customer = find(book.customers, q.customerId)
+  const job = find(book.jobs, q.jobId)
+  const what = job?.title ?? q.lines[0]?.description ?? 'Quote'
+  const till = capDate(`${q.validUntil}T12:00:00Z`)
+  // Options not yet answered: the cheapest is what it starts from.
+  const total = q.options && !q.chosen ? `FROM ${pounds(Math.min(...q.options.map((o) => totals(o).total)))}` : pounds(totals(q).total, { always: true })
+  return (
+    <Link
+      to={`/quotes/${q.id}`}
+      className={cn(
+        '-mx-2 flex items-center gap-3.5 rounded-lg px-2 py-3 outline-none transition-colors hover:bg-white/[0.025] focus-visible:ring-2 focus-visible:ring-ring/60 lg:grid lg:py-[13px]',
+        quoteCols,
+        (q.status === 'declined' || q.status === 'expired') && 'opacity-55',
+      )}
+    >
+      <span className="hidden font-mono text-[12px] lg:block">{q.ref}</span>
+      <span className="hidden min-w-0 truncate text-[14px] lg:block">{what}</span>
+      <span className="hidden min-w-0 truncate text-[13px] text-muted lg:block">{customer?.name}</span>
+      <span className="hidden font-mono text-[12px] text-muted lg:block">{q.sentAt ? capDate(q.sentAt) : 'NOT YET'}</span>
+      <span className={cn('hidden font-mono text-[12px] lg:block', st.dot === 'warn' ? 'text-warn' : 'text-muted')}>{till}</span>
+      <StateMark dot={st.dot} className="hidden text-[13px] lg:inline-flex">
+        {st.label}
+      </StateMark>
+      <span className="hidden text-right font-mono text-[13px] tabular lg:block">{total}</span>
+      <span className="min-w-0 flex-1 lg:hidden">
+        <span className="block truncate text-[14px]">{what}</span>
+        <span className="mt-1 block truncate font-mono text-[11px] text-muted">
+          {q.ref} <span className="text-faint">·</span> {customer?.name}
+        </span>
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-1 lg:hidden">
+        <span className="font-mono text-[13px] tabular">{total}</span>
+        <StateMark dot={st.dot} className="text-[12px] text-muted">
+          {st.label}
+        </StateMark>
+      </span>
+    </Link>
+  )
+}
+
+/** Under Late: who is latest, and by how long. */
+function lateNote(book: Book, late: Invoice[]) {
+  if (!late.length) return 'Nothing late'
+  const worst = [...late].sort((a, b) => daysLate(b) - daysLate(a))[0]
+  const d = daysLate(worst)
+  return `${find(book.customers, worst.customerId)?.name ?? 'One customer'}, ${d} ${d === 1 ? 'day' : 'days'} late`
+}
+
+/**
+ * How long customers take to pay: from the invoice going out to the payment
+ * that cleared it, across every paid invoice with its payments on record.
+ */
+function payDays(book: Book): string | undefined {
+  const days = book.invoices
+    .filter((i) => i.status === 'paid' && i.issuedAt && i.payments?.length)
+    .map((i) => {
+      const last = [...i.payments!].filter((p) => p.amount > 0).sort((a, b) => b.at.localeCompare(a.at))[0]
+      return last ? (Date.parse(last.at) - Date.parse(i.issuedAt!)) / 86_400_000 : undefined
+    })
+    .filter((d): d is number => d !== undefined && d >= 0)
+  if (!days.length) return undefined
+  const avg = Math.max(0, Math.round(days.reduce((s, d) => s + d, 0) / days.length))
+  return avg === 0 ? 'Paid the same day on average' : `Average ${avg} ${avg === 1 ? 'day' : 'days'} to pay`
+}
+
+/** Invoiced each week, and how much of that has been paid, by the week it went out. Full width: the first picture an owner wants. */
+function CashChart({ book }: { book: Book }) {
+  const weeks = Array.from({ length: 8 }, (_, i) => addDays(weekStart(today()), (i - 7) * 7))
+  const data = weeks.map((w, i) => {
+    const sent = book.invoices.filter((inv) => inv.issuedAt && inv.status !== 'void' && weekStart(inv.issuedAt.slice(0, 10)) === w)
+    const d = new Date(`${w}T12:00:00Z`)
+    const newMonth = i === 0 || d.getUTCDate() <= 7
+    return {
+      week: w,
+      day: String(d.getUTCDate()),
+      month: newMonth ? capDate(`${w}T12:00:00Z`).split(' ')[1] : '',
+      invoiced: sent.reduce((s, x) => s + invoiceTotal(x), 0),
+      paid: sent.reduce((s, x) => s + x.paidAmount, 0),
+    }
+  })
+  const [hover, setHover] = useState<number | null>(null)
+  const max = Math.max(1, ...data.map((d) => d.invoiced))
+  const at = hover ?? data.length - 1
+  const h = data[at]
+  const paid8 = data.reduce((s, w) => s + w.paid, 0)
+  const sent8 = data.reduce((s, w) => s + w.invoiced, 0)
+  return (
+    <Card className="flex flex-col gap-5 px-[22px] py-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="cap text-foreground">Cash in, last 8 weeks</span>
+        <span className="cap flex gap-3.5">
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-[2px] bg-[#2e2e2e]" /> Invoiced
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-[2px] bg-ember" /> Paid
+          </span>
+        </span>
+      </div>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <p className="flex items-baseline gap-3">
+          <span className="op-number text-[34px] tabular">{pounds(h.paid)}</span>
+          <span className="text-[13px] text-muted">paid on invoices sent w/c {capDate(`${h.week}T12:00:00Z`).toLowerCase()}</span>
+        </p>
+        <p className="font-mono text-[12px] text-muted">
+          invoiced {pounds(h.invoiced)} <span className="text-faint">·</span> 8 weeks: {pounds(paid8)} of {pounds(sent8)} paid
+        </p>
+      </div>
+      <div className="grid h-[220px] grid-cols-8 items-end gap-3 sm:gap-5" onMouseLeave={() => setHover(null)}>
+        {data.map((w, i) => (
+          <div key={w.week} className="flex h-full items-end gap-[4px]" onMouseEnter={() => setHover(i)} aria-label={`Week of ${w.day} ${w.month}: ${pounds(w.invoiced)} invoiced, ${pounds(w.paid)} paid`} role="img">
+            <span className="flex-1 rounded-t-[3px] bg-[#2e2e2e]" style={{ height: `${Math.max(w.invoiced ? 2 : 0, (w.invoiced / max) * 100)}%` }} />
+            <span
+              className={cn('flex-1 rounded-t-[3px] transition-opacity', i === at ? 'bg-ember shadow-[0_0_18px_var(--ember-soft)]' : 'bg-ember/55')}
+              style={{ height: `${Math.max(w.paid ? 2 : 0, (w.paid / max) * 100)}%` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-8 gap-3 font-mono text-[11px] text-muted sm:gap-5">
+        {data.map((w, i) => (
+          <span key={w.week} className={cn('truncate', i === at && 'text-foreground')}>
+            {w.day}
+            {w.month && <span className="hidden sm:inline"> {w.month}</span>}
+          </span>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+/** Who to chase: late or part-paid invoices, the latest first. */
+function RingToday({ book }: { book: Book }) {
+  const chase = book.invoices.filter((i) => isLate(i) || i.status === 'part_paid').sort((a, b) => daysLate(b) - daysLate(a) || invoiceOwed(b) - invoiceOwed(a))
+  return (
+    <Card className="px-[22px] pt-5 pb-2">
+      <SectionHead title="Ring today" className="pb-1.5" />
+      {!chase.length && <p className="pt-2 pb-4 text-[14px] text-muted">Nobody to chase. Everything sent is in date.</p>}
+      <ul className="rows">
+        {chase.map((i) => {
+          const c = find(book.customers, i.customerId)
+          const d = daysLate(i)
+          return (
+            <li key={i.id} className="flex items-center gap-3 py-3">
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="truncate text-[14px]">{c?.name ?? 'Customer'}</span>
+                <span className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted uppercase">
+                  {c?.phone && (
+                    <a href={`tel:${c.phone.replace(/\s/g, '')}`} className="rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60">
+                      {c.phone}
+                    </a>
+                  )}
+                  {d > 0 && <span>{`${d} ${d === 1 ? 'day' : 'days'} late`}</span>}
+                  {i.status === 'part_paid' && <span>{pounds(invoiceOwed(i), { always: true })} left</span>}
+                </span>
+              </span>
+              <RowButton to={`/invoices/${i.id}`}>Record payment</RowButton>
+            </li>
+          )
+        })}
+      </ul>
+    </Card>
   )
 }

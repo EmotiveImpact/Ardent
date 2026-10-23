@@ -1,61 +1,90 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Card, Cap, Go, Num, OpTitle, openMaps, Plain, ring, ringName, Section, StageTrack, TabBar, TopRow } from '@/components/ardent';
 import { Atmosphere } from '@/components/Atmosphere';
-import { todayJobs } from '@/data/client';
-import { modeById } from '@/data/modes';
+import { HoldToCommit } from '@/components/HoldToCommit';
+import { StandbyCard } from '@/components/Standby';
+import { Dock, ModeChip, SyncChip } from '@/components/ui';
 import type { JobCard } from '@/data/types';
-import { clock, pounds } from '@/format';
-import { useOperator } from '@/state/operator';
-import { DONE, FLAG, STATUS } from '@/theme/status';
-import { color, font, radius, space, tracking } from '@/theme/tokens';
+import { copy } from '@/kit/copy';
+import { clock, duration, relative } from '@/kit/format';
+import { jobDone, priority, toneColor } from '@/kit/states';
+import * as act from '@/sync/actions';
+import { field } from '@/sync/field';
+import { elapsed, hms, nextUp, stageOf, today, useField, useNow, waiting } from '@/sync/hooks';
+import { color, font, space } from '@/theme/tokens';
 
-function greeting() {
-  const h = new Date().getHours();
-  return h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening';
-}
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-function Stat({ value, label }: { value: string; label: string }) {
+/** The job in hand or the next one: what it is, where, and how far along. */
+function Hero({ job, now, first }: { job: JobCard; now: number; first: boolean }) {
+  const router = useRouter();
+  const { day } = useField();
+  const time = day?.time.filter((t) => t.jobId === job.id) ?? [];
+  const live = job.status === 'en_route' ? 'travel' : job.status === 'on_site' ? 'labour' : undefined;
+  const cap = job.status === 'en_route' ? 'On the road' : job.status === 'on_site' ? 'On site' : job.status === 'paused' ? 'Paused' : first ? 'First up' : 'Next up';
+  const flag = job.priority === 'emergency' || job.priority === 'high' ? priority[job.priority] : undefined;
   return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    <Pressable onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })} accessibilityRole="button" accessibilityLabel={`${cap}, ${job.ref}, ${job.title}. Open the job`}>
+      <Card style={{ gap: 14 }}>
+        <View style={styles.heroTop}>
+          <Cap tint={job.status === 'paused' ? color.warn : color.fgMuted}>{cap}</Cap>
+          <View style={styles.heroRef}>
+            {flag && <Cap tint={toneColor[flag.tone]}>{flag.label}</Cap>}
+            <Cap>{job.ref}</Cap>
+          </View>
+        </View>
+        {live ? (
+          <Num size={40} unit={live === 'travel' ? 'travel' : 'on site'}>
+            {hms(elapsed(time, live, now))}
+          </Num>
+        ) : (
+          <Num size={44} unit={job.status === 'booked' ? relative(job.start, now) : 'paused'}>
+            {clock(job.start)}
+          </Num>
+        )}
+        <View>
+          <Text style={styles.heroTitle}>{job.title}</Text>
+          {job.customer && job.site && (
+            <Text style={styles.heroAddr}>
+              {job.customer.name}, {job.site.line1}, {job.site.postcode}
+            </Text>
+          )}
+        </View>
+        <StageTrack at={stageOf(job.status)} style={{ marginVertical: 4 }} />
+        <View style={styles.pair}>
+          {job.site && <Plain title="Directions" icon="route" onPress={() => openMaps(`${job.site!.line1}, ${job.site!.postcode}`)} flex />}
+          {job.customer && <Plain title={`Ring ${ringName(job.customer)}`} icon="phone" onPress={() => ring(job.customer!.phone)} flex />}
+        </View>
+      </Card>
+    </Pressable>
   );
 }
 
-function JobRow({ job, index }: { job: JobCard; index: number }) {
+function LaterRow({ job, index }: { job: JobCard; index: number }) {
   const router = useRouter();
-  const s = STATUS[job.status];
-  const done = DONE.has(job.status);
-  const flag = FLAG[job.priority];
+  const done = jobDone.has(job.status);
   return (
-    <Animated.View entering={FadeInDown.delay(120 + index * 70).duration(420)}>
+    <Animated.View entering={FadeInDown.delay(120 + index * 45).duration(400)}>
       <Pressable
         onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })}
         accessibilityRole="button"
-        style={({ pressed }) => [styles.job, pressed && styles.jobPressed, done && { opacity: 0.55 }]}>
-        <View style={styles.jobTime}>
-          <Text style={styles.time}>{clock(job.start)}</Text>
-          <Text style={styles.timeEnd}>{clock(job.end)}</Text>
-        </View>
-        <View style={styles.jobBody}>
-          <View style={styles.jobTop}>
-            <Text style={styles.ref}>{job.ref}</Text>
-            {flag && <Text style={[styles.flag, { color: flag }]}>{job.priority.toUpperCase()}</Text>}
-          </View>
-          <Text style={styles.title}>{job.title}</Text>
-          <Text style={styles.addr}>
-            {job.customer.name} · {job.site.line1}, <Text style={styles.postcode}>{job.site.postcode}</Text>
+        accessibilityLabel={`${clock(job.start)}, ${job.title}, ${done ? 'done' : 'to do'}`}
+        style={({ pressed }) => [styles.later, pressed && { opacity: 0.6 }, done && { opacity: 0.45 }]}
+      >
+        <Text style={styles.laterTime}>{clock(job.start)}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.laterTitle} numberOfLines={1}>
+            {job.title}
+          </Text>
+          <Text style={styles.laterAddr} numberOfLines={1}>
+            {done ? 'Done' : [job.customer?.name, job.site?.postcode].filter(Boolean).join(', ')}
           </Text>
         </View>
-        <View style={styles.statusWrap}>
-          <View style={[styles.dot, { backgroundColor: s.tint }]} />
-          <Text style={[styles.status, { color: s.tint }]}>{s.label}</Text>
-        </View>
+        <Text style={styles.laterRef}>{job.ref}</Text>
       </Pressable>
     </Animated.View>
   );
@@ -63,54 +92,110 @@ function JobRow({ job, index }: { job: JobCard; index: number }) {
 
 export default function Today() {
   const router = useRouter();
-  const { mode, me, summary, refresh } = useOperator();
-  const [jobs, setJobs] = useState<JobCard[]>([]);
-  const m = modeById(mode);
+  const snap = useField();
+  const { state, day } = snap;
+  const now = useNow(!!day?.time.some((t) => !t.end), 1000);
 
-  // Reload on focus so a job finished on its own screen shows here straight away.
-  useFocusEffect(
-    useCallback(() => {
-      if (me) todayJobs(me).then(setJobs);
-      refresh();
-    }, [me, refresh]),
-  );
+  if (!day) {
+    return (
+      <View style={styles.root}>
+        <Atmosphere state="on_call" />
+        <SafeAreaView style={styles.empty}>
+          <OpTitle>Today</OpTitle>
+          <Text style={styles.sub}>
+            {state.loading ? 'Getting your day from the office.' : state.loadError ? `${state.loadError}. Pull down to try again.` : "Your day isn't on this phone yet. It comes down the next time there's signal."}
+          </Text>
+          <View style={{ marginTop: space[6] }}>
+            <Plain title="Try again" onPress={() => void field.refresh()} />
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
-  const first = me?.name.split(' ')[0];
+  const jobs = today(day, now);
+  const next = nextUp(jobs);
+  const rest = jobs.filter((j) => j.id !== next?.id);
+  const done = jobs.filter((j) => jobDone.has(j.status)).length;
+  const booked = jobs.reduce((ms, j) => ms + Math.max(0, Date.parse(j.end) - Date.parse(j.start)), 0);
+  const held = waiting(snap) > 0 || state.setAside.length > 0;
+  const open = (id: string) => router.push({ pathname: '/job/[id]', params: { id } });
+
+  const dock = () => {
+    if (!next) return null;
+    switch (next.status) {
+      case 'booked':
+        return (
+          <HoldToCommit
+            label={`Hold to set off for ${next.ref}`}
+            icon="route"
+            onCommit={async () => {
+              await act.setOff(next);
+              open(next.id);
+            }}
+          />
+        );
+      case 'en_route':
+        return <HoldToCommit label="Hold, I've arrived" icon="pin" onCommit={() => void act.arrived(next)} />;
+      case 'paused':
+        return <HoldToCommit label={`Hold, ${copy.resume.toLowerCase()}`} icon="arrow" onCommit={() => void act.backOnIt(next)} />;
+      default:
+        return <Go label={`Open ${next.ref}`} icon="arrow" onPress={() => open(next.id)} />;
+    }
+  };
 
   return (
     <View style={styles.root}>
-      <Atmosphere mode={mode} />
+      <Atmosphere state={day.operator.state} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Change mode" style={styles.modeChip}>
-            <View style={[styles.dot, { backgroundColor: color.ember }]} />
-            <Text style={styles.modeChipText}>{m.label.toUpperCase()}</Text>
-          </Pressable>
-          <Text style={styles.wordmark}>ARDENT</Text>
+        <View style={styles.pad}>
+          <TopRow left={<ModeChip state={day.operator.state} />} right={held ? <SyncChip /> : clock(new Date(now).toISOString())} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeInDown.duration(460)}>
-            <Text style={styles.hello}>
-              {greeting()}
-              {first ? `, ${first}` : ''}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={state.loading} onRefresh={() => void field.refresh()} tintColor={color.fgMuted} />}
+        >
+          <Animated.View entering={FadeInDown.duration(420)}>
+            <OpTitle>Today</OpTitle>
+            <Text style={styles.sub}>
+              {jobs.length ? `${plural(jobs.length, 'job')}, ${duration(booked)} booked.${done ? ` ${done} done.` : ''}` : 'Nothing booked for you today.'}
             </Text>
-            <Text style={styles.headline}>TODAY</Text>
           </Animated.View>
 
-          <View style={styles.stats}>
-            <Stat value={summary ? `${summary.jobsDone}/${summary.jobsToday}` : '–'} label="Jobs" />
-            <View style={styles.rule} />
-            <Stat value={summary ? String(summary.quotesOpen) : '–'} label="Quotes out" />
-            <View style={styles.rule} />
-            <Stat value={summary ? pounds(summary.owedPence) : '–'} label="Owed" />
-          </View>
+          {day.operator.role === 'freelance' && !next && (
+            <Animated.View entering={FadeInDown.delay(40).duration(420)} style={{ marginTop: 22 }}>
+              <StandbyCard />
+            </Animated.View>
+          )}
 
-          <Text style={styles.section}>RUN SHEET</Text>
-          {jobs.map((j, i) => (
-            <JobRow key={j.id} job={j} index={i} />
-          ))}
+          {next ? (
+            <Animated.View entering={FadeInDown.delay(60).duration(420)} style={{ marginTop: 22 }}>
+              <Hero job={next} now={now} first={done === 0} />
+            </Animated.View>
+          ) : (
+            jobs.length > 0 && <Text style={[styles.sub, { marginTop: 22 }]}>That's everything booked for today.</Text>
+          )}
+
+          {rest.length > 0 && (
+            <>
+              <Section label="Later" right={done ? `${done} of ${jobs.length} done` : undefined} />
+              {rest.map((j, i) => (
+                <LaterRow key={j.id} job={j} index={i} />
+              ))}
+            </>
+          )}
+
+          {day.operator.role === 'freelance' && next && (
+            <View style={{ marginTop: 22 }}>
+              <StandbyCard />
+            </View>
+          )}
         </ScrollView>
+
+        {next && <Dock>{dock()}</Dock>}
+        <TabBar />
       </SafeAreaView>
     </View>
   );
@@ -118,55 +203,18 @@ export default function Today() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[6], paddingTop: space[2] },
-  modeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    paddingHorizontal: space[3],
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    backgroundColor: color.raised,
-  },
-  modeChipText: { color: color.fg, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label },
-  wordmark: { color: color.fgFaint, fontFamily: font.display, fontSize: 10, letterSpacing: tracking.label * 2 },
-  scroll: { paddingHorizontal: space[6], paddingTop: space[8], paddingBottom: space[12] },
-  hello: { color: color.fgMuted, fontFamily: font.sans, fontSize: 14 },
-  headline: { color: color.fg, fontFamily: font.display, fontSize: 34, letterSpacing: tracking.display, marginTop: space[1] },
-  stats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: space[6],
-    paddingVertical: space[4],
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: color.line,
-  },
-  stat: { flex: 1 },
-  statValue: { color: color.fg, fontFamily: font.monoMedium, fontSize: 20 },
-  statLabel: { color: color.fgFaint, fontFamily: font.sansMedium, fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
-  rule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: color.line, marginHorizontal: space[3] },
-  section: { color: color.fgFaint, fontFamily: font.display, fontSize: 9, letterSpacing: tracking.label * 1.5, marginTop: space[8], marginBottom: space[3] },
-  job: {
-    flexDirection: 'row',
-    gap: space[3],
-    padding: space[4],
-    marginBottom: space[2],
-    borderRadius: radius.xl,
-    backgroundColor: 'rgba(18,18,18,0.78)',
-  },
-  jobPressed: { backgroundColor: color.raised },
-  jobTime: { width: 44 },
-  time: { color: color.fg, fontFamily: font.monoMedium, fontSize: 13 },
-  timeEnd: { color: color.fgFaint, fontFamily: font.mono, fontSize: 11, marginTop: 2 },
-  jobBody: { flex: 1 },
-  jobTop: { flexDirection: 'row', gap: space[2], alignItems: 'center' },
-  ref: { color: color.fgFaint, fontFamily: font.mono, fontSize: 10.5 },
-  flag: { fontFamily: font.display, fontSize: 8, letterSpacing: tracking.label },
-  title: { color: color.fg, fontFamily: font.sansSemi, fontSize: 15, marginTop: 3 },
-  addr: { color: color.fgMuted, fontFamily: font.sans, fontSize: 12, marginTop: 3 },
-  postcode: { fontFamily: font.mono, fontSize: 11.5 },
-  statusWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 1 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  status: { fontFamily: font.sansMedium, fontSize: 11 },
+  empty: { flex: 1, padding: 22, justifyContent: 'center' },
+  pad: { paddingHorizontal: 22, paddingTop: space[3] },
+  scroll: { paddingHorizontal: 22, paddingTop: 26, paddingBottom: space[8] },
+  sub: { color: color.fgMuted, fontFamily: font.sans, fontSize: 15, lineHeight: 21, marginTop: 6 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroRef: { flexDirection: 'row', gap: 12 },
+  heroTitle: { color: color.fg, fontFamily: font.sansMedium, fontSize: 17 },
+  heroAddr: { color: color.fgMuted, fontFamily: font.sans, fontSize: 14, lineHeight: 20, marginTop: 6 },
+  pair: { flexDirection: 'row', gap: 8 },
+  later: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, paddingVertical: 12, minHeight: 56 },
+  laterTime: { color: color.fgFaint, fontFamily: font.mono, fontSize: 15, width: 48, marginTop: 1 },
+  laterTitle: { color: color.fg, fontFamily: font.sans, fontSize: 15 },
+  laterAddr: { color: color.fgFaint, fontFamily: font.sans, fontSize: 13, marginTop: 4 },
+  laterRef: { color: color.fgFaint, fontFamily: font.mono, fontSize: 12, marginTop: 2 },
 });

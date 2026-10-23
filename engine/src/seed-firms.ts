@@ -1,0 +1,472 @@
+/**
+ * More demo firms beside Mercer, so Ardent HQ has a real spread to look
+ * after: an electrical firm in Stockport, a plumbing and heating firm in
+ * Salford and a fire and security firm in Oldham that is still setting up.
+ * Every place is inside the area the prototype's packed street map covers.
+ *
+ * Written around the demo day like Mercer's records; shiftDemo moves them to
+ * today. Made-up people and addresses throughout.
+ */
+import type { ActionEntry, Automation, Charge, Customer, FirmFollowUp, Invoice, Job, JobReport, JobStatus, LineItem, Priority, ReportSegment, Site, Trade } from '../../core/src/data/model.ts'
+import { ardentFee, stripeFeeEstimate } from '../kit/pay.ts'
+import { FOLLOW_UPS } from '../kit/questions.ts'
+import { buildReport } from '../kit/report.ts'
+import type { Data, Membership, OperatorRow, Organisation, Owned, Role, UsageMonth, User } from './store.ts'
+
+const DAY = '2026-10-18'
+/** A UK wall-clock time on a day (British Summer Time), stored as UTC. */
+const at = (hhmm: string, day = DAY) => new Date(`${day}T${hhmm}:00+01:00`).toISOString().replace('.000', '')
+const daysBefore = (n: number) => new Date(Date.parse(`${DAY}T12:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10)
+const daysAfter = (n: number) => daysBefore(-n)
+
+/** Ardent's own team. */
+export const staffUsers = [{ id: 'usr_edem', email: 'edem@ardent.local', name: 'Edem', role: 'admin' as const }]
+
+interface Person {
+  id: string
+  name: string
+  email: string
+  role: Role
+  /** Their van, when they're on the tools. */
+  op?: { id: string; initials: string; trades: Trade[]; van: string; kind: OperatorRow['role']; reg?: OperatorRow['registrations'] }
+}
+
+interface TodayJob {
+  n: number
+  title: string
+  trade: Trade
+  status: JobStatus
+  priority?: Priority
+  site: number
+  op?: string
+  from: string
+  to: string
+  lines: [string, number, number?][]
+  notes?: string
+}
+
+interface Firm {
+  org: Organisation
+  people: Person[]
+  customers: [string, Customer['kind'], string][]
+  /** line1, town, postcode, lat, lng */
+  sites: [string, string, string, number, number][]
+  today: TodayJob[]
+  /** Where each engineer is now: state, job, minutes away, last van reading. */
+  vans: Record<string, { state: OperatorRow['state']; job?: number; eta?: number; fix?: [number, number, string] }>
+  history: { titles: [string, Trade, number][]; per: number }
+  automation?: Partial<Automation>
+  usage: Omit<UsageMonth, 'month'>[]
+  followUps?: { own: FirmFollowUp[]; off: string[] }
+  log: [string, string, string][]
+}
+
+const hollins: Firm = {
+  org: { id: 'org_hollins', name: 'Hollins Electrical', slug: 'hollins-electrical', industry: 'trades', createdAt: '2026-09-02T09:00:00Z', town: 'Stockport', trades: ['electrical'], stage: 'live', centre: { lat: 53.403, lng: -2.152 } },
+  people: [
+    { id: 'usr_h_sarah', name: 'Sarah Hollins', email: 'sarah@hollins.demo.ardent.local', role: 'owner', op: { id: 'opr_h1', initials: 'SH', trades: ['electrical'], van: 'SK19 HLE', kind: 'owner', reg: [{ body: 'NICEIC', number: 'D-40211', expires: '2027-05-31' }] } },
+    { id: 'usr_h_megan', name: 'Megan Price', email: 'megan@hollins.demo.ardent.local', role: 'office' },
+    { id: 'usr_h_liam', name: 'Liam Doyle', email: 'liam@hollins.demo.ardent.local', role: 'field', op: { id: 'opr_h2', initials: 'LD', trades: ['electrical'], van: 'SK21 HLE', kind: 'operator', reg: [{ body: 'NICEIC', number: 'D-40211', expires: '2027-05-31' }] } },
+    { id: 'usr_h_aisha', name: 'Aisha Khan', email: 'aisha@hollins.demo.ardent.local', role: 'field', op: { id: 'opr_h3', initials: 'AK', trades: ['electrical'], van: 'SK70 HLE', kind: 'operator', reg: [{ body: 'ECS card', number: 'ECS-9921', expires: '2026-11-09' }] } },
+    { id: 'usr_h_connor', name: 'Connor Walsh', email: 'connor@hollins.demo.ardent.local', role: 'field', op: { id: 'opr_h4', initials: 'CW', trades: ['electrical'], van: 'SK68 HLE', kind: 'operator', reg: [{ body: 'ECS card', number: 'ECS-7716', expires: '2027-02-28' }] } },
+    { id: 'usr_h_jake', name: 'Jake Mills', email: 'jake@hollins.demo.ardent.local', role: 'field', op: { id: 'opr_h5', initials: 'JM', trades: ['electrical'], van: 'SK20 HLE', kind: 'operator', reg: [] } },
+    { id: 'usr_h_ben', name: 'Ben Okafor', email: 'ben@hollins.demo.ardent.local', role: 'field', op: { id: 'opr_h6', initials: 'BO', trades: ['electrical'], van: 'SK66 HLE', kind: 'subcontractor', reg: [{ body: 'NAPIT', number: 'N-55102', expires: '2027-01-31' }] } },
+  ],
+  customers: [
+    ['Helen Marsh', 'homeowner', '07700 900311'],
+    ['Edgeley Lettings', 'letting_agent', '0161 496 0410'],
+    ['Priya Desai', 'homeowner', '07700 900312'],
+    ['Bramhall Dental Practice', 'business', '0161 496 0411'],
+    ['Gary Holt', 'landlord', '07700 900313'],
+    ['St Mary\'s Primary School', 'business', '0161 496 0412'],
+    ['Joanne Byrne', 'homeowner', '07700 900314'],
+    ['Reddish Vale Garage', 'business', '0161 496 0413'],
+  ],
+  sites: [
+    ['22 Moor Road', 'Heaton Moor', 'SK4 4LN', 53.4228, -2.1862],
+    ['Flat 2, 9 Castle Street', 'Edgeley', 'SK3 9AB', 53.4008, -2.1702],
+    ['41 Ack Lane East', 'Bramhall', 'SK7 2BE', 53.3601, -2.1628],
+    ['Unit 1, Bramhall Lane', 'Davenport', 'SK3 8TA', 53.3902, -2.1528],
+    ['18 Torkington Road', 'Hazel Grove', 'SK7 4RG', 53.3772, -2.1201],
+    ['Church Lane', 'Marple', 'SK6 7AY', 53.3951, -2.0652],
+    ['6 Wilmslow Road', 'Cheadle', 'SK8 1DW', 53.3932, -2.2131],
+    ['Reddish Vale Road', 'Reddish', 'SK5 7HE', 53.4371, -2.1582],
+  ],
+  today: [
+    { n: 2141, title: 'Consumer unit upgrade', trade: 'electrical', status: 'on_site', site: 0, op: 'opr_h2', from: '08:00', to: '14:00', lines: [['18th Ed. RCBO board, 12 way', 29800], ['Swap board, test, certify', 5200, 5]] },
+    { n: 2142, title: 'EICR, 2-bed flat', trade: 'electrical', status: 'complete', site: 1, op: 'opr_h3', from: '08:30', to: '10:30', lines: [['Landlord EICR', 16500]] },
+    { n: 2143, title: 'EV charger install', trade: 'electrical', status: 'on_site', site: 2, op: 'opr_h1', from: '09:00', to: '15:00', lines: [['7kW charger, tethered', 54900], ['Install and commission', 5200, 4]] },
+    { n: 2144, title: 'Emergency lighting test', trade: 'electrical', status: 'en_route', site: 3, op: 'opr_h3', from: '11:00', to: '12:30', lines: [['Monthly test, 22 fittings', 9500]] },
+    { n: 2145, title: 'Lost power to half the house', trade: 'electrical', status: 'en_route', priority: 'emergency', site: 4, op: 'opr_h4', from: '10:15', to: '12:00', lines: [['Emergency call-out', 11000]], notes: 'RCD keeps tripping, two young children in the house.' },
+    { n: 2146, title: 'Outside lights and sockets', trade: 'electrical', status: 'paused', site: 5, op: 'opr_h5', from: '08:30', to: '16:00', lines: [['IP66 sockets x2, PIR flood x2', 31000]], notes: 'Waiting on armoured cable from the merchant.' },
+    { n: 2147, title: 'Fault finding, kitchen circuit', trade: 'electrical', status: 'booked', site: 6, op: 'opr_h2', from: '14:30', to: '16:30', lines: [['Fault finding', 5200, 2]] },
+    { n: 2148, title: 'School hall EICR', trade: 'electrical', status: 'booked', site: 5, op: 'opr_h6', from: '13:00', to: '17:00', lines: [['Commercial EICR, 40 circuits', 64000]] },
+    { n: 2149, title: 'Garage three-phase supply check', trade: 'electrical', status: 'booked', site: 7, op: 'opr_h1', from: '15:30', to: '17:00', lines: [['Inspection', 9500]] },
+  ],
+  vans: {
+    opr_h1: { state: 'on_site', job: 2143, fix: [53.3604, -2.1631, '10:52'] },
+    opr_h2: { state: 'on_site', job: 2141, fix: [53.4226, -2.1858, '10:55'] },
+    opr_h3: { state: 'en_route', job: 2144, eta: 9, fix: [53.3961, -2.1647, '10:54'] },
+    // These 2 phones stopped syncing at 07:40.
+    opr_h4: { state: 'en_route', job: 2145, eta: 14, fix: [53.4021, -2.1544, '07:40'] },
+    opr_h5: { state: 'on_site', job: 2146, fix: [53.3949, -2.0661, '07:40'] },
+    opr_h6: { state: 'on_call' },
+  },
+  history: { titles: [['EICR', 'electrical', 16500], ['Consumer unit upgrade', 'electrical', 55800], ['Extra sockets', 'electrical', 18500], ['Fault finding', 'electrical', 10400], ['Smoke alarms, mains', 'electrical', 24000]], per: 14 },
+  automation: { limits: { aiPence: 6000, messagesPerCustomerWeek: 3 } as Automation['limits'] },
+  usage: [
+    { ai: 2280, afterHours: 41, voice: 0, texts: 860 },
+    { ai: 3410, afterHours: 112, voice: 0, texts: 1290 },
+  ],
+  followUps: {
+    own: [
+      {
+        id: 'own-out-of-hours-signature',
+        name: 'Signature for out-of-hours work',
+        why: 'Out-of-hours invoices get disputed when nothing was signed on the night.',
+        trades: ['electrical'],
+        after: ['work'],
+        when: [{ says: ['tonight', 'out of hours', 'after hours', 'emergency'] }, { nowhere: ['signed', 'signature'] }],
+        ask: 'This was out of hours. Did the customer sign for the call-out charge?',
+        hint: 'The out-of-hours rate is on the job.',
+        replies: [
+          { label: 'Yes, signed', does: 'note', topic: 'work', note: 'Customer signed for the out-of-hours call-out.' },
+          { label: 'Not there', does: 'note', topic: 'left', note: 'Out of hours, customer not present to sign.' },
+        ],
+        shared: true,
+        by: 'Sarah Hollins',
+        updatedAt: at('19:20', daysBefore(1)),
+      },
+    ],
+    off: ['customer-told'],
+  },
+  log: [
+    ['07:40', 'Aisha Khan', 'Started the day'],
+    ['08:02', 'Liam Doyle', 'On site at J-2141'],
+    ['09:10', 'Sarah Hollins', 'On site at J-2143'],
+    ['10:12', 'Ardent', 'Sent Connor to J-2145, the nearest free electrician'],
+    ['10:31', 'Aisha Khan', 'Signed the report on J-2142'],
+    ['10:40', 'Megan Price', 'Sent INV-0418 to Edgeley Lettings'],
+  ],
+}
+
+const ashby: Firm = {
+  org: { id: 'org_ashby', name: 'Ashby Plumbing & Heating', slug: 'ashby-plumbing', industry: 'trades', createdAt: '2026-09-16T09:00:00Z', town: 'Salford', trades: ['plumbing', 'heating', 'gas'], stage: 'live', centre: { lat: 53.487, lng: -2.345 } },
+  people: [
+    { id: 'usr_a_tom', name: 'Tom Ashby', email: 'tom@ashby.demo.ardent.local', role: 'owner', op: { id: 'opr_a1', initials: 'TA', trades: ['gas', 'heating', 'plumbing'], van: 'MA20 APH', kind: 'owner', reg: [{ body: 'Gas Safe', number: '701 455', expires: '2027-02-28' }] } },
+    { id: 'usr_a_claire', name: 'Claire Ashby', email: 'claire@ashby.demo.ardent.local', role: 'office' },
+    { id: 'usr_a_dev', name: 'Dev Patel', email: 'dev@ashby.demo.ardent.local', role: 'field', op: { id: 'opr_a2', initials: 'DP', trades: ['gas', 'heating'], van: 'MA69 APH', kind: 'operator', reg: [{ body: 'Gas Safe', number: '688 120', expires: '2026-10-31' }] } },
+    { id: 'usr_a_nathan', name: 'Nathan Reid', email: 'nathan@ashby.demo.ardent.local', role: 'field', op: { id: 'opr_a3', initials: 'NR', trades: ['plumbing'], van: 'MA18 APH', kind: 'operator', reg: [] } },
+    { id: 'usr_a_lucy', name: 'Lucy Grant', email: 'lucy@ashby.demo.ardent.local', role: 'field', op: { id: 'opr_a4', initials: 'LG', trades: ['plumbing', 'heating'], van: 'MA71 APH', kind: 'operator', reg: [{ body: 'WRAS', number: 'AP-31190', expires: '2027-09-30' }] } },
+    { id: 'usr_a_mo', name: 'Mo Hussain', email: 'mo@ashby.demo.ardent.local', role: 'field', op: { id: 'opr_a5', initials: 'MH', trades: ['gas', 'heating', 'plumbing'], van: 'MA67 APH', kind: 'subcontractor', reg: [{ body: 'Gas Safe', number: '644 873', expires: '2027-04-30' }] } },
+  ],
+  customers: [
+    ['Karen Lowe', 'homeowner', '07700 900321'],
+    ['Salford Quays Lettings', 'letting_agent', '0161 496 0420'],
+    ['Imran Malik', 'landlord', '07700 900322'],
+    ['The Monton Bakery', 'business', '0161 496 0421'],
+    ['Rachel Green', 'homeowner', '07700 900323'],
+    ['Peter Walsh', 'homeowner', '07700 900324'],
+    ['Worsley Court Care Home', 'business', '0161 496 0422'],
+  ],
+  sites: [
+    ['14 Church Street', 'Eccles', 'M30 0DF', 53.4832, -2.3382],
+    ['Flat 11, Anchorage Quay', 'Salford Quays', 'M50 3YW', 53.4702, -2.2932],
+    ['3 Chorley Road', 'Swinton', 'M27 4AF', 53.5092, -2.3482],
+    ['88 Monton Road', 'Monton', 'M30 9HG', 53.4902, -2.3552],
+    ['27 Flixton Road', 'Urmston', 'M41 5AW', 53.4482, -2.3542],
+    ['5 Old Hall Road', 'Pendleton', 'M6 6AN', 53.4912, -2.2902],
+    ['Worsley Road', 'Worsley', 'M28 2SG', 53.5012, -2.3852],
+  ],
+  today: [
+    { n: 3301, title: 'Annual boiler service', trade: 'gas', status: 'complete', site: 0, op: 'opr_a2', from: '08:00', to: '09:30', lines: [['Boiler service', 8500]] },
+    { n: 3302, title: 'Leak from ceiling', trade: 'plumbing', status: 'on_site', priority: 'emergency', site: 1, op: 'opr_a3', from: '09:00', to: '11:00', lines: [['Emergency call-out', 9500]], notes: 'Water coming through the flat below.' },
+    { n: 3303, title: 'Unvented cylinder service', trade: 'heating', status: 'on_site', site: 2, op: 'opr_a4', from: '10:00', to: '12:00', lines: [['G3 cylinder service', 12500]] },
+    { n: 3304, title: 'Landlord gas safety, 3 flats', trade: 'gas', status: 'en_route', site: 5, op: 'opr_a2', from: '10:30', to: '13:30', lines: [['CP12', 7500, 3]] },
+    { n: 3305, title: 'Power flush, 9 radiators', trade: 'heating', status: 'booked', site: 4, op: 'opr_a5', from: '12:00', to: '17:00', lines: [['Power flush', 45000]] },
+    { n: 3306, title: 'Bakery hot water down', trade: 'plumbing', status: 'en_route', priority: 'high', site: 3, op: 'opr_a1', from: '10:45', to: '12:30', lines: [['Call-out', 7500]] },
+    { n: 3307, title: 'Care home boiler, no heat', trade: 'gas', status: 'booked', priority: 'high', site: 6, op: 'opr_a1', from: '13:30', to: '16:00', lines: [['Commercial boiler repair', 9500, 2]] },
+  ],
+  vans: {
+    opr_a1: { state: 'en_route', job: 3306, eta: 6, fix: [53.4861, -2.3433, '10:55'] },
+    opr_a2: { state: 'en_route', job: 3304, eta: 11, fix: [53.4851, -2.3255, '10:53'] },
+    opr_a3: { state: 'on_site', job: 3302, fix: [53.4704, -2.2929, '10:56'] },
+    opr_a4: { state: 'on_site', job: 3303, fix: [53.5089, -2.3478, '10:51'] },
+    opr_a5: { state: 'workshop', fix: [53.4878, -2.3401, '10:40'] },
+  },
+  history: { titles: [['Boiler service', 'gas', 8500], ['Leaking radiator valve', 'plumbing', 9500], ['New combi boiler', 'gas', 245000], ['Bathroom tap swap', 'plumbing', 12000], ['Landlord gas safety', 'gas', 7500]], per: 12 },
+  automation: { voice: true, limits: { aiPence: 5000, messagesPerCustomerWeek: 3 } as Automation['limits'] },
+  usage: [
+    { ai: 4620, afterHours: 138, voice: 184, texts: 1410 },
+    { ai: 4210, afterHours: 150, voice: 230, texts: 1380 },
+  ],
+  followUps: {
+    own: [
+      {
+        id: 'own-loft-hatch-closed',
+        name: 'Loft hatch closed',
+        why: 'We had 2 complaints this year about a hatch left open over a bedroom.',
+        trades: ['heating', 'plumbing'],
+        after: ['work'],
+        when: [{ says: ['loft', 'header tank', 'expansion vessel'] }, { nowhere: ['hatch closed', 'closed the hatch', 'closed the loft'] }],
+        ask: 'Did you close the loft hatch and put the ladder back?',
+        replies: [
+          { label: 'Yes, all closed', does: 'note', topic: 'work', note: 'Loft hatch closed, ladder put back.' },
+          { label: 'Say what you left', does: 'talk', topic: 'left' },
+        ],
+        shared: true,
+        by: 'Claire Ashby',
+        updatedAt: at('16:05', daysBefore(2)),
+      },
+      {
+        id: 'own-parking-permit',
+        name: 'Parking permit returned',
+        why: 'Salford Quays charges us for permits that go missing.',
+        after: 'any',
+        when: [{ says: ['permit', 'visitor pass'] }],
+        ask: 'Did you hand the parking permit back?',
+        replies: [
+          { label: 'Handed back', does: 'note', topic: 'work', note: 'Parking permit handed back.' },
+          { label: 'Still in the van', does: 'note', topic: 'left', note: 'Parking permit still in the van.' },
+        ],
+        by: 'Claire Ashby',
+        updatedAt: at('12:30', daysBefore(6)),
+      },
+    ],
+    off: [],
+  },
+  log: [
+    ['07:55', 'Dev Patel', 'Started the day'],
+    ['08:58', 'Ardent', 'Answered a call from Salford Quays Lettings and booked J-3302 as an emergency'],
+    ['09:20', 'Nathan Reid', 'On site at J-3302'],
+    ['09:31', 'Dev Patel', 'Signed the report on J-3301'],
+    ['10:20', 'Claire Ashby', 'Booked J-3307 for Tom'],
+    ['10:44', 'Ardent', 'AI is at 92% of this month\'s cap; told Tom'],
+  ],
+}
+
+const calder: Firm = {
+  org: { id: 'org_calder', name: 'Calder Fire & Security', slug: 'calder-fire', industry: 'trades', createdAt: '2026-10-09T09:00:00Z', town: 'Oldham', trades: ['fire'], stage: 'setting_up', centre: { lat: 53.541, lng: -2.117 } },
+  people: [
+    { id: 'usr_c_ruth', name: 'Ruth Calder', email: 'ruth@calder.demo.ardent.local', role: 'owner' },
+    { id: 'usr_c_owen', name: 'Owen Clarke', email: 'owen@calder.demo.ardent.local', role: 'field', op: { id: 'opr_c1', initials: 'OC', trades: ['fire'], van: 'OL70 CFS', kind: 'operator', reg: [{ body: 'BAFE', number: 'SP203-118', expires: '2027-03-31' }] } },
+    { id: 'usr_c_hana', name: 'Hana Ito', email: 'hana@calder.demo.ardent.local', role: 'field', op: { id: 'opr_c2', initials: 'HI', trades: ['fire'], van: 'OL21 CFS', kind: 'operator', reg: [] } },
+  ],
+  customers: [
+    ['Oldham Mills Business Centre', 'business', '0161 496 0430'],
+    ['Royton Court Apartments', 'letting_agent', '0161 496 0431'],
+  ],
+  sites: [
+    ['Hollinwood Avenue', 'Hollinwood', 'OL8 3DW', 53.5232, -2.1442],
+    ['12 Rochdale Road', 'Royton', 'OL2 6QJ', 53.5652, -2.1222],
+  ],
+  today: [
+    { n: 101, title: 'Fire alarm service, BS 5839', trade: 'fire', status: 'booked', site: 0, op: 'opr_c1', from: '09:00', to: '13:00', lines: [['Six-monthly alarm service', 32000]] },
+  ],
+  vans: { opr_c1: { state: 'off_shift' }, opr_c2: { state: 'off_shift' } },
+  history: { titles: [], per: 0 },
+  usage: [{ ai: 30, afterHours: 0, voice: 0, texts: 12 }],
+  log: [
+    ['09:30', 'Ruth Calder', 'Invited Owen Clarke'],
+    ['09:34', 'Ruth Calder', 'Invited Hana Ito'],
+  ],
+}
+
+/** A few signed reports a day where follow-ups asked, so the playbook has numbers. */
+const SAID: Record<string, string[]> = {
+  electrical: ['Swapped the consumer unit for an RCBO board.', 'Ran the tests, all readings fine.', 'Found a loose neutral in the kitchen spur.'],
+  plumbing: ['Fixed the leak under the sink, new compression fitting.', 'Checked for leaks afterwards, all dry.', 'Customer wants a quote for a new bathroom.'],
+  gas: ['Serviced the boiler, cleaned the burner.', 'Working pressure twenty millibar, flue gas fine.', 'Told the customer the flue needs a terminal guard.'],
+  heating: ['Bled the radiators and topped up the pressure.', 'System pressure one point two bar.', 'Thermostat needs replacing next visit.'],
+  fire: ['Tested every call point and sounder.', 'Batteries in the panel are at end of life.', 'Customer wants a quote for 2 more detectors.'],
+}
+
+function firmData(f: Firm, hash: (p: string) => string): Partial<Data> & { counter: number } {
+  const orgId = f.org.id
+  const own = <T extends object>(rows: T[]): Owned<T>[] => rows.map((r) => ({ ...r, orgId }))
+  const tag = orgId.replace('org_', '').slice(0, 1)
+  const users: User[] = f.people.map((p) => ({ id: p.id, email: p.email, name: p.name, passwordHash: hash('ardent-demo') }))
+  const memberships: Membership[] = f.people.map((p) => ({ orgId, userId: p.id, role: p.role }))
+  const customers = own<Customer>(f.customers.map(([name, kind, phone], i) => ({ id: `cus_${tag}${i + 1}`, name, kind, phone, balance: 0 })))
+  const sites = own<Site>(f.sites.map(([line1, town, postcode, lat, lng], i) => ({ id: `sit_${tag}${i + 1}`, customerId: customers[i % customers.length].id, line1, town, postcode, lat, lng })))
+  const li = (rows: [string, number, number?][], n: number): LineItem[] =>
+    rows.map(([description, unitPrice, quantity], i) => ({ id: `li_${tag}${n}_${i}`, kind: /call-out|call out/i.test(description) ? 'callout' : quantity ? 'labour' : 'material', description, quantity: quantity ?? 1, unitPrice }))
+  const jobs: Owned<Job>[] = own<Job>(
+    f.today.map((j) => ({
+      id: `job_${tag}${j.n}`,
+      ref: `J-${j.n}`,
+      title: j.title,
+      trade: j.trade,
+      status: j.status,
+      priority: j.priority ?? 'normal',
+      customerId: sites[j.site].customerId,
+      siteId: sites[j.site].id,
+      operatorIds: j.op ? [j.op] : [],
+      start: at(j.from, f.org.stage === 'setting_up' ? daysAfter(13) : DAY),
+      end: at(j.to, f.org.stage === 'setting_up' ? daysAfter(13) : DAY),
+      lines: li(j.lines, j.n),
+      checks: [{ key: 'rams', label: 'RAMS', state: j.status === 'booked' ? 'pending' : 'pass' }],
+      ...(j.notes ? { notes: j.notes } : {}),
+    })),
+  )
+  const ops = f.people.filter((p) => p.op)
+  const operators: OperatorRow[] = ops.map((p) => {
+    const v = f.vans[p.op!.id] ?? { state: 'off_shift' as const }
+    return {
+      orgId,
+      id: p.op!.id,
+      name: p.name,
+      role: p.op!.kind,
+      initials: p.op!.initials,
+      trades: p.op!.trades,
+      van: p.op!.van,
+      state: v.state,
+      registrations: p.op!.reg ?? [],
+      userId: p.id,
+      ...(v.job ? { currentJobId: `job_${tag}${v.job}` } : {}),
+      ...(v.eta ? { etaMinutes: v.eta } : {}),
+      ...(v.fix ? { location: { lat: v.fix[0], lng: v.fix[1], accuracy: 12, at: at(v.fix[2]) } } : {}),
+    }
+  })
+
+  // The last 3 weeks: finished jobs, most paid, each with a signed report.
+  const reports: Owned<JobReport>[] = []
+  const invoices: Owned<Invoice>[] = []
+  let n = f.today.reduce((m, j) => Math.min(m, j.n), Infinity) - 1
+  const rules = FOLLOW_UPS.filter((r) => !r.trades || r.trades.some((t) => f.org.trades?.includes(t)))
+  for (let d = 1; d <= 21 && f.history.per; d++) {
+    const day = daysBefore(d)
+    if (new Date(`${day}T12:00:00Z`).getUTCDay() === 0) continue
+    const count = Math.max(1, Math.round(f.history.per / 3) - (d % 3))
+    for (let k = 0; k < count; k++, n--) {
+      const [title, trade, price] = f.history.titles[(d + k) % f.history.titles.length]
+      const site = sites[(d * 3 + k) % sites.length]
+      const op = ops[(d + k) % ops.length].op!
+      const id = `job_${tag}${n}`
+      const status: JobStatus = d > 9 ? 'paid' : d > 2 ? 'invoiced' : 'complete'
+      jobs.push({ orgId, id, ref: `J-${n}`, title, trade, status, priority: 'normal', customerId: site.customerId, siteId: site.id, operatorIds: [op.id], start: at('09:00', day), end: at('11:00', day), lines: [{ id: `li_${tag}${n}`, kind: 'labour', description: title, quantity: 1, unitPrice: price }], checks: [] })
+      const said = SAID[trade] ?? SAID.electrical
+      const rule = rules[(d * 7 + k * 3) % rules.length]
+      const asked = (d + k) % 3 !== 0
+      const stamp = at('11:05', day)
+      const segments: ReportSegment[] = [
+        { text: said[0], at: stamp, topic: 'work' },
+        { text: said[1], at: stamp, topic: 'tests' },
+        ...(asked ? [{ text: rule.replies.find((r) => r.does === 'note' && 'note' in r) ? (rule.replies.find((r) => r.does === 'note') as { note: string }).note : said[2], at: stamp, topic: 'work' as const, followUp: rule.id }] : []),
+      ]
+      const built = buildReport({ segments, trade, priceList: [], van: [] })
+      reports.push({ ...built, orgId, id: `rep_${tag}${n}`, jobId: id, operatorId: op.id, segments, status: 'signed', createdAt: stamp, updatedAt: stamp, signedAt: stamp, signedBy: f.people.find((p) => p.op?.id === op.id)!.name })
+      if (status !== 'complete') {
+        const gross = Math.round(price * 1.2)
+        const late = status === 'invoiced' && k === 0 && d > 6
+        invoices.push({ orgId, id: `inv_${tag}${n}`, ref: `INV-${tag.toUpperCase()}${n}`, jobId: id, customerId: site.customerId, lines: [{ id: `li_${tag}i${n}`, kind: 'labour', description: title, quantity: 1, unitPrice: price }], vatRate: 2000, status: status === 'paid' ? 'paid' : late ? 'overdue' : 'sent', issuedAt: at('16:00', day), dueAt: `${daysBefore(d - 14)}T23:00:00Z`, paidAmount: status === 'paid' ? gross : 0 })
+      }
+    }
+  }
+  // Today's done jobs have their report signed too.
+  for (const j of f.today.filter((x) => x.status === 'complete')) {
+    const job = jobs.find((x) => x.ref === `J-${j.n}`)!
+    const segments: ReportSegment[] = [{ text: (SAID[j.trade] ?? SAID.electrical)[0], at: at(j.to), topic: 'work' }]
+    const built = buildReport({ segments, trade: j.trade, priceList: [], van: [] })
+    reports.push({ ...built, orgId, id: `rep_${tag}${j.n}`, jobId: job.id, operatorId: j.op!, segments, status: 'signed', createdAt: at(j.to), updatedAt: at(j.to), signedAt: at(j.to), signedBy: f.people.find((p) => p.op?.id === j.op)!.name })
+  }
+
+  const thisMonth = DAY.slice(0, 7)
+  const lastMonth = daysBefore(25).slice(0, 7)
+  const usage: Owned<UsageMonth>[] = f.usage.map((u, i) => ({ ...u, orgId, month: i === 0 ? thisMonth : lastMonth }))
+  const actions: Owned<ActionEntry>[] = f.log.map(([time, who, summary], i) => {
+    const person = f.people.find((p) => p.name === who)
+    return { orgId, id: `act_${tag}${i}`, at: at(time), by: person ? { kind: 'person', name: person.name, userId: person.id } : { kind: 'ardent' }, action: 'demo', summary }
+  })
+
+  return {
+    users,
+    orgs: [f.org],
+    memberships,
+    operators,
+    customers,
+    sites,
+    jobs,
+    reports,
+    invoices,
+    usage,
+    actions,
+    automation: f.automation ? [{ orgId, ...f.automation } as Owned<Automation>] : [],
+    followUps: f.followUps ? [{ orgId, ...f.followUps }] : [],
+    counter: Math.max(...f.today.map((j) => j.n)),
+  }
+}
+
+/** Adds the other demo firms and Ardent's staff to the Mercer demo. */
+export function withOtherFirms(data: Data, hash: (p: string) => string): Data {
+  for (const f of [hollins, ashby, calder]) {
+    const { counter, ...rows } = firmData(f, hash)
+    for (const [k, v] of Object.entries(rows)) (data as never as Record<string, unknown[]>)[k].push(...(v as unknown[]))
+    data.counters[`${f.org.id}:job`] = counter
+  }
+  // Mercer: who it is, for Ardent HQ.
+  const mercer = data.orgs.find((o) => o.id === 'org_demo')
+  if (mercer) Object.assign(mercer, { town: 'Manchester', trades: ['gas', 'heating', 'plumbing', 'electrical'], stage: 'live', centre: { lat: 53.452, lng: -2.24 }, createdAt: '2026-08-26T09:00:00Z' })
+  // Mercer's morning so far, so its log isn't empty.
+  const people: Record<string, string> = { 'Dan Mercer': 'usr_dan', 'Jo Pickering': 'usr_jo', 'Kofi Asante': 'usr_kofi', 'Ryan Holt': 'usr_ryan' }
+  const mercerLog: [string, string, string][] = [
+    ['07:52', 'Dan Mercer', 'Signed the RAMS on J-1042'],
+    ['08:01', 'Dan Mercer', 'On site at J-1042'],
+    ['08:40', 'Jo Pickering', 'Booked J-1048 for Dan'],
+    ['09:12', 'Jo Pickering', 'Sent Ryan to J-1047, emergency'],
+    ['09:44', 'Kofi Asante', 'On the road to J-1045'],
+  ]
+  data.actions.push(...mercerLog.map(([time, who, summary], i) => ({ orgId: 'org_demo', id: `act_m${i}`, at: at(time), by: { kind: 'person' as const, name: who, userId: people[who] }, action: 'demo', summary })))
+  // Last month only: this month's use starts at nothing, as Core's usage page shows it.
+  data.usage.push({ orgId: 'org_demo', month: daysBefore(25).slice(0, 7), ai: 3020, afterHours: 120, voice: 0, texts: 1240 })
+  for (const s of staffUsers) {
+    data.users.push({ id: s.id, email: s.email, name: s.name, passwordHash: hash('ardent-demo') })
+    data.staff.push({ userId: s.id, role: s.role })
+  }
+  withPayments(data)
+  return data
+}
+
+/**
+ * Payments in Stripe test mode: Mercer and Hollins take payments, Ashby is
+ * stuck on Stripe's sign-up, Calder hasn't started. Paid invoices were paid
+ * through Stripe, by card, pay by bank and Tap to Pay.
+ */
+function withPayments(data: Data) {
+  const methods: Charge['method'][] = ['card', 'pay_by_bank', 'tap', 'card', 'pay_by_bank']
+  const accounts: Data['paymentAccounts'] = [
+    { orgId: 'org_demo', accountId: 'acct_test_mercer', status: 'active', test: true, chargesEnabled: true, payoutsEnabled: true, due: [], depositPercent: 25, depositFrom: 100000, firstPaymentAt: '2026-09-24T10:12:00Z', updatedAt: '2026-09-17T15:00:00Z' },
+    { orgId: 'org_hollins', accountId: 'acct_test_hollins', status: 'active', test: true, chargesEnabled: true, payoutsEnabled: true, due: [], depositPercent: 0, depositFrom: 0, firstPaymentAt: `${daysBefore(21)}T15:00:00Z`, updatedAt: '2026-09-05T10:00:00Z' },
+    { orgId: 'org_ashby', accountId: 'acct_test_ashby', status: 'needs_info', test: true, chargesEnabled: false, payoutsEnabled: false, due: ["A director's ID"], depositPercent: 0, depositFrom: 0, updatedAt: `${daysBefore(4)}T11:20:00Z` },
+  ]
+  data.paymentAccounts.push(...accounts)
+  let k = 0
+  const charge = (inv: Owned<Invoice>, amount: number, when: string, method = methods[k % methods.length]): Owned<Charge> => {
+    k++
+    const c: Owned<Charge> = { orgId: inv.orgId, id: `chg_${inv.id}`, kind: 'invoice', method, amount, fee: ardentFee(amount), stripeFee: stripeFeeEstimate(method, amount), refunded: 0, feeRefunded: 0, at: when, customerId: inv.customerId, invoiceId: inv.id, jobId: inv.jobId, label: inv.ref, ref: `pi_test_${inv.id}` }
+    data.charges.push(c)
+    inv.payments = [...(inv.payments ?? []), { amount, method, at: when, chargeId: c.id }]
+    return c
+  }
+  const plusHours = (iso: string, h: number) => new Date(Date.parse(iso) + h * 3_600_000).toISOString().replace('.000', '')
+  for (const inv of data.invoices.filter((i) => (i.orgId === 'org_hollins' || i.orgId === 'org_demo') && i.paidAmount > 0 && i.issuedAt && !i.payments?.length)) {
+    charge(inv, inv.paidAmount, plusHours(inv.issuedAt!, inv.orgId === 'org_demo' ? 26 : 3))
+  }
+  // Hollins: a customer disputed one card payment, and a Direct Debit failed.
+  const disputed = data.charges.find((c) => c.orgId === 'org_hollins' && c.method === 'card')
+  if (disputed) {
+    disputed.disputed = true
+    data.disputes.push({ orgId: 'org_hollins', id: 'dsp_hollins1', chargeId: disputed.id, amount: disputed.amount, reason: "Customer says the work wasn't done", status: 'needs_reply', openedAt: `${daysBefore(1)}T10:40:00Z`, replyBy: `${daysBefore(-8)}T23:00:00Z`, ref: 'dp_test_hollins1' })
+  }
+  const plan = (orgId: string, id: string, ref: string, customerId: string, name: string, monthly: number, months: number, status: 'active' | 'payment_failed' | 'awaiting_signature', nextService: string, includes = ['Yearly boiler service', 'Gas safety check', '10% off any repairs']) => {
+    data.plans.push({ orgId, id, ref, customerId, name, monthly, includes, status, createdAt: `${daysBefore(months * 30 + 2)}T10:00:00Z`, ...(status !== 'awaiting_signature' ? { startedAt: `${daysBefore(months * 30)}T10:00:00Z`, providerRef: `sub_test_${id}` } : { signLink: `#/plan/${id}` }), nextService, collected: monthly * months, ...(months ? { lastPaidAt: `${daysBefore(3)}T06:00:00Z` } : {}), failures: status === 'payment_failed' ? 1 : 0, ...(status === 'payment_failed' ? { lastFailedAt: `${daysBefore(2)}T06:00:00Z` } : {}) })
+    for (let m = 0; m < months; m++) {
+      const when = `${daysBefore(3 + m * 30)}T06:00:00Z`
+      data.charges.push({ orgId, id: `chg_${id}_${m}`, kind: 'plan', method: 'direct_debit', amount: monthly, fee: ardentFee(monthly), stripeFee: stripeFeeEstimate('direct_debit', monthly), refunded: 0, feeRefunded: 0, at: when, customerId, planId: id, label: `${ref}, ${new Date(when).toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' })}`, ref: `in_test_${id}_${m}` })
+    }
+  }
+  plan('org_demo', 'pln_101', 'SP-101', 'cus_01', 'Boiler care', 1200, 3, 'active', '2027-01-20')
+  plan('org_demo', 'pln_102', 'SP-102', 'cus_04', 'Boiler care', 1200, 0, 'awaiting_signature', '2027-10-18')
+  plan('org_hollins', 'pln_h1', 'SP-H1', 'cus_h1', 'Landlord safety plan', 2400, 2, 'payment_failed', '2027-02-10', ['Yearly electrical safety check (EICR)', 'Smoke and CO alarm test', '10% off any repairs'])
+  data.counters['org_demo:plan'] = 102
+}

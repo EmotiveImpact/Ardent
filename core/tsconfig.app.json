@@ -14,7 +14,7 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "paths": { "@/*": ["./src/*"] },
+    "paths": { "@/*": ["./src/*"], "@kit": ["../engine/kit/index.ts"], "@kit/*": ["../engine/kit/*"], "@engine/*": ["../engine/src/*"] },
     "jsx": "react-jsx",
 
     /* Linting */
@@ -23,5 +23,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "tokens"]
+  "include": ["src", "../engine/kit"],
+  "exclude": ["../engine/kit/build-css.ts"]
 }

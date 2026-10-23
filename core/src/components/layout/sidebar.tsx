@@ -1,68 +1,60 @@
 import { NavLink, useLocation } from 'react-router'
-import {
-  Boxes,
-  CalendarRange,
-  FileBadge2,
-  LayoutGrid,
-  PoundSterling,
-  Settings,
-  Users,
-  Wrench,
-  HardHat,
-} from 'lucide-react'
 import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { Icon, type IconName } from './icons'
 import { ArdentMark } from './logo'
+import { UserMenu } from './user-menu'
 
-export const nav = [
-  { to: '/', label: 'Operations', icon: LayoutGrid, end: true },
-  { to: '/jobs', label: 'Jobs', icon: Wrench },
-  { to: '/schedule', label: 'Schedule', icon: CalendarRange },
-  { to: '/customers', label: 'Customers', icon: Users },
-  { to: '/money', label: 'Quotes and invoices', icon: PoundSterling },
+export const nav: ({ to: string; label: string; icon: IconName; end?: boolean } | null)[] = [
+  { to: '/', label: 'Today', icon: 'today', end: true },
+  { to: '/jobs', label: 'Jobs', icon: 'jobs' },
+  { to: '/schedule', label: 'Diary', icon: 'diary' },
+  { to: '/customers', label: 'Customers', icon: 'customers' },
+  { to: '/money', label: 'Money', icon: 'money' },
+  { to: '/approvals', label: 'Approvals', icon: 'approvals' },
   null,
-  { to: '/certificates', label: 'Certificates', icon: FileBadge2 },
-  { to: '/crew', label: 'Crew and vans', icon: HardHat },
-  { to: '/stock', label: 'Stock', icon: Boxes },
-] as const
+  { to: '/certificates', label: 'Certs', icon: 'certs' },
+  { to: '/crew', label: 'Crew', icon: 'crew' },
+]
 
-function RailLink({ to, label, icon: Icon, end }: { to: string; label: string; icon: typeof Wrench; end?: boolean }) {
-  // Work out the active state here: the tooltip trigger merges classes, so NavLink's className function can't be used.
-  const { pathname } = useLocation()
-  const isActive = end ? pathname === to : pathname === to || pathname.startsWith(to + '/')
+/** Where a path sits in the rail, so detail pages light their parent. */
+export const navFor = (pathname: string) =>
+  pathname === '/' || pathname.startsWith('/callout')
+    ? nav[0]
+    : nav.find((n) => n && n.to !== '/' && (pathname === n.to || pathname.startsWith(n.to + '/'))) ??
+      (pathname.startsWith('/quotes') || pathname.startsWith('/invoices') ? nav[4] : undefined)
+
+function RailLink({ to, label, icon, active }: { to: string; label: string; icon: IconName; active: boolean }) {
   return (
     <Tooltip content={label}>
       <NavLink
         to={to}
-        end={end}
         aria-label={label}
+        aria-current={active ? 'page' : undefined}
         className={cn(
-          'relative flex size-9 items-center justify-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-foreground',
-          isActive && 'bg-raised text-foreground before:absolute before:-left-[11px] before:h-4 before:w-[3px] before:rounded-r before:bg-foreground',
+          'flex size-10 items-center justify-center rounded-[10px] text-muted outline-none transition-colors hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60',
+          active && 'bg-raised text-foreground hover:bg-raised',
         )}
       >
-        <Icon className="size-[18px]" strokeWidth={1.75} />
+        <Icon name={icon} />
       </NavLink>
     </Tooltip>
   )
 }
 
+/** The slim rail: icons only, names on hover and focus. */
 export function Sidebar() {
+  const { pathname } = useLocation()
+  const here = navFor(pathname)
   return (
-    <aside className="hidden w-14 shrink-0 flex-col items-center py-3 md:flex">
+    <aside aria-label="Ardent Core" className="hidden w-14 shrink-0 flex-col items-center py-3.5 md:flex">
       <ArdentMark />
-      <nav className="mt-6 flex flex-col items-center gap-1">
-        {nav.map((item, i) =>
-          item ? <RailLink key={item.to} {...item} /> : <span key={i} className="my-2 h-px w-6 bg-line" />,
-        )}
+      <nav aria-label="Main" className="mt-7 flex flex-col items-center gap-1.5">
+        {nav.map((item, i) => (item ? <RailLink key={item.to} {...item} active={here === item} /> : <span key={i} className="my-2.5 h-px w-5 bg-line-strong" />))}
       </nav>
-      <div className="mt-auto flex flex-col items-center gap-2">
-        <RailLink to="/settings" label="Settings" icon={Settings} />
-        <Tooltip content="Edem, owner">
-          <button className="mt-1 flex size-8 items-center justify-center rounded-full bg-raised font-mono text-[10px]">
-            ED
-          </button>
-        </Tooltip>
+      <div className="mt-auto flex flex-col items-center gap-3">
+        <RailLink to="/settings" label="Settings" icon="settings" active={pathname.startsWith('/settings')} />
+        <UserMenu />
       </div>
     </aside>
   )

@@ -1,13 +1,13 @@
 import { cn } from '@/lib/utils'
 
-export function ArdentMark({ className }: { className?: string }) {
+/** The Ardent A on a dark tile. Quiet on purpose: the screen's one ember thing belongs to the work. */
+export function ArdentMark({ className, name = 'Ardent Core' }: { className?: string; name?: string }) {
   return (
-    <span className={cn('inline-flex size-8 items-center justify-center rounded-lg bg-foreground', className)}>
-      <svg viewBox="0 0 32 32" className="size-5" aria-hidden>
-        <path d="M16 6 6 25h4.6L16 14.4 21.4 25H26L16 6Z" fill="#0a0a0a" />
-        <path d="M13 22.4h6L16 16.6z" fill="var(--ember)" />
+    <span className={cn('inline-flex size-9 items-center justify-center rounded-[10px] bg-surface', className)}>
+      <svg viewBox="0 0 32 32" className="size-[18px]" aria-hidden>
+        <path d="M16 6 6 25h4.6L16 14.4 21.4 25H26L16 6Z" fill="var(--fg)" />
       </svg>
-      <span className="sr-only">Ardent Core</span>
+      <span className="sr-only">{name}</span>
     </span>
   )
 }

@@ -1,0 +1,495 @@
+/**
+ * Ardent HQ: what Ardent's own team sees across every firm. Only staff get
+ * this client. Reading a firm's whole account is written in that firm's own
+ * log, so a firm can always see when Ardent looked.
+ *
+ * Shapes are in core/src/data/hq.ts.
+ */
+import type { FirmAccount, FirmBill, FirmHealth, FirmSummary, HqClient, HqLogEntry, HqNeed, HqOverview, HqPayments, HqPlaybook, LiveBoard, LiveJob, LiveVan, PlaybookRule, SharedRule, StaffMe } from '../../core/src/data/hq.ts'
+import type { Automation, FollowUp, FollowUpSet, Invoice, Job, JobStatus, Usage } from '../../core/src/data/model.ts'
+import { pounds, ukDay } from '../kit/format.ts'
+import { FOLLOW_UPS, ruleProblem } from '../kit/questions.ts'
+import type { Data, StaffRow, Store } from './store.ts'
+
+/** Every HQ call, by name. */
+export const HQ_METHODS = ['me', 'overview', 'firms', 'firm', 'live', 'log', 'playbook.get', 'playbook.save', 'playbook.switch', 'playbook.discard', 'playbook.publish', 'payments', 'shared.list', 'shared.adopt', 'shared.decline'] as const
+
+/** The plan agreed with Edem on 21 October 2026, in pence. */
+export const PRICE = { base: 29900, included: 5, perEngineer: 3500, voice: 9900 }
+
+const LIVE: JobStatus[] = ['en_route', 'on_site']
+const DONE: JobStatus[] = ['complete', 'invoiced', 'paid']
+const OWING: Invoice['status'][] = ['sent', 'part_paid', 'overdue']
+const DAY = 86_400_000
+/** A phone this far behind the firm's freshest one has stopped syncing. */
+const BEHIND_MS = 90 * 60 * 1000
+
+interface Deps {
+  db: Data
+  store: Store
+  usageOf(orgId: string, month: string): Usage
+  rulesFor(orgId: string): Automation
+  followUpsFor(orgId: string): FollowUpSet
+  newId(prefix: string): string
+  forbidden(why: string): Error
+  notFound(what: string): Error
+  invalid(why: string): Error
+  /** Payments across every firm (payments.ts). */
+  paymentsAcross(month: string, monthlySubscriptions: number): HqPayments
+}
+
+export function hqFor(d: Deps, userId: string): HqClient {
+  const { db, store } = d
+  const staff = (): StaffRow & { name: string; email: string } => {
+    const row = db.staff.find((s) => s.userId === userId)
+    const user = db.users.find((u) => u.id === userId)
+    if (!row || !user) throw d.forbidden('only Ardent staff can use Ardent HQ')
+    return { ...row, name: user.name, email: user.email }
+  }
+  const requireAdmin = (what: string) => {
+    if (staff().role !== 'admin') throw d.forbidden(`only an Ardent admin can ${what}`)
+  }
+  const run = <T,>(fn: () => T): Promise<T> => {
+    try {
+      return Promise.resolve(fn())
+    } catch (e) {
+      return Promise.reject(e)
+    }
+  }
+  const strip = <T extends object>(row: T) => {
+    const { orgId: _o, userId: _u, ...rest } = row as T & { orgId?: string; userId?: string }
+    return rest as Omit<T, 'orgId' | 'userId'>
+  }
+  const now = () => Date.now()
+  const today = () => ukDay(new Date().toISOString())
+  const month = () => today().slice(0, 7)
+  const firmName = (orgId: string) => db.orgs.find((o) => o.id === orgId)?.name ?? 'A firm'
+  const of = <T extends { orgId: string }>(rows: T[], orgId: string) => rows.filter((r) => r.orgId === orgId)
+
+  /** A job's day, and whether it belongs on today's board. */
+  const onToday = (j: Job) => ukDay(j.start) === today() || LIVE.includes(j.status) || j.status === 'paused'
+
+  function bill(orgId: string): FirmBill {
+    const engineers = of(db.operators, orgId).length
+    const extraEngineers = Math.max(0, engineers - PRICE.included)
+    const rules = d.rulesFor(orgId)
+    const voiceLine = d.usageOf(orgId, month()).lines.find((l) => l.key === 'voice')
+    const voice = rules.voice ? PRICE.voice + (voiceLine?.overCost ?? 0) : undefined
+    return { base: PRICE.base, extraEngineers, perEngineer: PRICE.perEngineer, ...(voice ? { voice } : {}), total: PRICE.base + extraEngineers * PRICE.perEngineer + (voice ?? 0) }
+  }
+
+  /** Phones on shift that have fallen behind the firm's freshest one. */
+  function stalePhones(orgId: string) {
+    const ops = of(db.operators, orgId).filter((o) => o.state !== 'off_shift' && o.location)
+    const freshest = Math.max(...ops.map((o) => Date.parse(o.location!.at)))
+    return ops.filter((o) => freshest - Date.parse(o.location!.at) > BEHIND_MS)
+  }
+
+  function summary(orgId: string): FirmSummary {
+    const org = db.orgs.find((o) => o.id === orgId)
+    if (!org) throw d.notFound('firm')
+    const ops = of(db.operators, orgId)
+    const jobs = of(db.jobs, orgId)
+    const todays = jobs.filter(onToday)
+    const usage = d.usageOf(orgId, month())
+    const rules = d.rulesFor(orgId)
+    const owingRows = of(db.invoices, orgId).filter((i) => OWING.includes(i.status))
+    const gross = (i: Invoice) => Math.round(i.lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0) * (1 + i.vatRate / 10000))
+    const owing = owingRows.reduce((s, i) => s + gross(i) - i.paidAmount, 0)
+    const overdue = owingRows.filter((i) => i.status === 'overdue').reduce((s, i) => s + gross(i) - i.paidAmount, 0)
+    const week = now() - 7 * DAY
+    const reportsWeek = of(db.reports, orgId).filter((r) => r.status === 'signed' && r.signedAt && Date.parse(r.signedAt) >= week).length
+    const acts = of(db.actions, orgId)
+    const lastActive = acts.length ? acts.reduce((m, a) => (a.at > m ? a.at : m), acts[0].at) : undefined
+    const members = db.memberships.filter((m) => m.orgId === orgId)
+    const stage = org.stage ?? 'live'
+    const ai = usage.lines.find((l) => l.key === 'ai')!
+    const stale = stalePhones(orgId)
+    let health: FirmHealth
+    if (stage === 'setting_up') {
+      const invited = ops.length
+      health = { tone: 'quiet', label: 'Setting up', note: `${invited} engineer${invited === 1 ? '' : 's'} added so far. Not live yet.` }
+    } else if (stale.length) {
+      const last = stale.reduce((m, o) => (o.location!.at < m ? o.location!.at : m), stale[0].location!.at)
+      health = { tone: 'bad', label: 'Sync failing', note: `${stale.length} phone${stale.length === 1 ? ' has' : 's have'} not synced since ${new Date(last).toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' })}: ${stale.map((o) => o.name.split(' ')[0]).join(' and ')}.` }
+    } else if (usage.aiPaused) {
+      health = { tone: 'bad', label: 'AI paused', note: `This month's ${pounds(rules.limits.aiPence)} AI cap is reached.` }
+    } else if (ai.used >= rules.limits.aiPence * 0.85) {
+      health = { tone: 'warn', label: 'Near AI cap', note: `${pounds(ai.used, { always: true })} of ${pounds(rules.limits.aiPence)} used this month.` }
+    } else if (overdue) {
+      health = { tone: 'ok', label: 'Healthy', note: `Phones syncing. Customers owe ${pounds(overdue)} overdue.` }
+    } else {
+      health = { tone: 'ok', label: 'Healthy', note: 'Phones syncing, reports reaching the office.' }
+    }
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      town: org.town ?? '',
+      trades: org.trades ?? [],
+      createdAt: org.createdAt,
+      stage,
+      engineers: ops.length,
+      officeUsers: members.filter((m) => m.role !== 'field').length,
+      engineersActive: ops.filter((o) => o.state !== 'off_shift').length,
+      jobsToday: todays.filter((j) => j.status !== 'cancelled').length,
+      liveNow: todays.filter((j) => LIVE.includes(j.status)).length,
+      emergencies: todays.filter((j) => j.priority === 'emergency' && !DONE.includes(j.status) && j.status !== 'cancelled').length,
+      reportsWeek,
+      owing,
+      overdue,
+      bill: bill(orgId),
+      usage,
+      aiCap: rules.limits.aiPence,
+      health,
+      ...(lastActive ? { lastActive } : {}),
+      centre: org.centre ?? centreOf(of(db.sites, orgId)),
+    }
+  }
+
+  function centreOf(sites: { lat: number; lng: number }[]) {
+    if (!sites.length) return { lat: 53.48, lng: -2.24 }
+    return { lat: sites.reduce((s, x) => s + x.lat, 0) / sites.length, lng: sites.reduce((s, x) => s + x.lng, 0) / sites.length }
+  }
+
+  function board(firmId?: string): LiveBoard {
+    const orgs = db.orgs.filter((o) => !firmId || o.id === firmId)
+    if (firmId && !orgs.length) throw d.notFound('firm')
+    const jobs: LiveJob[] = []
+    const vans: LiveVan[] = []
+    for (const org of orgs) {
+      const sites = of(db.sites, org.id)
+      const ops = of(db.operators, org.id)
+      const stale = new Set(stalePhones(org.id).map((o) => o.id))
+      for (const j of of(db.jobs, org.id).filter(onToday)) {
+        if (j.status === 'cancelled') continue
+        const site = sites.find((s) => s.id === j.siteId)
+        if (!site) continue
+        const crew = ops.filter((o) => j.operatorIds.includes(o.id))
+        const report = db.reports.find((r) => r.orgId === org.id && r.jobId === j.id)
+        const late = crew.find((o) => o.currentJobId === j.id && o.state === 'delayed')
+        const away = crew.find((o) => o.currentJobId === j.id && o.state === 'en_route')
+        const flag =
+          j.priority === 'emergency' && !DONE.includes(j.status) && j.status !== 'on_site'
+            ? `Emergency, ${away?.etaMinutes ?? late?.etaMinutes ?? '?'} min away`
+            : late
+              ? `Running late, ${late.etaMinutes ?? '?'} min away`
+              : crew.some((o) => stale.has(o.id))
+                ? 'Engineer\'s phone not syncing'
+                : j.status === 'paused'
+                  ? 'Paused'
+                  : undefined
+        jobs.push({
+          id: j.id,
+          ref: j.ref,
+          title: j.title,
+          trade: j.trade,
+          status: j.status,
+          priority: j.priority,
+          start: j.start,
+          end: j.end,
+          firmId: org.id,
+          firmName: org.name,
+          operators: crew.map((o) => ({ id: o.id, name: o.name, initials: o.initials })),
+          customer: db.customers.find((c) => c.orgId === org.id && c.id === j.customerId)?.name ?? '',
+          address: `${site.line1}, ${site.town} ${site.postcode}`,
+          area: `${site.town}, ${site.postcode.split(' ')[0]}`,
+          lat: site.lat,
+          lng: site.lng,
+          ...(report ? { report: report.status } : {}),
+          ...(flag ? { flag } : {}),
+        })
+      }
+      for (const o of ops) {
+        if (o.state === 'off_shift') continue
+        const job = of(db.jobs, org.id).find((j) => j.id === o.currentJobId)
+        const site = job && sites.find((s) => s.id === job.siteId)
+        const spot = o.location
+          ? { lat: o.location.lat, lng: o.location.lng, from: 'van' as const, seenAt: o.location.at }
+          : site
+            ? { lat: site.lat, lng: site.lng, from: 'job' as const }
+            : o.standby?.base
+              ? { ...o.standby.base, from: 'base' as const }
+              : { ...(org.centre ?? centreOf(sites)), from: 'base' as const }
+        vans.push({ id: o.id, name: o.name, initials: o.initials, firmId: org.id, firmName: org.name, state: o.state, ...spot, ...(job ? { jobId: job.id } : {}), ...(o.etaMinutes ? { etaMinutes: o.etaMinutes } : {}) })
+      }
+    }
+    jobs.sort((a, b) => a.start.localeCompare(b.start))
+    return { day: today(), jobs, vans }
+  }
+
+  function needs(firms: FirmSummary[], live: LiveBoard): HqNeed[] {
+    const out: HqNeed[] = []
+    for (const f of firms) {
+      if (f.health.tone === 'bad') out.push({ id: `health-${f.id}`, firmId: f.id, firmName: f.name, tone: 'bad', title: `${f.name}: ${f.health.label}`, note: f.health.note, go: 'firm' })
+      else if (f.health.tone === 'warn') out.push({ id: `health-${f.id}`, firmId: f.id, firmName: f.name, tone: 'warn', title: `${f.name}: ${f.health.label}`, note: f.health.note, go: 'usage' })
+    }
+    for (const j of live.jobs.filter((x) => x.priority === 'emergency' && x.flag)) {
+      out.push({ id: `job-${j.id}`, firmId: j.firmId, firmName: j.firmName, tone: 'warn', title: `${j.firmName}: ${j.title}`, note: `${j.flag}. ${j.area}.`, go: 'live', jobId: j.id })
+    }
+    const waiting = sharedRows().filter((s) => !s.review)
+    if (waiting.length) out.push({ id: 'shared', tone: 'info', title: `${waiting.length} question${waiting.length === 1 ? '' : 's'} shared for the playbook`, note: waiting.map((s) => s.rule.name).join(', '), go: 'shared' })
+    if (db.playbookDraft?.changes.length) out.push({ id: 'draft', tone: 'info', title: `Playbook: ${db.playbookDraft.changes.length} change${db.playbookDraft.changes.length === 1 ? '' : 's'} not published`, note: `Firms still have version ${db.playbook?.version ?? 1}.`, go: 'playbook' })
+    for (const f of firms.filter((x) => x.stage === 'setting_up')) out.push({ id: `setup-${f.id}`, firmId: f.id, firmName: f.name, tone: 'info', title: `${f.name}: setting up`, note: f.health.note, go: 'firm' })
+    return out
+  }
+
+  /** Who offered which question, and how often it asked in their reports. */
+  function sharedRows(): SharedRule[] {
+    const since = now() - 30 * DAY
+    return db.followUps.flatMap((row) =>
+      row.own
+        .filter((r) => r.shared)
+        .map((rule) => {
+          const segs = db.reports.filter((r) => r.orgId === row.orgId && r.status === 'signed' && Date.parse(r.signedAt ?? r.createdAt) >= since).flatMap((r) => r.segments.filter((s) => s.followUp === rule.id))
+          return { firmId: row.orgId, firmName: firmName(row.orgId), rule, fired: segs.length, answered: segs.filter((s) => s.text.trim()).length, ...(rule.review ? { review: rule.review } : {}) }
+        }),
+    )
+  }
+
+  // ---- The playbook ----
+
+  const published = () => db.playbook ?? { rules: FOLLOW_UPS, off: [] as string[], version: 1, publishedAt: '', by: 'Ardent', from: {} as Record<string, { firmId: string; firmName: string; ownId?: string }> }
+  function draft() {
+    if (!db.playbookDraft) {
+      const p = published()
+      db.playbookDraft = { rules: structuredClone(p.rules), off: [...(p.off ?? [])], by: staff().name, changes: [], updatedAt: new Date().toISOString(), from: { ...(p.from ?? {}) } }
+    }
+    return db.playbookDraft
+  }
+  const note = (text: string) => {
+    const dr = draft()
+    dr.changes = [...dr.changes.filter((c) => c !== text), text]
+    dr.by = staff().name
+    dr.updatedAt = new Date().toISOString()
+  }
+
+  function playbookView(): HqPlaybook {
+    const p = published()
+    const dr = db.playbookDraft
+    const rules = dr?.rules ?? p.rules
+    const off = dr?.off ?? p.off ?? []
+    const since = now() - 30 * DAY
+    const segs = db.reports.filter((r) => r.status === 'signed' && Date.parse(r.signedAt ?? r.createdAt) >= since).flatMap((r) => r.segments.filter((s) => s.followUp))
+    const live = db.orgs.filter((o) => (o.stage ?? 'live') === 'live')
+    const view: PlaybookRule[] = rules.map((r) => {
+      const was = p.rules.find((x) => x.id === r.id)
+      const state: PlaybookRule['state'] = !was ? 'new' : off.includes(r.id) !== (p.off ?? []).includes(r.id) && off.includes(r.id) ? 'off' : JSON.stringify(was) !== JSON.stringify(r) || off.includes(r.id) !== (p.off ?? []).includes(r.id) ? 'changed' : 'published'
+      const mine = segs.filter((s) => s.followUp === r.id)
+      const src = (dr?.from ?? p.from ?? {})[r.id]
+      const from = src && { firmId: src.firmId, firmName: src.firmName }
+      return {
+        ...r,
+        state,
+        off: off.includes(r.id),
+        stats: { asked: mine.length, answered: mine.filter((s) => s.text.trim()).length, switchedOff: live.filter((o) => d.followUpsFor(o.id).off.includes(r.id)).length },
+        ...(from ? { from } : {}),
+      }
+    })
+    return {
+      version: p.version,
+      ...(p.publishedAt ? { publishedAt: p.publishedAt, by: p.by } : {}),
+      rules: view,
+      draft: dr && dr.changes.length ? { changes: dr.changes, by: dr.by, updatedAt: dr.updatedAt } : null,
+      history: [...db.playbookHistory].reverse(),
+      firms: live.length,
+    }
+  }
+
+  const done = <T,>(v: T) => {
+    store.commit()
+    return v
+  }
+
+  const client: HqClient = {
+    me: () => run((): StaffMe => {
+      const s = staff()
+      return { id: userId, name: s.name, email: s.email, role: s.role }
+    }),
+    overview: () =>
+      run((): HqOverview => {
+        staff()
+        const firms = db.orgs.map((o) => summary(o.id))
+        const live = board()
+        const liveFirms = firms.filter((f) => f.stage === 'live')
+        return {
+          firms,
+          needs: needs(firms, live),
+          totals: {
+            firms: firms.length,
+            live: liveFirms.length,
+            settingUp: firms.length - liveFirms.length,
+            engineers: firms.reduce((s, f) => s + f.engineers, 0),
+            engineersActive: firms.reduce((s, f) => s + f.engineersActive, 0),
+            jobsToday: live.jobs.length,
+            liveNow: live.jobs.filter((j) => LIVE.includes(j.status)).length,
+            emergencies: firms.reduce((s, f) => s + f.emergencies, 0),
+            reportsWeek: firms.reduce((s, f) => s + f.reportsWeek, 0),
+            aiPence: firms.reduce((s, f) => s + f.usage.lines.find((l) => l.key === 'ai')!.used, 0),
+            aiCapPence: firms.reduce((s, f) => s + f.aiCap, 0),
+            monthly: liveFirms.reduce((s, f) => s + f.bill.total, 0),
+          },
+        }
+      }),
+    payments: (month) =>
+      run(() => {
+        staff()
+        const m = month ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }).slice(0, 7)
+        if (!/^\d{4}-\d{2}$/.test(m)) throw d.invalid('month is YYYY-MM')
+        const subscriptions = db.orgs.map((o) => summary(o.id)).filter((f) => f.stage === 'live').reduce((t, f) => t + f.bill.total, 0)
+        return d.paymentsAcross(m, subscriptions)
+      }),
+    firms: () =>
+      run(() => {
+        staff()
+        return db.orgs.map((o) => summary(o.id))
+      }),
+    firm: (id) =>
+      run((): FirmAccount => {
+        const me = staff()
+        const firm = summary(id)
+        const members = db.memberships
+          .filter((m) => m.orgId === id)
+          .map((m) => {
+            const u = db.users.find((x) => x.id === m.userId)
+            return { name: u?.name ?? '', email: u?.email ?? '', role: m.role }
+          })
+        // The firm can see in its own log that Ardent looked, once an hour per person.
+        const hourAgo = new Date(now() - 60 * 60 * 1000).toISOString()
+        const summaryText = `Ardent support (${me.name}) opened your account`
+        if (!db.actions.some((a) => a.orgId === id && a.summary === summaryText && a.at >= hourAgo)) {
+          db.actions.push({ id: d.newId('act'), at: new Date().toISOString(), by: { kind: 'ardent' }, action: 'hq.opened', summary: summaryText, orgId: id })
+          store.commit()
+        }
+        const months = [...new Set(of(db.usage, id).map((u) => u.month))].sort()
+        return {
+          firm,
+          members,
+          operators: of(db.operators, id).map(strip),
+          jobs: of(db.jobs, id).map(strip).sort((a, b) => b.start.localeCompare(a.start)),
+          customers: of(db.customers, id).map(strip),
+          sites: of(db.sites, id).map(strip),
+          invoices: of(db.invoices, id).map(strip),
+          quotes: of(db.quotes, id).map(strip),
+          reports: of(db.reports, id).map(strip),
+          certificates: of(db.certificates, id).map(strip),
+          followUps: d.followUpsFor(id),
+          automation: d.rulesFor(id),
+          usageHistory: months.map((m) => d.usageOf(id, m)),
+          log: of(db.actions, id).map(strip).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 200),
+        }
+      }),
+    live: (firmId) =>
+      run(() => {
+        staff()
+        return board(firmId)
+      }),
+    log: (firmId) =>
+      run((): HqLogEntry[] => {
+        staff()
+        return db.actions
+          .filter((a) => !firmId || a.orgId === firmId)
+          .sort((a, b) => b.at.localeCompare(a.at))
+          .slice(0, 300)
+          .map((a) => ({ ...strip(a), firmId: a.orgId, firmName: firmName(a.orgId) }))
+      }),
+    playbook: {
+      get: () =>
+        run(() => {
+          staff()
+          return playbookView()
+        }),
+      save: (rule: FollowUp) =>
+        run(() => {
+          requireAdmin('change the playbook')
+          const problem = ruleProblem(rule)
+          if (problem) throw d.invalid(problem)
+          if (!/^[a-z0-9-]{1,60}$/.test(String(rule.id))) throw d.invalid('give the rule a short id: letters, numbers and dashes')
+          const dr = draft()
+          const clean: FollowUp = { id: rule.id, name: rule.name.trim(), why: rule.why.trim(), ...(rule.trades ? { trades: rule.trades } : {}), after: rule.after, when: rule.when, ask: rule.ask.trim(), ...(rule.hint?.trim() ? { hint: rule.hint.trim() } : {}), replies: rule.replies }
+          const i = dr.rules.findIndex((r) => r.id === rule.id)
+          if (i >= 0) dr.rules[i] = clean
+          else dr.rules.push(clean)
+          note(`${i >= 0 ? 'Changed' : 'Added'} "${clean.name}"`)
+          return done(playbookView())
+        }),
+      switch: (id: string, on: boolean) =>
+        run(() => {
+          requireAdmin('change the playbook')
+          const dr = draft()
+          const rule = dr.rules.find((r) => r.id === id)
+          if (!rule) throw d.notFound('rule')
+          dr.off = on ? (dr.off ?? []).filter((x) => x !== id) : [...new Set([...(dr.off ?? []), id])]
+          dr.changes = dr.changes.filter((c) => !c.startsWith(`Switched "${rule.name}"`))
+          // Only a switch that differs from what firms have is a change to send.
+          if (on === (published().off ?? []).includes(id)) note(`Switched "${rule.name}" ${on ? 'back on' : 'off'} for everyone`)
+          return done(playbookView())
+        }),
+      discard: () =>
+        run(() => {
+          requireAdmin('change the playbook')
+          db.playbookDraft = null
+          return done(playbookView())
+        }),
+      publish: (text: string) =>
+        run(() => {
+          requireAdmin('publish the playbook')
+          const dr = db.playbookDraft
+          if (!dr || !dr.changes.length) throw d.invalid('nothing to publish')
+          const me = staff()
+          const version = published().version + 1
+          const at = new Date().toISOString()
+          const summaryNote = String(text ?? '').trim().slice(0, 200) || dr.changes.join('. ')
+          db.playbook = { rules: dr.rules, off: dr.off ?? [], from: dr.from ?? {}, version, publishedAt: at, by: me.name, note: summaryNote }
+          db.playbookHistory.push({ version, publishedAt: at, by: me.name, note: summaryNote })
+          db.playbookDraft = null
+          // Firms whose question went in hear about it in their own log.
+          for (const [ruleId, src] of Object.entries(db.playbook.from ?? {})) {
+            const row = db.followUps.find((f) => f.orgId === src.firmId)
+            const own = row?.own.find((r) => r.id === (src.ownId ?? ruleId))
+            if (own?.review?.state === 'adopted' && !own.review.note) {
+              own.review.note = `In the playbook from version ${version}`
+              db.actions.push({ id: d.newId('act'), at, by: { kind: 'ardent' }, action: 'hq.adopted', summary: `Your question "${own.name}" is now in Ardent's playbook for every firm`, orgId: src.firmId })
+            }
+          }
+          return done(playbookView())
+        }),
+    },
+    shared: {
+      list: () =>
+        run(() => {
+          staff()
+          return sharedRows()
+        }),
+      adopt: (firmId: string, ruleId: string) =>
+        run(() => {
+          requireAdmin('change the playbook')
+          const own = db.followUps.find((f) => f.orgId === firmId)?.own.find((r) => r.id === ruleId && r.shared)
+          if (!own) throw d.notFound('shared question')
+          if (own.review) throw d.invalid('that question has been dealt with')
+          const dr = draft()
+          const id = own.id.replace(/^own-/, '')
+          let ruleIdNew = id
+          for (let n = 2; dr.rules.some((r) => r.id === ruleIdNew); n++) ruleIdNew = `${id}-${n}`
+          const { shared: _s, by: _b, updatedAt: _u, review: _r, ...rule } = own
+          dr.rules.push({ ...rule, id: ruleIdNew })
+          dr.from = { ...(dr.from ?? {}), [ruleIdNew]: { firmId, firmName: firmName(firmId), ownId: own.id } }
+          own.review = { state: 'adopted', at: new Date().toISOString(), by: staff().name }
+          note(`Added "${own.name}" from ${firmName(firmId)}`)
+          return done(playbookView())
+        }),
+      decline: (firmId: string, ruleId: string, text: string) =>
+        run(() => {
+          requireAdmin('decide on shared questions')
+          const own = db.followUps.find((f) => f.orgId === firmId)?.own.find((r) => r.id === ruleId && r.shared)
+          if (!own) throw d.notFound('shared question')
+          const why = String(text ?? '').trim().slice(0, 200)
+          own.review = { state: 'declined', ...(why ? { note: why } : {}), at: new Date().toISOString(), by: staff().name }
+          db.actions.push({ id: d.newId('act'), at: own.review.at, by: { kind: 'ardent' }, action: 'hq.declined', summary: `Ardent kept "${own.name}" as your own question${why ? `: ${why}` : ''}`, orgId: firmId })
+          return done(sharedRows())
+        }),
+    },
+  }
+  return client
+}
+
