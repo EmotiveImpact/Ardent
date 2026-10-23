@@ -56,7 +56,7 @@ export function Money() {
           book && [
             { label: 'Owed to you', value: pounds(owing.reduce((s, i) => s + invoiceOwed(i), 0)) },
             { label: 'Late', value: pounds(late.reduce((s, i) => s + invoiceOwed(i), 0)), tone: late.length ? 'warn' : undefined },
-            { label: 'Paid in', value: pounds(book.invoices.reduce((s, i) => s + i.paidAmount, 0)) },
+            { label: 'Paid in', value: pounds(book.invoices.reduce((s, i) => s + i.paidAmount, 0)), note: payDays(book) },
             { label: 'Quotes out', value: pounds(out.reduce((s, q) => s + totals(q).total, 0)) },
           ]
         }
@@ -65,31 +65,33 @@ export function Money() {
       {!book ? (
         <MoneyLoading />
       ) : (
-        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-3">
-          <Card className="min-w-0 px-4 pt-4 pb-2 sm:px-[22px] sm:pt-[18px] xl:col-span-2">
-            <div role="tablist" aria-label="Show" className="flex gap-1.5 pb-2.5">
-              {(['invoices', 'quotes'] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === t}
-                  onClick={() => setParams(t === 'quotes' ? { tab: 'quotes' } : {}, { replace: true })}
-                  className={cn(
-                    'h-8 rounded-full px-3.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60',
-                    tab === t ? 'bg-foreground text-background' : 'bg-raised text-foreground hover:bg-[#262626]',
-                  )}
-                >
-                  {t === 'invoices' ? 'Invoices' : 'Quotes'} <span className={cn('font-mono', tab === t ? 'text-faint' : 'text-muted')}>{t === 'invoices' ? book.invoices.length : book.quotes.length}</span>
-                </button>
-              ))}
-            </div>
-            {tab === 'invoices' ? <Invoices book={book} /> : <Quotes book={book} />}
-          </Card>
+        <div className="flex flex-col gap-5">
+          <CashChart book={book} />
+          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-3">
+            <Card className="min-w-0 px-4 pt-4 pb-2 sm:px-[22px] sm:pt-[18px] xl:col-span-2">
+              <div role="tablist" aria-label="Show" className="flex gap-1.5 pb-2.5">
+                {(['invoices', 'quotes'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === t}
+                    onClick={() => setParams(t === 'quotes' ? { tab: 'quotes' } : {}, { replace: true })}
+                    className={cn(
+                      'h-8 rounded-full px-3.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60',
+                      tab === t ? 'bg-foreground text-background' : 'bg-raised text-foreground hover:bg-[#262626]',
+                    )}
+                  >
+                    {t === 'invoices' ? 'Invoices' : 'Quotes'} <span className={cn('font-mono', tab === t ? 'text-faint' : 'text-muted')}>{t === 'invoices' ? book.invoices.length : book.quotes.length}</span>
+                  </button>
+                ))}
+              </div>
+              {tab === 'invoices' ? <Invoices book={book} /> : <Quotes book={book} />}
+            </Card>
 
-          <div className="flex min-w-0 flex-col gap-5">
-            <CashChart book={book} />
-            <RingToday book={book} />
+            <div className="flex min-w-0 flex-col gap-5">
+              <RingToday book={book} />
+            </div>
           </div>
         </div>
       )}
@@ -240,7 +242,24 @@ function QuoteRow({ q, book, day }: { q: Quote; book: Book; day: string }) {
   )
 }
 
-/** Invoiced each week, and how much of that has been paid, by the week it went out. */
+/**
+ * How long customers take to pay: from the invoice going out to the payment
+ * that cleared it, across every paid invoice with its payments on record.
+ */
+function payDays(book: Book): string | undefined {
+  const days = book.invoices
+    .filter((i) => i.status === 'paid' && i.issuedAt && i.payments?.length)
+    .map((i) => {
+      const last = [...i.payments!].filter((p) => p.amount > 0).sort((a, b) => b.at.localeCompare(a.at))[0]
+      return last ? (Date.parse(last.at) - Date.parse(i.issuedAt!)) / 86_400_000 : undefined
+    })
+    .filter((d): d is number => d !== undefined && d >= 0)
+  if (!days.length) return undefined
+  const avg = Math.max(0, Math.round(days.reduce((s, d) => s + d, 0) / days.length))
+  return avg === 0 ? 'Paid the same day on average' : `Average ${avg} ${avg === 1 ? 'day' : 'days'} to pay`
+}
+
+/** Invoiced each week, and how much of that has been paid, by the week it went out. Full width: the first picture an owner wants. */
 function CashChart({ book }: { book: Book }) {
   const weeks = Array.from({ length: 8 }, (_, i) => addDays(weekStart(today()), (i - 7) * 7))
   const data = weeks.map((w, i) => {
@@ -257,39 +276,51 @@ function CashChart({ book }: { book: Book }) {
   })
   const [hover, setHover] = useState<number | null>(null)
   const max = Math.max(1, ...data.map((d) => d.invoiced))
-  const h = data[hover ?? data.length - 1]
+  const at = hover ?? data.length - 1
+  const h = data[at]
+  const paid8 = data.reduce((s, w) => s + w.paid, 0)
+  const sent8 = data.reduce((s, w) => s + w.invoiced, 0)
   return (
-    <Card className="flex flex-col gap-4 px-[22px] py-5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="cap">Last 8 weeks</span>
+    <Card className="flex flex-col gap-5 px-[22px] py-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="cap text-foreground">Cash in, last 8 weeks</span>
         <span className="cap flex gap-3.5">
           <span className="flex items-center gap-1.5">
-            <span className="size-2 bg-[#2e2e2e]" /> Invoiced
+            <span className="size-2 rounded-[2px] bg-[#2e2e2e]" /> Invoiced
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="size-2 bg-foreground" /> Paid
+            <span className="size-2 rounded-[2px] bg-ember" /> Paid
           </span>
         </span>
       </div>
-      <div className="grid h-[150px] grid-cols-8 items-end gap-2.5" onMouseLeave={() => setHover(null)}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <p className="flex items-baseline gap-3">
+          <span className="op-number text-[34px] tabular">{pounds(h.paid)}</span>
+          <span className="text-[13px] text-muted">paid on invoices sent w/c {capDate(`${h.week}T12:00:00Z`).toLowerCase()}</span>
+        </p>
+        <p className="font-mono text-[12px] text-muted">
+          invoiced {pounds(h.invoiced)} <span className="text-faint">·</span> 8 weeks: {pounds(paid8)} of {pounds(sent8)} paid
+        </p>
+      </div>
+      <div className="grid h-[220px] grid-cols-8 items-end gap-3 sm:gap-5" onMouseLeave={() => setHover(null)}>
         {data.map((w, i) => (
-          <div key={w.week} className="flex h-full items-end gap-[3px]" onMouseEnter={() => setHover(i)} aria-label={`Week of ${w.day} ${w.month}: ${pounds(w.invoiced)} invoiced, ${pounds(w.paid)} paid`} role="img">
-            <span className="flex-1 rounded-t-[2px] bg-[#2e2e2e]" style={{ height: `${(w.invoiced / max) * 100}%` }} />
-            <span className={cn('flex-1 rounded-t-[2px] bg-foreground transition-opacity', hover !== null && hover !== i && 'opacity-50')} style={{ height: `${(w.paid / max) * 100}%` }} />
+          <div key={w.week} className="flex h-full items-end gap-[4px]" onMouseEnter={() => setHover(i)} aria-label={`Week of ${w.day} ${w.month}: ${pounds(w.invoiced)} invoiced, ${pounds(w.paid)} paid`} role="img">
+            <span className="flex-1 rounded-t-[3px] bg-[#2e2e2e]" style={{ height: `${Math.max(w.invoiced ? 2 : 0, (w.invoiced / max) * 100)}%` }} />
+            <span
+              className={cn('flex-1 rounded-t-[3px] transition-opacity', i === at ? 'bg-ember shadow-[0_0_18px_var(--ember-soft)]' : 'bg-ember/55')}
+              style={{ height: `${Math.max(w.paid ? 2 : 0, (w.paid / max) * 100)}%` }}
+            />
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-8 gap-2.5 font-mono text-[11px] text-muted">
+      <div className="grid grid-cols-8 gap-3 font-mono text-[11px] text-muted sm:gap-5">
         {data.map((w, i) => (
-          <span key={w.week} className={cn('truncate', hover === i && 'text-foreground')}>
+          <span key={w.week} className={cn('truncate', i === at && 'text-foreground')}>
             {w.day}
             {w.month && <span className="hidden sm:inline"> {w.month}</span>}
           </span>
         ))}
       </div>
-      <p className="font-mono text-[11px] text-muted uppercase">
-        W/C {capDate(`${h.week}T12:00:00Z`)} <span className="ml-2 text-foreground">{pounds(h.paid)}</span> paid of {pounds(h.invoiced)} sent
-      </p>
     </Card>
   )
 }

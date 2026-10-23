@@ -154,6 +154,12 @@
   background-image: repeating-linear-gradient(135deg, #ffffff0a 0 6px, transparent 6px 12px);
 }
 
+/* A job running late in the diary: red stripes, as on the old dispatch board. */
+@utility tile-late {
+  background-color: color-mix(in srgb, var(--danger) 12%, var(--raised));
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--danger) 16%, transparent) 0 6px, transparent 6px 12px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 1ms !important;

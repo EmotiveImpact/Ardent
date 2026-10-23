@@ -46,6 +46,8 @@ export interface Figure {
   value: ReactNode
   unit?: string
   tone?: 'warn' | 'danger' | 'ok' | 'ember'
+  /** A short line under the number, such as "Average 6 days to pay". */
+  note?: string
   /** Makes the figure a filter: tap it to show just those. */
   onClick?: () => void
   on?: boolean
@@ -76,6 +78,7 @@ export function PageHead({ title, sub, book, eyebrow, figures, aside, className,
                   {f.value}
                   {f.unit && <span className="ml-2 font-mono text-[13px] text-muted">{f.unit}</span>}
                 </dd>
+                {f.note && <dd className="-mt-1.5 font-mono text-[11px] tracking-[.06em] text-muted uppercase">{f.note}</dd>}
               </>
             )
             return f.onClick ? (
@@ -264,13 +267,26 @@ const track: { key: JobStatus; label: string }[] = [
   { key: 'en_route', label: 'Road' },
   { key: 'on_site', label: 'On site' },
   { key: 'complete', label: 'Done' },
+  { key: 'invoiced', label: 'Invoiced' },
   { key: 'paid', label: 'Paid' },
 ]
 
-/** Booked, road, on site, done, paid: dots on a line, the current one ringed. */
-export function StageTrack({ job }: { job: Job }) {
-  const pos = { booked: 0, en_route: 1, on_site: 2, paused: 2, complete: 3, invoiced: 3, paid: 4 } as Partial<Record<JobStatus, number>>
+/** StageTrack's stop names, for anything lined up under its dots. */
+export const trackLabels = track.map((t) => t.label)
+
+/**
+ * Which stop a job has reached. A done job whose invoice has gone out counts
+ * as invoiced, so one finished but not yet billed shows as stuck at Done.
+ */
+export function trackAt(job: Job, invoiced?: boolean) {
+  const pos = { booked: 0, en_route: 1, on_site: 2, paused: 2, complete: 3, invoiced: 4, paid: 5 } as Partial<Record<JobStatus, number>>
   const at = pos[job.status] ?? -1
+  return at === 3 && invoiced ? 4 : at
+}
+
+/** Booked, road, on site, done, invoiced, paid: dots on a line, the current one ringed. */
+export function StageTrack({ job, invoiced }: { job: Job; invoiced?: boolean }) {
+  const at = trackAt(job, invoiced)
   return (
     <ol className="relative flex justify-between" aria-label="Where the job is">
       <span aria-hidden className="absolute top-[6px] right-1.5 left-1.5 h-px bg-line-strong" />

@@ -6,7 +6,8 @@ import { fieldClass } from '@/components/ui/field'
 import { barButton } from '@/components/layout/topbar'
 import { RequestBoard, wantsRequest } from '@/components/ardent/job-request'
 import { ActivityLog } from '@/components/ardent/office'
-import { Card, ChecksRow, RowButton, SectionHead, StageTrack, StateDot, StepRings } from '@/components/ardent/parts'
+import { JobRules, jobRules } from '@/components/ardent/job-rules'
+import { Card, ChecksRow, RowButton, SectionHead, StageTrack, StateDot, StepRings, trackAt } from '@/components/ardent/parts'
 import { BookedTime, OnSiteClock, jobSteps, useJobField, type JobField } from '@/components/ardent/job-live'
 import { Fact, OverrideHold, StageTimes } from '@/components/ardent/jobs-parts'
 import { useArdent, useBook, type Book } from '@/data/ardent'
@@ -84,7 +85,7 @@ export function JobDetail() {
 
       <section aria-label="Booked to paid" className="flex flex-col gap-4">
         <SectionHead title="Booked to paid" className="pb-1" />
-        <StageTrack job={job} />
+        <StageTrack job={job} invoiced={isInvoiced(job, book)} />
         <StageTimes times={stageTimes(job, book, fieldData)} />
       </section>
 
@@ -92,6 +93,13 @@ export function JobDetail() {
         <section>
           <SectionHead title="Checks" aside="Set on site. Click one to override it from the office." />
           <ChecksRow job={job} />
+        </section>
+      )}
+
+      {jobRules(job, book).length > 0 && (
+        <section>
+          <SectionHead title="Rules on this job" aside="From the trade and the work. They remind; they don't stop the invoice." />
+          <JobRules job={job} book={book} />
         </section>
       )}
 
@@ -274,9 +282,15 @@ function JobHead({ job, book, field }: { job: Job; book: Book; field?: JobField 
 
 const workedMs = (field?: JobField) => (field?.time ?? []).filter((t) => t.kind === 'labour').reduce((s, t) => s + (Date.parse(t.end ?? new Date().toISOString()) - Date.parse(t.start)), 0)
 
+/** An invoice for the job has gone to the customer. */
+const isInvoiced = (job: Job, book: Book) => {
+  const { invoice } = paperwork(job, book)
+  return !!invoice && invoice.status !== 'draft'
+}
+
 /** Under each of StageTrack's dots: when it happened, or not yet. */
 function stageTimes(job: Job, book: Book, field?: JobField) {
-  const at = ({ booked: 0, en_route: 1, on_site: 2, paused: 2, complete: 3, invoiced: 3, paid: 4 } as Partial<Record<JobStatus, number>>)[job.status] ?? -1
+  const at = trackAt(job, isInvoiced(job, book))
   const travel = earliest(field?.time.filter((t) => t.kind === 'travel') ?? [])
   const labour = field?.time.filter((t) => t.kind === 'labour') ?? []
   const lastEnd = labour.map((t) => t.end).filter((e): e is string => !!e).sort().at(-1)
@@ -288,6 +302,7 @@ function stageTimes(job: Job, book: Book, field?: JobField) {
     travel ? clock(travel.start) : '',
     earliest(labour) ? clock(earliest(labour).start) : '',
     sig ? clock(sig.at) : lastEnd ? clock(lastEnd) : '',
+    invoice?.issuedAt && invoice.status !== 'draft' ? `${invoice.ref} ${dd(invoice.issuedAt)}` : invoice?.status === 'draft' ? 'Draft' : '',
     invoice?.status === 'paid' ? invoice.ref : '',
   ]
   return texts.map((t, i) => (i <= at ? { text: t || (i === at ? 'Now' : 'Done'), reached: true } : { text: 'Not yet', reached: false }))

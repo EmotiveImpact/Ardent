@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { Job, JobStatus } from '@/data/model'
 import { pressAgain, useHold } from '@/lib/use-hold'
 import { cn } from '@/lib/utils'
+import { trackLabels } from './parts'
 
 /*
  * Pieces for the Jobs list and the job page. Same rules as parts.tsx:
@@ -96,8 +97,6 @@ export function OverrideHold({ label, onCommit, ms = 1400, className }: { label:
   )
 }
 
-/** StageTrack's own stop names, so the times below it line up with its dots. */
-const trackLabels = ['Booked', 'Road', 'On site', 'Done', 'Paid']
 
 /**
  * A line of times under <StageTrack>: each sits under its dot. Every cell holds

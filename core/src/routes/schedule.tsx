@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { clock, dayDate, longDate, ukDay, ukToIso } from '@kit'
 import { PageBar } from '@/components/layout/bar'
 import { Icon } from '@/components/layout/icons'
+import { autoAssign, slotDay, type Slot } from '@/components/ardent/book-plan'
 import { Card, PageHead, SectionHead } from '@/components/ardent/parts'
 import { Monogram } from '@/components/ardent/people-parts'
 import { dayParts, hoursBetween, hoursWord, rangeWord } from '@/components/ardent/people-kit'
@@ -183,17 +184,31 @@ function sentence(s: WeekStats) {
 
 /* ---------- A job in a day cell ---------- */
 
-function tileState(job: Job) {
+/** Ten minutes past the booked start with nobody on site yet. */
+const LATE_AFTER = 10 * 60_000
+
+function tileState(job: Job, now = Date.now()) {
   if (isDone(job)) return 'done' as const
   if (!job.operatorIds.length) return 'need' as const
   if (job.status === 'on_site') return 'live' as const
+  if ((job.status === 'booked' || job.status === 'en_route') && Date.parse(job.start) < now - LATE_AFTER) return 'late' as const
   if (job.status === 'en_route') return 'road' as const
   if (job.status === 'paused') return 'paused' as const
   return 'booked' as const
 }
 
-const dotFor = { done: 'bg-faint', live: 'bg-ok', road: 'bg-info', paused: 'bg-warn', need: 'bg-warn', booked: '' } as const
-const stateWord = { done: 'done', live: 'on site', road: 'on the road', paused: 'paused', need: 'nobody on it yet', booked: 'booked' } as const
+const dotFor = { done: 'bg-faint', live: 'bg-ok', road: 'bg-info', late: 'bg-danger', paused: 'bg-warn', need: 'bg-warn', booked: '' } as const
+const stateWord = { done: 'done', live: 'on site', road: 'on the road', late: 'running late', paused: 'paused', need: 'nobody on it yet', booked: 'booked' } as const
+/** Each block takes its state's colour, so a late job stands out without reading it. */
+const fillFor = {
+  done: 'bg-raised',
+  live: 'bg-ok/[0.16] hover:bg-ok/[0.22]',
+  road: 'bg-info/[0.14] hover:bg-info/[0.2]',
+  late: 'tile-late',
+  paused: 'bg-warn/[0.14] hover:bg-warn/[0.2]',
+  need: 'bg-raised hover:bg-[#242424]',
+  booked: 'bg-raised hover:bg-[#242424]',
+} as const
 
 function JobTile({ job, from, drag, extra }: { job: Job; from?: string; drag: Hand; extra?: string }) {
   const st = tileState(job)
@@ -212,7 +227,7 @@ function JobTile({ job, from, drag, extra }: { job: Job; from?: string; drag: Ha
       aria-label={`${job.ref} ${job.title}, ${when}, ${stateWord[st]}`}
       className={cn(
         'flex min-w-0 flex-col gap-[3px] rounded-[8px] px-2.5 py-[9px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60',
-        st === 'live' ? 'bg-[#262626] hover:bg-[#2c2c2c]' : 'bg-raised hover:bg-[#242424]',
+        fillFor[st],
         st === 'done' && 'opacity-50 hover:opacity-80',
         movable && 'cursor-grab active:cursor-grabbing',
       )}
@@ -382,10 +397,10 @@ function Elsewhere({ book, days, drag }: { book: Book; days: string[]; drag: Han
   if (!waiting.length) return null
   return (
     <Card>
-      <SectionHead title={`Nobody on these yet, other weeks · ${waiting.length}`} aside={<span className="hidden md:inline">Drag one onto a day above to book it</span>} />
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+      <SectionHead title={`Nobody on these yet, other weeks · ${waiting.length}`} aside={<span className="hidden md:inline">Drag one onto a day above, or let Auto-assign find a gap</span>} />
+      <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
         {waiting.map((j) => (
-          <JobTile key={j.id} job={j} drag={drag} extra={`Wanted ${new Date(j.start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })}  ${find(book.customers, j.customerId)?.name ?? ''}`} />
+          <WaitingCard key={j.id} book={book} job={j} drag={drag} />
         ))}
       </div>
     </Card>
@@ -461,7 +476,7 @@ function DayView({ book, day, drag, rebook }: { book: Book; day: string; drag: H
                     </span>
                   </div>
                   <div
-                    className="relative min-h-[60px] rounded-[10px] bg-inset"
+                    className="relative min-h-[70px] rounded-[10px] bg-inset"
                     onDragOver={(e) => {
                       const held = drag.get()
                       if (!held) return
@@ -500,16 +515,21 @@ function DayView({ book, day, drag, rebook }: { book: Book; day: string; drag: H
                           onDragStart={(e) => start(e, j, o.id)}
                           className={cn(
                             'absolute inset-y-1.5 flex flex-col justify-center overflow-hidden rounded-[8px] px-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60',
-                            st === 'live' ? 'bg-[#262626]' : 'bg-raised hover:bg-[#242424]',
+                            fillFor[st],
                             st === 'done' ? 'opacity-50' : 'cursor-grab active:cursor-grabbing',
                           )}
                           style={{ left: `${left}%`, width: `${width}%` }}
                         >
                           <span className="flex items-center gap-1.5 truncate font-mono text-[11px] text-muted">
                             {dotFor[st] && <span className={cn('size-1.5 shrink-0 rounded-full', dotFor[st])} />}
-                            {clock(j.start)} {j.ref}
+                            {j.ref}
+                            {st === 'late' && <span className="text-danger">LATE</span>}
                           </span>
                           <span className="truncate text-[12px]">{j.title}</span>
+                          <span className="truncate font-mono text-[11px] text-muted">
+                            {clock(j.start)} to {clock(j.end)}
+                            {find(book.sites, j.siteId)?.postcode ? `  ·  ${find(book.sites, j.siteId)?.postcode}` : ''}
+                          </span>
                         </Link>
                       )
                     })}
@@ -522,34 +542,11 @@ function DayView({ book, day, drag, rebook }: { book: Book; day: string; drag: H
       </Card>
 
       <Card>
-        <SectionHead title={`Nobody on these yet · ${waiting.length}`} aside={waiting.length ? <span className="hidden md:inline">Drag one onto someone's row to book it with them at that time</span> : undefined} />
+        <SectionHead title={`Nobody on these yet · ${waiting.length}`} aside={waiting.length ? <span className="hidden md:inline">Drag one onto someone's row, or let Auto-assign find a gap</span> : undefined} />
         {waiting.length ? (
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
             {waiting.map((j) => (
-              <Link
-                key={j.id}
-                to={`/jobs/${j.id}`}
-                draggable
-                onDragStart={(e) => {
-                  drag.set({ jobId: j.id, grab: 0, hours: hoursBetween(j.start, j.end) })
-                  e.dataTransfer.setData('text/plain', j.id)
-                  e.dataTransfer.effectAllowed = 'move'
-                }}
-                className="flex min-w-0 cursor-grab flex-col gap-[3px] rounded-[8px] bg-raised px-2.5 py-[9px] outline-none hover:bg-[#242424] focus-visible:ring-2 focus-visible:ring-ring/60 active:cursor-grabbing"
-              >
-                <span className="flex items-center justify-between gap-1.5 font-mono text-[11px] whitespace-pre text-warn">
-                  {j.priority === 'emergency' ? 'ASAP' : clock(j.start)}
-                  {'  '}
-                  {j.ref}
-                  <Icon name="forward" className="ml-auto size-3 text-muted" />
-                </span>
-                <span className="truncate text-[12px]">{j.title}</span>
-                <span className="truncate font-mono text-[11px] tracking-[.08em] text-muted uppercase">
-                  {find(book.customers, j.customerId)?.name}
-                  {'  '}
-                  {onDay(j.start, day) ? 'this day' : `wanted ${new Date(j.start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })}`}
-                </span>
-              </Link>
+              <WaitingCard key={j.id} book={book} job={j} drag={drag} when={onDay(j.start, day) ? 'this day' : undefined} />
             ))}
           </div>
         ) : (
@@ -557,5 +554,91 @@ function DayView({ book, day, drag, rebook }: { book: Book; day: string; drag: H
         )}
       </Card>
     </>
+  )
+}
+
+/* ---------- A job nobody is on yet, with Auto-assign ---------- */
+
+const wantedWord = (iso: string) => `wanted ${new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })}`
+
+function WaitingCard({ book, job, drag, when }: { book: Book; job: Job; drag: Hand; when?: string }) {
+  const { client } = useArdent()
+  const [pick, setPick] = useState<Slot | null>()
+  const [busy, setBusy] = useState(false)
+  const who = pick ? find(book.operators, pick.opId) : undefined
+
+  const book_ = async () => {
+    if (!pick || !who) return
+    setBusy(true)
+    const done = await act(client.jobs.update(job.id, { start: pick.start, end: pick.end, operatorIds: [pick.opId] }), `${job.ref} with ${who.name.split(' ')[0]}, ${slotDay(pick.start)} at ${clock(pick.start)}`)
+    setBusy(false)
+    if (done) setPick(undefined)
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2 rounded-[8px] bg-raised px-2.5 py-[9px]">
+      <Link
+        to={`/jobs/${job.id}`}
+        draggable
+        onDragStart={(e) => {
+          drag.set({ jobId: job.id, grab: 0, hours: hoursBetween(job.start, job.end) })
+          e.dataTransfer.setData('text/plain', job.id)
+          e.dataTransfer.effectAllowed = 'move'
+        }}
+        onDragEnd={() => drag.set(null)}
+        className="flex min-w-0 cursor-grab flex-col gap-[3px] rounded-[6px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60 active:cursor-grabbing"
+      >
+        <span className="flex items-center justify-between gap-1.5 font-mono text-[11px] whitespace-pre text-warn">
+          {job.priority === 'emergency' ? 'ASAP' : clock(job.start)}
+          {'  '}
+          {job.ref}
+          <Icon name="forward" className="ml-auto size-3 text-muted" />
+        </span>
+        <span className="truncate text-[12px]">{job.title}</span>
+        <span className="truncate font-mono text-[11px] tracking-[.08em] text-muted uppercase">
+          {find(book.customers, job.customerId)?.name}
+          {'  '}
+          {when ?? wantedWord(job.start)}
+        </span>
+      </Link>
+
+      {pick === undefined ? (
+        <button
+          type="button"
+          onClick={() => setPick(autoAssign(book, job) ?? null)}
+          className="flex h-8 items-center justify-center gap-2 rounded-[6px] bg-white/[0.06] text-[12px] text-foreground outline-none transition-colors hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <Icon name="crew" className="size-3.5 text-muted" />
+          Auto-assign
+        </button>
+      ) : pick === null ? (
+        <div className="flex items-center justify-between gap-2 text-[12px] text-muted">
+          <span>Nobody with the trade has a gap in the next three weeks.</span>
+          <button type="button" className="shrink-0 text-foreground underline-offset-2 hover:underline" onClick={() => setPick(undefined)}>
+            Close
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-[6px] bg-inset px-2.5 py-2">
+          <span className="text-[12px] text-foreground">
+            {who?.name ?? 'Someone'}, {slotDay(pick.start)} {clock(pick.start)} to {clock(pick.end)}
+          </span>
+          <span className="text-[11.5px] leading-4 text-muted">{pick.why}</span>
+          <span className="flex gap-1.5">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={book_}
+              className="h-7 flex-1 rounded-[6px] bg-foreground text-[12px] font-medium text-background outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-50"
+            >
+              Book it
+            </button>
+            <button type="button" onClick={() => setPick(undefined)} className="h-7 rounded-[6px] bg-white/[0.06] px-3 text-[12px] text-foreground outline-none hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-ring/60">
+              Not this
+            </button>
+          </span>
+        </div>
+      )}
+    </div>
   )
 }

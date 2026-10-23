@@ -212,3 +212,16 @@ function slotAt(book: Book, op: Operator, at: number, span: number, prev: Job | 
 
 /** "Wed 21" */
 export const slotDay = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', timeZone: 'Europe/London' }).replace(',', '')
+
+/**
+ * Auto-assign: the best free gap for a job nobody is on yet. The same free
+ * time as New job, from the day the customer wants (or the soonest gap for an
+ * emergency), closest first when two gaps start together. The office books it.
+ */
+export function autoAssign(book: Book, job: Job, now = Date.now()): Slot | undefined {
+  const mins = Math.max(30, Math.round((Date.parse(job.end) - Date.parse(job.start)) / 60_000))
+  const slots = freeSlots(book, job.trade, mins, find(book.sites, job.siteId), { now, days: 15, limit: 200 })
+  if (job.priority === 'emergency') return slots[0]
+  const wanted = ukDay(job.start)
+  return slots.find((s) => ukDay(s.start) >= wanted) ?? slots[0]
+}
