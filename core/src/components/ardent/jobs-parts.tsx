@@ -2,11 +2,11 @@ import type { ReactNode } from 'react'
 import type { Job, JobStatus } from '@/data/model'
 import { pressAgain, useHold } from '@/lib/use-hold'
 import { cn } from '@/lib/utils'
-import { trackLabels } from './parts'
+import { stageColour, trackLabels } from './parts'
 
 /*
  * Pieces for the Jobs list and the job page. Same rules as parts.tsx:
- * no borders, white and grey, hairline rows.
+ * no borders, white and grey, hairline rows, and each stage in its own colour.
  */
 
 /** Every stop from the first call to the money in. */
@@ -29,7 +29,7 @@ function stopOf(job: Pick<Job, 'status'>): { at: number; label: string } {
   return { at, label: lineStops[at]?.label ?? '' }
 }
 
-/** Eight dots on a hairline: past ones white, the current one bigger, the rest grey. */
+/** Eight dots on a hairline: past ones in their stage colour, the current one bigger, the rest grey. */
 export function MiniTrack({ job }: { job: Pick<Job, 'status'> }) {
   const { at, label } = stopOf(job)
   return (
@@ -37,12 +37,14 @@ export function MiniTrack({ job }: { job: Pick<Job, 'status'> }) {
       <span aria-hidden className="flex items-center">
         {lineStops.map((s, i) => (
           <span key={s.key} className="flex items-center">
-            <span className={cn('shrink-0 rounded-full', i === at ? 'size-[9px]' : 'size-[6px]', i <= at ? 'bg-foreground' : 'bg-line-strong')} />
+            <span className={cn('shrink-0 rounded-full', i === at ? 'size-[9px]' : 'size-[6px]', i > at && 'bg-line-strong')} style={i <= at ? { background: stageColour[i === at && job.status === 'paused' ? 'paused' : s.key] } : undefined} />
             {i < lineStops.length - 1 && <span className={cn('mx-[3px] h-px w-[10px] xl:w-[12px]', i < at ? 'bg-muted' : 'bg-line-strong')} />}
           </span>
         ))}
       </span>
-      <span className={cn('font-mono text-[11px] tracking-[.12em] text-muted', job.status === 'paused' && 'text-warn')}>{label}</span>
+      <span className="font-mono text-[11px] tracking-[.12em]" style={{ color: at >= 0 ? stageColour[job.status] : 'var(--fg-faint)' }}>
+        {label}
+      </span>
     </span>
   )
 }

@@ -213,6 +213,24 @@ export function Readout({
   )
 }
 
+/**
+ * One colour per stage of a job, the same everywhere a stage shows: white
+ * booked, blue on the road, green on site, violet done, amber invoiced, ember
+ * paid. Enquiry and quoted stay grey, as nothing is booked yet.
+ */
+export const stageColour: Record<JobStatus, string> = {
+  enquiry: 'var(--fg-faint)',
+  quoted: 'var(--fg-muted)',
+  booked: 'var(--fg)',
+  en_route: 'var(--info)',
+  on_site: 'var(--ok)',
+  paused: 'var(--warn)',
+  complete: 'var(--violet)',
+  invoiced: 'var(--warn)',
+  paid: 'var(--ember)',
+  cancelled: 'var(--fg-faint)',
+}
+
 const lineStages: { key: JobStatus; label: string }[] = [
   { key: 'enquiry', label: 'Enquiry' },
   { key: 'quoted', label: 'Quoted' },
@@ -247,11 +265,12 @@ export function TheLine({ book, compact }: { book: Book; compact?: boolean }) {
         <span aria-hidden className="absolute top-[5px] right-[4%] left-[5px] hidden h-px bg-line-strong sm:block" />
         {lineStages.map((s) => {
           const jobs = at(s.key)
-          const here = s.key === 'on_site'
           return (
             <li key={s.key} className="relative flex min-w-0 flex-col gap-2.5">
-              <span className={cn('size-[11px] rounded-full', here ? 'bg-foreground ring-4 ring-surface' : 'bg-line-strong ring-4 ring-surface')} />
-              <span className={cn('cap truncate text-[11px]', here && 'text-foreground')}>{s.label}</span>
+              <span className={cn('size-[11px] rounded-full ring-4 ring-surface', !jobs.length && 'opacity-35')} style={{ background: stageColour[s.key] }} />
+              <span className="cap truncate text-[11px]" style={jobs.length ? { color: stageColour[s.key] } : undefined}>
+                {s.label}
+              </span>
               <span className="op-number text-[24px]">{jobs.length}</span>
               <span className="font-mono text-[11px] text-muted">{pounds(jobs.reduce((n, j) => n + jobNet(j), 0))}</span>
             </li>
@@ -290,13 +309,29 @@ export function StageTrack({ job, invoiced }: { job: Job; invoiced?: boolean }) 
   return (
     <ol className="relative flex justify-between" aria-label="Where the job is">
       <span aria-hidden className="absolute top-[6px] right-1.5 left-1.5 h-px bg-line-strong" />
-      <span aria-hidden className="absolute top-[6px] left-1.5 h-px bg-foreground" style={{ width: at > 0 ? `calc(${(at / (track.length - 1)) * 100}% - 12px)` : 0 }} />
-      {track.map((t, i) => (
-        <li key={t.key} className={cn('relative flex flex-col gap-2.5', i === 0 ? 'items-start' : i === track.length - 1 ? 'items-end' : 'items-center')} aria-current={i === at ? 'step' : undefined}>
-          {i === at ? <span className="size-[13px] rounded-full bg-surface shadow-[inset_0_0_0_1.5px_var(--fg),inset_0_0_0_3.5px_var(--surface),inset_0_0_0_13px_var(--fg)]" /> : <span className={cn('mt-[2px] size-[9px] rounded-full', i < at ? 'bg-foreground' : 'bg-line-strong')} />}
-          <span className={cn('cap text-[11px]', i === at ? 'text-foreground' : i > at && 'text-faint')}>{t.label}</span>
-        </li>
-      ))}
+      <span
+        aria-hidden
+        className="absolute top-[6px] left-1.5 h-[2px] -translate-y-[0.5px] rounded-full"
+        style={{
+          width: at > 0 ? `calc(${(at / (track.length - 1)) * 100}% - 12px)` : 0,
+          background: `linear-gradient(to right, ${track.slice(0, at + 1).map((t) => stageColour[t.key]).join(', ')})`,
+        }}
+      />
+      {track.map((t, i) => {
+        const c = stageColour[i === at && job.status === 'paused' ? 'paused' : t.key]
+        return (
+          <li key={t.key} className={cn('relative flex flex-col gap-2.5', i === 0 ? 'items-start' : i === track.length - 1 ? 'items-end' : 'items-center')} aria-current={i === at ? 'step' : undefined}>
+            {i === at ? (
+              <span className="size-[13px] rounded-full bg-surface" style={{ boxShadow: `inset 0 0 0 1.5px ${c}, inset 0 0 0 3.5px var(--surface), inset 0 0 0 13px ${c}` }} />
+            ) : (
+              <span className={cn('mt-[2px] size-[9px] rounded-full', i > at && 'bg-line-strong')} style={i < at ? { background: c } : undefined} />
+            )}
+            <span className={cn('cap text-[11px]', i > at && 'text-faint')} style={i <= at ? { color: c } : undefined}>
+              {t.label}
+            </span>
+          </li>
+        )
+      })}
     </ol>
   )
 }
